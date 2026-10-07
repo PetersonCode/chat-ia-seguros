@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seguros Castaño - Pólizas</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            width: 250px;
+            background-color: #212529;
+            color: white;
+            min-height: 100vh;
+        }
+        .sidebar a {
+            color: #adb5bd;
+            text-decoration: none;
+            padding: 10px 15px;
+            display: block;
+        }
+        .sidebar a:hover {
+            color: white;
+            background-color: #343a40;
+        }
+        .sidebar .nav-link.active {
+            background-color: #0d6efd;
+            color: white;
+        }
+        .main-content {
+            flex-grow: 1;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar d-flex flex-column p-3">
+        <h4 class="mb-4 text-center border-bottom pb-2">Seguros Castaño</h4>
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li class="nav-item">
+                <a href="panel.html" class="nav-link">
+                    <i class="bi bi-speedometer2 me-2"></i> Dashboard
+                </a>
+            </li>
+            <li>
+                <a href="chat_auditoria.html" class="nav-link">
+                    <i class="bi bi-chat-dots me-2"></i> Auditoría de Chats
+                </a>
+            </li>
+            <li>
+                <a href="polizas.html" class="nav-link active" aria-current="page">
+                    <i class="bi bi-shield-check me-2"></i> Pólizas y Clientes
+                </a>
+            </li>
+        </ul>
+        <hr>
+        <div class="text-center">
+            <small>Operador: Graciela</small>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="container-fluid mt-4">
+            <div class="row mb-3 align-items-center">
+                <div class="col-md-6">
+                    <h3 class="fw-bold"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Base de Datos (Pólizas)</h3>
+                    <p class="text-muted">Vista cruda del registro actual de clientes</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <div class="input-group shadow-sm">
+                        <input type="text" class="form-control" placeholder="Buscar por DNI, Nombre o Póliza...">
+                        <button class="btn btn-primary" type="button"><i class="bi bi-search"></i> Buscar</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-danger shadow-sm" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> <strong>Atención de Sistema:</strong> Se detectaron registros duplicados e inconsistencias en los formatos de DNI y Tipos de Seguro en la base actual.
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover align-middle mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID Póliza</th>
+                                    <th>Cliente</th>
+                                    <th>DNI</th>
+                                    <th>Tipo de Seguro</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>#889900</td>
+                                    <td>Juan Pérez</td>
+                                    <td>30.123.456</td>
+                                    <td>Automotor</td>
+                                    <td><span class="badge bg-danger">Vencida</span></td>
+                                    <td><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</button></td>
+                                </tr>
+
+                                <tr class="table-warning border-warning">
+                                    <td>#889901</td>
+                                    <td>Juan Perez</td>
+                                    <td>30123456</td>
+                                    <td>AUTO</td>
+                                    <td><span class="badge bg-success">Vigente</span></td>
+                                    <td><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</button></td>
+                                </tr>
+
+                                <tr>
+                                    <td>#774422</td>
+                                    <td>María Gómez</td>
+                                    <td>28.555.444</td>
+                                    <td>auto</td>
+                                    <td><span class="badge bg-success">Vigente</span></td>
+                                    <td><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</button></td>
+                                </tr>
+
+                                <tr>
+                                    <td>#112233</td>
+                                    <td>Carlos Ruiz</td>
+                                    <td>14.222.333</td>
+                                    <td>Hogar</td>
+                                    <td><span class="badge bg-success">Vigente</span></td>
+                                    <td><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de Bootstrap (Enlatado) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- TU JAVASCRIPT PERSONALIZADO (Vanilla JS) -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Buscamos la barra de búsqueda en el HTML
+            const buscador = document.querySelector('input[placeholder="Buscar por DNI, Nombre o Póliza..."]');
+            
+            // Buscamos todas las filas de la tabla de clientes
+            const filas = document.querySelectorAll('tbody tr');
+
+            // Hacemos que el buscador "escuche" cada vez que se presiona una tecla
+            buscador.addEventListener('keyup', function(evento) {
+                // Capturamos lo que el usuario escribió y lo pasamos a minúsculas para facilitar la comparación
+                const textoBuscado = evento.target.value.toLowerCase();
+
+                // Revisamos fila por fila
+                filas.forEach(function(fila) {
+                    // Agarramos todo el texto de la fila (ID, Nombre, DNI, etc.)
+                    const contenidoFila = fila.textContent.toLowerCase();
+
+                    // Si el contenido de la fila incluye lo que se buscó, se muestra. Si no, se oculta.
+                    if (contenidoFila.includes(textoBuscado)) {
+                        fila.style.display = '';
+                    } else {
+                        fila.style.display = 'none';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

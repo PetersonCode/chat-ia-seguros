@@ -1,0 +1,102 @@
+:root {
+    color-scheme: light;
+}
+
+body {
+    min-height: 100vh;
+    background-color: #f4f6f9;
+    color: #212529;
+}
+
+.pagina-login {
+    display: flex;
+    flex-direction: column;
+}
+
+.login-card {
+    max-width: 28rem;
+}
+
+.fila-rojo {
+    --bs-table-bg: #f8d7da;
+    --bs-table-color: #58151c;
+}
+
+.fila-naranja {
+    --bs-table-bg: #ffe5d0;
+    --bs-table-color: #663c00;
+}
+
+.fila-amarillo {
+    --bs-table-bg: #fff3cd;
+    --bs-table-color: #664d03;
+}
+
+.fila-verde {
+    --bs-table-bg: #d1e7dd;
+    --bs-table-color: #0f5132;
+}
+
+.msg-retenido {
+    border: 2px solid #dc3545;
+}
+
+.msg-descartado {
+    text-decoration: line-through;
+}
+
+.msg-cliente {
+    align-self: flex-start;
+}
+
+.msg-saliente {
+    align-self: flex-end;
+}
+
+.chat-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 20rem;
+    max-height: 65vh;
+    overflow-y: auto;
+    background-color: #e5ddd5;
+}
+
+.mensaje-chat {
+    width: fit-content;
+    max-width: min(85%, 52rem);
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    background-color: #fff;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+    overflow-wrap: anywhere;
+}
+
+.mensaje-chat.msg-saliente {
+    background-color: #d1e7dd;
+}
+
+.mensaje-chat.msg-retenido {
+    background-color: #fff3f3;
+}
+
+.mensaje-chat.msg-descartado {
+    background-color: #e9ecef;
+}
+
+.dialog-accion {
+    width: min(36rem, calc(100% - 2rem));
+    border: 0;
+    border-radius: 0.75rem;
+    box-shadow: 0 1rem 3rem rgb(0 0 0 / 20%);
+}
+
+.dialog-accion::backdrop {
+    background-color: rgb(33 37 41 / 55%);
+}
+
+.derivacion-urgente {
+    border-left: 0.35rem solid #dc3545 !important;
+    background-color: #fff3f3;
+}

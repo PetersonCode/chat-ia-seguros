@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clientes | Seguros Castaño</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+    <nav id="nav" aria-label="Navegación principal"></nav>
+    <main class="container-fluid px-3 px-lg-4 py-4">
+        <header class="mb-4">
+            <h1 class="h3 fw-bold mb-1">Clientes</h1>
+            <p class="text-muted mb-0">Buscá por nombre, apellido o DNI.</p>
+        </header>
+        <form id="formulario-busqueda-clientes" class="card card-body shadow-sm border-0 mb-3">
+            <label class="form-label" for="busqueda-clientes">Buscar cliente</label>
+            <div class="input-group">
+                <input id="busqueda-clientes" class="form-control" type="search" autocomplete="off">
+                <button class="btn btn-primary" type="submit">Buscar</button>
+            </div>
+        </form>
+
+        <!-- `details` en vez de un collapse de Bootstrap: la página solo carga el CSS, no el JS. -->
+        <details id="panel-alta-cliente" class="card shadow-sm border-0 mb-3">
+            <summary class="card-header bg-white h5 mb-0 py-3">Nuevo cliente</summary>
+            <form id="formulario-alta-cliente" class="card-body" novalidate>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label" for="alta-dni">DNI</label>
+                        <input id="alta-dni" name="dni" class="form-control" autocomplete="off" required>
+                        <p class="invalid-feedback mb-0" data-error="dni"></p>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="alta-nombre">Nombre</label>
+                        <input id="alta-nombre" name="nombre" class="form-control" autocomplete="off" required>
+                        <p class="invalid-feedback mb-0" data-error="nombre"></p>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="alta-apellido">Apellido</label>
+                        <input id="alta-apellido" name="apellido" class="form-control" autocomplete="off" required>
+                        <p class="invalid-feedback mb-0" data-error="apellido"></p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="alta-telefono">WhatsApp</label>
+                        <input id="alta-telefono" name="telefono" class="form-control" autocomplete="off" required
+                               placeholder="11 2691-4442">
+                        <p class="form-text mb-0">Con este número el bot reconoce al cliente cuando escribe.</p>
+                        <p class="invalid-feedback mb-0" data-error="telefono"></p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="alta-email">Correo <span class="text-muted">(opcional)</span></label>
+                        <input id="alta-email" name="email" class="form-control" type="email" autocomplete="off">
+                        <p class="invalid-feedback mb-0" data-error="email"></p>
+                    </div>
+                </div>
+                <p id="estado-alta-cliente" class="alert d-none mt-3 mb-0" role="status" aria-live="polite"></p>
+                <div class="d-flex justify-content-end gap-2 mt-3">
+                    <button id="alta-limpiar" class="btn btn-outline-secondary" type="reset">Limpiar</button>
+                    <button id="alta-guardar" class="btn btn-primary" type="submit">Dar de alta</button>
+                </div>
+            </form>
+        </details>
+
+        <section class="card shadow-sm border-0" aria-labelledby="titulo-clientes">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h2 id="titulo-clientes" class="h5 mb-0">Resultados</h2>
+                <span id="total-clientes" class="small text-muted" aria-live="polite"></span>
+            </div>
+            <p id="estado-clientes" class="px-3 pt-3 mb-0" role="status" aria-live="polite"></p>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Cliente</th>
+                            <th scope="col">DNI</th>
+                            <th scope="col">Correo</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col">Pólizas vigentes</th>
+                            <th scope="col">Ficha</th>
+                        </tr>
+                    </thead>
+                    <tbody id="filas-clientes"></tbody>
+                </table>
+            </div>
+            <nav class="card-footer bg-white d-flex justify-content-between align-items-center" aria-label="Paginación de clientes">
+                <button id="clientes-anterior" class="btn btn-outline-secondary btn-sm" type="button">Anterior</button>
+                <span id="pagina-clientes" class="small text-muted" aria-live="polite"></span>
+                <button id="clientes-siguiente" class="btn btn-outline-secondary btn-sm" type="button">Siguiente</button>
+            </nav>
+        </section>
+    </main>
+    <script type="module" src="/static/js/pages/clientes.js?v=2"></script>
+</body>
+</html>

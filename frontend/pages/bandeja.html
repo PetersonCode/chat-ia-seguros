@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bandeja de conversaciones | Seguros Castaño</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+    <nav id="nav" aria-label="Navegación principal"></nav>
+    <main class="container-fluid px-3 px-lg-4 py-4">
+        <header class="mb-4">
+            <h1 class="h3 fw-bold mb-1">Bandeja de conversaciones</h1>
+            <p class="text-muted mb-0">Revisá el estado y la actividad de los contactos.</p>
+        </header>
+
+        <form id="formulario-filtros" class="card card-body shadow-sm border-0 mb-3">
+            <div class="row g-3 align-items-end">
+                <div class="col-12 col-md-3">
+                    <label class="form-label" for="filtro-estado">Estado</label>
+                    <select class="form-select" id="filtro-estado" name="estado">
+                        <option value="">Todas</option>
+                        <option value="abierta">Abiertas</option>
+                        <option value="cerrada">Cerradas</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label" for="filtro-busqueda">Buscar por apellido o número</label>
+                    <input class="form-control" id="filtro-busqueda" name="q" type="search" autocomplete="off">
+                </div>
+                <div class="col-12 col-md-4 d-flex flex-wrap gap-3">
+                    <div class="form-check">
+                        <input class="form-check-input" id="filtro-alertas" name="con_alertas" type="checkbox">
+                        <label class="form-check-label" for="filtro-alertas">Con alertas</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" id="filtro-humano" name="esperando_humano" type="checkbox">
+                        <label class="form-check-label" for="filtro-humano">Esperando humano</label>
+                    </div>
+                </div>
+                <div class="col-12 col-md-2">
+                    <button class="btn btn-primary w-100" type="submit">Buscar</button>
+                </div>
+            </div>
+        </form>
+
+        <section class="card shadow-sm border-0" aria-labelledby="titulo-resultados">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h2 id="titulo-resultados" class="h5 mb-0">Conversaciones</h2>
+                <span id="total-resultados" class="text-muted small" aria-live="polite"></span>
+            </div>
+            <p id="estado-carga" class="px-3 pt-3 mb-0" role="status" aria-live="polite"></p>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Número</th>
+                            <th scope="col">Cliente</th>
+                            <th scope="col">Último mensaje</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col">Modo</th>
+                            <th scope="col">Atiende</th>
+                            <th scope="col">Severidad</th>
+                            <th scope="col">Respuesta</th>
+                            <th scope="col">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="filas-conversaciones"></tbody>
+                </table>
+            </div>
+            <nav class="card-footer bg-white d-flex justify-content-between align-items-center" aria-label="Paginación de conversaciones">
+                <button id="pagina-anterior" class="btn btn-outline-secondary btn-sm" type="button">Anterior</button>
+                <span id="pagina-actual" class="small text-muted" aria-live="polite"></span>
+                <button id="pagina-siguiente" class="btn btn-outline-secondary btn-sm" type="button">Siguiente</button>
+            </nav>
+        </section>
+    </main>
+    <script type="module" src="/static/js/pages/bandeja.js"></script>
+</body>
+</html>
