@@ -1,0 +1,6 @@
+caso_id,fecha_hora,numero_whatsapp,mensaje_usuario,respuesta_bot_ia,tipo_consulta_detectado,estado_caso,funcionario_asignado,fecha_resolucion
+CASO-901,03-04-2024,+54 11 5555-1001,Consulta de seguridad,Respuesta retenida,PROMPT_INJECTION,ALERTA_SEGURIDAD,,
+CASO-902,2024-04-04 10:00,011 5555-1001,Consulta de saldo,Saldo informado,saldo,cerrado,ROBERTO,2024-04-03
+CASO-903,30/02/2024,+54 11 5555-1003,Fila inválida,Respuesta inválida,saludo,abierto,,
+CASO-904,2024-04-05 12:30,,Consulta sin WhatsApp,Respuesta registrada,saludo,cerrado,,
+CASO-905,2024-04-06 13:00,1155551009,Consulta de cobertura,Respuesta guardada,consulta_cobertura,abierto,,
