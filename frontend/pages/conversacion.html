@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Conversación | Seguros Castaño</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/app.css">
+    <link rel="stylesheet" href="/static/css/app.css?v=20261020b">
 </head>
 <body>
     <nav id="nav" aria-label="Navegación principal"></nav>
@@ -18,6 +18,8 @@
             <div class="d-flex gap-2">
                 <a href="/panel/" class="btn btn-outline-secondary btn-sm">Volver a la bandeja</a>
                 <button id="boton-modo" class="btn btn-primary btn-sm" type="button" hidden></button>
+                <button id="boton-cerrar-casos" class="btn btn-outline-danger btn-sm" type="button" hidden></button>
+                <button id="boton-vaciar" class="btn btn-outline-secondary btn-sm" type="button" hidden>Vaciar chat</button>
             </div>
         </header>
         <p id="mensaje-pagina" class="alert d-none" role="status" aria-live="polite"></p>
@@ -25,7 +27,7 @@
         <div class="row g-3">
             <section class="col-12 col-xl-8" aria-labelledby="titulo-chat">
                 <div class="card shadow-sm border-0">
-                    <div class="card-header bg-success text-white">
+                    <div class="card-header">
                         <h2 id="contacto-chat" class="h6 mb-0">Chat</h2>
                     </div>
                     <div id="mensajes-chat" class="card-body chat-messages" aria-live="polite"></div>
@@ -42,7 +44,7 @@
 
             <aside class="col-12 col-xl-4">
                 <section class="card shadow-sm border-0 mb-3" aria-labelledby="titulo-cliente">
-                    <div class="card-header bg-dark text-white">
+                    <div class="card-header">
                         <h2 id="titulo-cliente" class="h6 mb-0">Cliente y pólizas</h2>
                     </div>
                     <div id="panel-cliente" class="card-body">
@@ -74,6 +76,6 @@
             </div>
         </div>
     </dialog>
-    <script type="module" src="/static/js/pages/conversacion.js"></script>
+    <script type="module" src="/static/js/pages/conversacion.js?v=20261020b"></script>
 </body>
 </html>

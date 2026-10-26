@@ -61,7 +61,7 @@ SDD/       esta documentación, los contratos, los SQL, las entregas y el QA
 
 **Datos**
 - **R8.** La base `proyecto` es **compartida y ya existe**. Prohibido crear, alterar o borrar tablas (`CREATE/ALTER/DROP/TRUNCATE`), `DELETE` sin `WHERE`, y `makemigrations`/`migrate` sobre la app `datos`. Única excepción: `python manage.py migrate` crea las tablas propias de Django (usuarios, sesiones); lo corre **una persona, una vez**, al terminar T4. Los tests corren en una base aparte (`test_proyecto`).
-- **R9.** Secretos fuera del repo: van en `.env` (ignorado por git). **Nunca** pegues `.env`, contraseñas ni tokens en un chat de IA.
+- **R9.** La configuración va en `.env` (ignorado por git), a partir de `.env.example`. La plantilla solo tiene valores de ejemplo y marcadores: completá las credenciales localmente; no guardes contraseñas ni tokens reales en archivos versionados. Los secretos de la base, WhatsApp y LLM van solo en tu `.env` y **nunca** se pegan en un chat de IA.
 - **R10.** Solo datos ficticios.
 
 **Negocio** (vienen del cliente)

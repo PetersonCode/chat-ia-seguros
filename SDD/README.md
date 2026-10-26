@@ -14,6 +14,25 @@ Spec Driven Development para **4 personas, 4 tareas, 4 branches**. Cada persona 
 | `plantillas/env.example` | Base del `.env.example` del repo |
 | `verificar.py` | Comprueba que cada AC tenga su test (`python SDD/verificar.py T3`) |
 
+## Estado (2026-10-05)
+Las cuatro tareas están integradas en este directorio y sus entregas están en `SDD/entregas/`.
+
+| Tarea | AC con test | Suite |
+|---|---|---|
+| **T4 · ORM** | 28/28 | `python manage.py test datos` → 34 OK |
+| **T3 · Lógica** | 46/46 | `python manage.py test negocio` → 129 OK |
+| **T2 · API** | 21/21 | `python manage.py test api` → 75 OK |
+| **T1 · Frontend** | 10/21 | `npm test` → 20 OK |
+
+Total: **238 tests de Python + 20 de JavaScript, todos en verde** contra PostgreSQL 17.11 real.
+
+Faltan dos cosas, las dos necesitan una persona:
+1. **`python manage.py migrate`** — crea las tablas propias de Django (usuarios, sesiones) en `proyecto`.
+   Es la única excepción que R8 permite y la corre **una sola persona, una sola vez**. Sin esto el login
+   no funciona contra la base real. Después: `python manage.py crear_usuarios_funcionarios --clave <clave>`.
+2. **El QA manual de `SDD/qa/T1.md`** — son los 11 AC de T1 marcados `**(QA)**`, que son de pantalla y
+   no se pueden automatizar. Hay que hacerlos con el navegador, como Graciela y como Diego.
+
 ## Orden de ejecución (importante)
 Se hace **de abajo hacia arriba**, porque cada capa usa la anterior:
 
@@ -38,7 +57,7 @@ git push -u origin tarea-N-nombre             # publicás tu branch
 Quien sigue revisa el PR de quien termina (T3 revisa a T4, T2 a T3, T1 a T2, T4 a T1): así lee lo que va a usar.
 
 ## Paso a paso para cada persona
-1. **Antes de empezar:** `git pull` de `main` y leé `SDD/entregas/` de las tareas anteriores. Copiá `.env.example` a `.env` y completalo (la contraseña de la base la da el responsable; **no** se pega en la IA).
+1. **Antes de empezar:** `git pull` de `main` y leé `SDD/entregas/` de las tareas anteriores. Copiá `.env.example` a `.env` y completá localmente las credenciales que falten. `.env` está ignorado por git: no lo subas ni pegues contraseñas o tokens en un chat de IA.
 2. **Abrí una sesión nueva** de tu IA y pegá, en este orden: `00-comun.md`, tu `Tn-*.md`, los contratos que indica tu spec y las entregas anteriores.
 3. **Arrancá con este mensaje** (una etapa por vez):
    ```
@@ -66,4 +85,6 @@ Quien sigue revisa el PR de quien termina (T3 revisa a T4, T2 a T3, T1 a T2, T4 
 Cualquier modelo gratuito sirve, pero conviene uno con **ventana de contexto de al menos 32k tokens**: el paquete de documentos de una tarea ronda los 8 a 14k tokens antes de empezar a escribir código. Si tu modelo tiene poca ventana, pegá solo `00-comun.md`, la etapa actual de tu spec y la sección del contrato que esa etapa usa.
 
 ## Datos de conexión (para el `.env`)
-`postgresql://irusu:CONTRASEÑA@db.irusu.com.ar:25432/proyecto?sslmode=require` — la base se borra en un mes; los datos son ficticios.
+La plantilla usa `localhost:25432` y la base `proyecto`; verificá esos datos con la persona responsable del entorno y completá `DB_USER` y `DB_PASSWORD` en tu `.env`. La plantilla versionada no contiene la contraseña real. El `sslmode=require` **no es opcional**: el servidor rechaza las conexiones sin SSL (`no pg_hba.conf entry`), así que `OPTIONS={"sslmode": "require"}` en `config/settings.py` tiene que quedar como está.
+
+Para comprobar que tu `.env` quedó bien: `python manage.py verificar_conexion` (es de solo lectura, imprime la versión de PostgreSQL y las filas de cada tabla).

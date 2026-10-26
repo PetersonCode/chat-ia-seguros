@@ -1,4 +1,4 @@
-import { formatearMonto } from "./formato.js";
+import { formatearMonto } from "./formato.js?v=20261020b";
 
 const tiposQueRequierenPoliza = new Set([
     "baja_poliza",
@@ -48,6 +48,15 @@ export function describirAccion(accion) {
         }
         case "apertura_siniestro":
             return `Apertura de siniestro para la póliza ${numeroPoliza(accion)}`;
+        case "alta_cliente": {
+            // El bot ya juntó nombre y DNI; se muestran para que quien aprueba
+            // vea qué va a crear sin tener que abrir la conversación.
+            const nombre = [parametros.nombre, parametros.apellido]
+                .filter((parte) => !parametroFaltante(parte))
+                .join(" ");
+            const dni = parametroFaltante(parametros.dni) ? "" : ` (DNI ${parametros.dni})`;
+            return nombre ? `Alta de ${nombre}${dni}` : "Alta de cliente (datos incompletos)";
+        }
         default:
             return "Acción pendiente";
     }
@@ -65,6 +74,7 @@ export function faltantes(accion) {
         reembolso: ["importe"],
         modificar_poliza: ["detalle"],
         apertura_siniestro: ["fecha_ocurrencia", "descripcion"],
+        alta_cliente: ["nombre", "apellido", "dni", "telefono"],
         baja_poliza: [],
     };
     const requeridos = requeridosPorTipo[accion.tipo_accion] ?? [];

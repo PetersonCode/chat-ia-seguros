@@ -43,18 +43,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderizarMotivos() {
         if (!listaMotivos) return;
-        listaMotivos.innerHTML = '';
+        listaMotivos.replaceChildren();
 
         motivosDerivacion.forEach(m => {
             const li = document.createElement('li');
             li.className = 'list-group-item d-flex justify-content-between align-items-center px-0 py-2 border-0';
-            li.innerHTML = `
-                <div>
-                    <span class="d-block small fw-semibold">${m.motivo}</span>
-                    <small class="text-muted">${m.cantidad} casos</small>
-                </div>
-                <span class="badge bg-light text-dark border">${m.porcentaje}</span>
-            `;
+            const descripcion = document.createElement('div');
+            const motivo = document.createElement('span');
+            motivo.className = 'd-block small fw-semibold';
+            motivo.textContent = m.motivo;
+            const cantidad = document.createElement('small');
+            cantidad.className = 'text-muted';
+            cantidad.textContent = `${m.cantidad} casos`;
+            descripcion.append(motivo, cantidad);
+
+            const porcentaje = document.createElement('span');
+            porcentaje.className = 'badge bg-light text-dark border';
+            porcentaje.textContent = m.porcentaje;
+            li.append(descripcion, porcentaje);
             listaMotivos.appendChild(li);
         });
     }

@@ -1,8 +1,9 @@
-import { api } from "../api.js";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js";
-import { armarQuery } from "../lib/consulta.js";
-import { describirAccion, faltantes } from "../lib/acciones.js";
-import { formatearFechaHora } from "../lib/formato.js";
+import { api } from "../api.js?v=20261020b";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261020b";
+import { armarQuery } from "../lib/consulta.js?v=20261020b";
+import { describirAccion, faltantes } from "../lib/acciones.js?v=20261020b";
+import { formatearFechaHora } from "../lib/formato.js?v=20261020b";
+import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261020b";
 
 const estado = document.getElementById("estado-acciones");
 const carga = document.getElementById("carga-acciones");
@@ -69,29 +70,34 @@ function antiguedad(fecha) {
     return formato.format(Math.round(horas / 24), "day");
 }
 
-function crearCelda(texto) {
-    const celda = document.createElement("td");
-    celda.textContent = texto ?? "—";
-    return celda;
+/** Marca la tarjeta cuyo detalle se está viendo al lado. */
+function marcarSeleccionada(id) {
+    for (const tarjeta of filas.querySelectorAll(".tarjeta")) {
+        tarjeta.classList.toggle("seleccionada", tarjeta.dataset.id === String(id));
+    }
 }
 
-function crearFila(accion) {
-    const fila = document.createElement("tr");
-    fila.append(crearCelda(describirAccion(accion)));
-    fila.append(crearCelda(accion.cliente
-        ? [accion.cliente.nombre, accion.cliente.apellido].filter(Boolean).join(" ")
-        : "Contacto desconocido"));
-    fila.append(crearCelda(antiguedad(accion.solicitada_en)));
-
-    const celdaAccion = document.createElement("td");
+function crearTarjetaAccion(accion) {
     const boton = document.createElement("button");
     boton.type = "button";
     boton.className = "btn btn-sm btn-outline-primary";
     boton.textContent = "Ver detalle";
-    boton.addEventListener("click", () => cargarDetalle(accion.id));
-    celdaAccion.append(boton);
-    fila.append(celdaAccion);
-    return fila;
+    boton.addEventListener("click", () => {
+        marcarSeleccionada(accion.id);
+        cargarDetalle(accion.id);
+    });
+
+    const tarjeta = crearTarjeta({
+        titulo: describirAccion(accion),
+        subtitulo: accion.cliente
+            ? [accion.cliente.nombre, accion.cliente.apellido].filter(Boolean).join(" ")
+            : "Contacto desconocido",
+        clase: "tarjeta-azul",
+        datos: [["Solicitada", antiguedad(accion.solicitada_en)]],
+        acciones: [boton],
+    });
+    tarjeta.dataset.id = String(accion.id);
+    return tarjeta;
 }
 
 function actualizarPaginacion(datos) {
@@ -128,14 +134,9 @@ async function cargarAcciones(pagina = paginaSeleccionada) {
             throw new Error("La respuesta de acciones no tiene el formato esperado.");
         }
         if (datos.resultados.length === 0) {
-            const filaVacia = document.createElement("tr");
-            const celda = crearCelda("No hay acciones pendientes.");
-            celda.colSpan = 4;
-            celda.className = "text-center text-muted py-4";
-            filaVacia.append(celda);
-            filas.append(filaVacia);
+            filas.append(crearTarjetaVacia("No hay acciones pendientes."));
         } else {
-            filas.append(...datos.resultados.map(crearFila));
+            filas.append(...datos.resultados.map(crearTarjetaAccion));
         }
         actualizarPaginacion(datos);
         carga.textContent = "";

@@ -1,75 +1,250 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const tabla = document.getElementById('tabla-usuarios');
-    const formUsuario = document.getElementById('form-usuario');
+import { api } from "../api.js?v=20261020b";
+import { inicializarNav } from "../nav.js?v=20261020b";
+import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261020b";
 
-    let usuarios = [
-        { id: 1, nombre: 'Roberto Castaño', email: 'roberto@castano.com', rol: 'admin', estado: 'Activo' },
-        { id: 2, nombre: 'Graciela Supervisor', email: 'graciela@castano.com', rol: 'supervisor', estado: 'Activo' },
-        { id: 3, nombre: 'Carlos Operador', email: 'carlos@castano.com', rol: 'operador', estado: 'Activo' }
-    ];
+const ROLES = {
+    propietario: "Propietario",
+    administracion: "Administración",
+    operador: "Operador",
+};
 
-    function renderizarUsuarios() {
-        if (!tabla) return;
-        tabla.innerHTML = '';
+const mensajePagina = document.getElementById("mensaje-pagina");
+const contenido = document.getElementById("contenido-usuarios");
+const tabla = document.getElementById("tabla-usuarios");
+const formularioAlta = document.getElementById("formulario-alta-usuario");
+const estadoAlta = document.getElementById("estado-alta-usuario");
+const botonGuardar = document.getElementById("alta-guardar");
+const dialogo = document.getElementById("dialog-usuario");
+const formularioDialogo = document.getElementById("formulario-dialogo");
+const dialogoTitulo = document.getElementById("dialog-titulo");
+const dialogoCampos = document.getElementById("dialog-campos");
+const dialogoError = document.getElementById("dialog-error");
+const dialogoCancelar = document.getElementById("dialog-cancelar");
+const dialogoConfirmar = document.getElementById("dialog-confirmar");
 
-        usuarios.forEach(u => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="fw-semibold">${u.nombre}</td>
-                <td>${u.email}</td>
-                <td>${obtenerBadgeRol(u.rol)}</td>
-                <td><span class="badge bg-success-subtle text-success">${u.estado}</span></td>
-                <td class="text-end">
-                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="alert('Editar usuario ${u.id}')">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarUsuario(${u.id})">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-            `;
-            tabla.appendChild(tr);
+let alConfirmar = null;
+
+function crearElemento(etiqueta, clase, texto) {
+    const elemento = document.createElement(etiqueta);
+    if (clase) {
+        elemento.className = clase;
+    }
+    if (texto !== undefined) {
+        elemento.textContent = texto;
+    }
+    return elemento;
+}
+
+function mostrarAviso(nodo, mensaje, error = false) {
+    nodo.textContent = mensaje;
+    nodo.classList.toggle("d-none", !mensaje);
+    nodo.classList.toggle("alert-danger", error);
+    nodo.classList.toggle("alert-success", Boolean(mensaje) && !error);
+}
+
+function textoError(error, porDefecto) {
+    return error.mensaje ?? error.message ?? porDefecto;
+}
+
+function campo(etiqueta, control) {
+    const grupo = crearElemento("div", "mb-3");
+    const label = crearElemento("label", "form-label", etiqueta);
+    label.htmlFor = control.id;
+    grupo.append(label, control);
+    return grupo;
+}
+
+function selectorRol(valor) {
+    const select = crearElemento("select", "form-select");
+    select.id = "dialog-rol";
+    for (const rol of ["operador", "administracion"]) {
+        const opcion = crearElemento("option", "", ROLES[rol]);
+        opcion.value = rol;
+        opcion.selected = rol === valor;
+        select.append(opcion);
+    }
+    return select;
+}
+
+function abrirDialogo(titulo, campos, accion) {
+    dialogoTitulo.textContent = titulo;
+    dialogoCampos.replaceChildren(...campos);
+    dialogoError.textContent = "";
+    alConfirmar = accion;
+    dialogo.showModal();
+}
+
+function editarUsuario(usuario) {
+    const nombre = crearElemento("input", "form-control");
+    nombre.id = "dialog-nombre";
+    nombre.value = usuario.nombre;
+    const rol = selectorRol(usuario.rol);
+    const aprobar = crearElemento("input", "form-check-input");
+    aprobar.type = "checkbox";
+    aprobar.id = "dialog-aprobar";
+    aprobar.checked = usuario.puede_aprobar;
+    const check = crearElemento("div", "form-check mb-3");
+    const etiquetaAprobar = crearElemento("label", "form-check-label", "Puede aprobar acciones");
+    etiquetaAprobar.htmlFor = aprobar.id;
+    check.append(aprobar, etiquetaAprobar);
+
+    abrirDialogo(`Editar ${usuario.nombre}`, [campo("Nombre", nombre), campo("Rol", rol), check], async () => {
+        await api.patch(`/api/usuarios/${usuario.id}/`, {
+            nombre: nombre.value.trim(),
+            rol: rol.value,
+            puede_aprobar: aprobar.checked,
         });
+        return `Se actualizó a ${nombre.value.trim()}.`;
+    });
+}
+
+function cambiarClave(usuario) {
+    const clave = crearElemento("input", "form-control");
+    clave.id = "dialog-clave";
+    clave.type = "password";
+    clave.autocomplete = "new-password";
+    abrirDialogo(`Contraseña de ${usuario.nombre}`, [campo("Contraseña nueva", clave)], async () => {
+        await api.post(`/api/usuarios/${usuario.id}/clave/`, { clave: clave.value });
+        return `Se cambió la contraseña de ${usuario.nombre}.`;
+    });
+}
+
+function cambiarEstado(usuario) {
+    const activar = !usuario.activo;
+    const aviso = crearElemento(
+        "p",
+        "",
+        activar
+            ? `${usuario.nombre} va a poder volver a iniciar sesión.`
+            : `${usuario.nombre} no va a poder iniciar sesión. Su historial (mensajes, derivaciones, acciones) se conserva.`,
+    );
+    abrirDialogo(activar ? "Reactivar usuario" : "Desactivar usuario", [aviso], async () => {
+        await api.patch(`/api/usuarios/${usuario.id}/`, { activo: activar });
+        return activar ? `${usuario.nombre} está activo.` : `${usuario.nombre} quedó desactivado.`;
+    });
+}
+
+function boton(texto, clase, alHacerClic) {
+    const elemento = crearElemento("button", `btn btn-sm ${clase}`, texto);
+    elemento.type = "button";
+    elemento.addEventListener("click", alHacerClic);
+    return elemento;
+}
+
+function iniciales(nombre) {
+    return (nombre || "")
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((palabra) => palabra[0].toUpperCase())
+        .join("");
+}
+
+function crearTarjetaUsuario(usuario) {
+    const propietario = usuario.rol === "propietario";
+    const acciones = propietario
+        ? [crearElemento("span", "small text-muted", "No se modifica desde acá")]
+        : [
+            boton("Editar", "btn-outline-primary", () => editarUsuario(usuario)),
+            boton("Contraseña", "btn-outline-secondary", () => cambiarClave(usuario)),
+            boton(
+                usuario.activo ? "Desactivar" : "Reactivar",
+                usuario.activo ? "btn-outline-danger" : "btn-outline-success",
+                () => cambiarEstado(usuario),
+            ),
+        ];
+    const tarjeta = crearTarjeta({
+        titulo: usuario.nombre,
+        subtitulo: usuario.email,
+        clase: !usuario.activo ? "tarjeta-apagada" : propietario ? "tarjeta-azul" : "",
+        insignias: [
+            crearInsignia(ROLES[usuario.rol] ?? usuario.rol, propietario ? "pildora pildora-activa" : "pildora"),
+            usuario.activo ? null : crearInsignia("Desactivado", "pildora pildora-aviso"),
+        ],
+        datos: [["Aprueba acciones", usuario.puede_aprobar ? "Sí" : "No"]],
+        acciones,
+    });
+    const avatar = crearElemento("span", "nav-avatar tarjeta-avatar", iniciales(usuario.nombre) || "—");
+    avatar.setAttribute("aria-hidden", "true");
+    tarjeta.querySelector(".tarjeta-encabezado").prepend(avatar);
+    return tarjeta;
+}
+
+function renderizarUsuarios(usuarios) {
+    tabla.replaceChildren();
+    if (usuarios.length === 0) {
+        tabla.append(crearTarjetaVacia("No hay usuarios."));
+        return;
     }
+    tabla.append(...usuarios.map(crearTarjetaUsuario));
+}
 
-    function obtenerBadgeRol(rol) {
-        switch (rol) {
-            case 'admin':
-                return '<span class="badge bg-danger">Administrador</span>';
-            case 'supervisor':
-                return '<span class="badge bg-warning text-dark">Supervisor</span>';
-            default:
-                return '<span class="badge bg-info text-dark">Operador</span>';
-        }
-    }
+async function cargarUsuarios() {
+    const respuesta = await api.get("/api/usuarios/");
+    renderizarUsuarios(respuesta.resultados ?? []);
+}
 
-    if (formUsuario) {
-        formUsuario.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const nuevo = {
-                id: Date.now(),
-                nombre: document.getElementById('usr-nombre').value,
-                email: document.getElementById('usr-email').value,
-                rol: document.getElementById('usr-rol').value,
-                estado: 'Activo'
-            };
-
-            usuarios.push(nuevo);
-            renderizarUsuarios();
-
-            const modalEl = document.getElementById('modalUsuario');
-            const modal = bootstrap.Modal.getInstance(modalEl);
-            if (modal) modal.hide();
-            formUsuario.reset();
+async function crearUsuario(evento) {
+    evento.preventDefault();
+    const datos = new FormData(formularioAlta);
+    botonGuardar.disabled = true;
+    mostrarAviso(estadoAlta, "");
+    try {
+        const usuario = await api.post("/api/usuarios/", {
+            nombre: String(datos.get("nombre") ?? "").trim(),
+            email: String(datos.get("email") ?? "").trim(),
+            rol: String(datos.get("rol") ?? "operador"),
+            clave: String(datos.get("clave") ?? ""),
+            puede_aprobar: datos.get("puede_aprobar") === "on",
         });
+        formularioAlta.reset();
+        mostrarAviso(estadoAlta, `Se creó el usuario ${usuario.email}.`);
+        await cargarUsuarios();
+    } catch (error) {
+        mostrarAviso(estadoAlta, textoError(error, "No se pudo crear el usuario."), true);
+    } finally {
+        botonGuardar.disabled = false;
     }
+}
 
-    window.eliminarUsuario = (id) => {
-        if (confirm('¿Seguro que querés desactivar este usuario?')) {
-            usuarios = usuarios.filter(u => u.id !== id);
-            renderizarUsuarios();
-        }
-    };
+async function confirmarDialogo(evento) {
+    evento.preventDefault();
+    if (!alConfirmar) {
+        return;
+    }
+    dialogoConfirmar.disabled = true;
+    dialogoError.textContent = "";
+    try {
+        const mensaje = await alConfirmar();
+        dialogo.close();
+        mostrarAviso(mensajePagina, mensaje);
+        await cargarUsuarios();
+    } catch (error) {
+        dialogoError.textContent = textoError(error, "No se pudo completar la acción.");
+    } finally {
+        dialogoConfirmar.disabled = false;
+    }
+}
 
-    renderizarUsuarios();
-});
+async function iniciar() {
+    inicializarNav();
+    try {
+        await cargarUsuarios();
+        contenido.hidden = false;
+    } catch (error) {
+        // Un 403 es lo esperable para cualquiera que no sea el propietario.
+        mostrarAviso(
+            mensajePagina,
+            error.status === 403
+                ? "Esta sección es solo para el propietario."
+                : textoError(error, "No se pudieron cargar los usuarios."),
+            true,
+        );
+    }
+}
+
+formularioAlta.addEventListener("submit", crearUsuario);
+formularioDialogo.addEventListener("submit", confirmarDialogo);
+dialogoCancelar.addEventListener("click", () => dialogo.close());
+
+iniciar();

@@ -1,102 +1,986 @@
+/* =====================================================================
+   Seguros Castaño · capa visual del panel
+   Bootstrap 5.3 pone la grilla y los componentes; esto ajusta el aspecto.
+   Todo con variables CSS: Bootstrap 5.3 ya trabaja así, y sobrescribir sus
+   `--bs-*` por componente evita pelearse con la especificidad.
+   ===================================================================== */
+
 :root {
     color-scheme: light;
+
+    /* Tokens propios, con prefijo para no mezclarlos con los de Bootstrap. */
+    --sc-fondo: #f5f6fa;
+    --sc-superficie: #ffffff;
+    --sc-borde: #e7e9f0;
+    --sc-borde-fuerte: #d6dae5;
+    --sc-texto: #1b2130;
+    --sc-texto-suave: #697186;
+    --sc-acento: #2f5bd7;
+    --sc-acento-oscuro: #2447ab;
+    --sc-acento-suave: #eef2fe;
+
+    --sc-radio: 0.875rem;
+    --sc-radio-chico: 0.5rem;
+    --sc-sombra: 0 1px 2px rgb(16 24 40 / 5%), 0 2px 6px rgb(16 24 40 / 4%);
+    --sc-sombra-alta: 0 8px 28px rgb(16 24 40 / 10%);
+
+    /* Un color por severidad. Lo comparten la etiqueta de la fila y el borde
+       lateral, así que el nivel se lee igual en los dos lugares. */
+    --sev-critica: #b42318;
+    --sev-critica-fondo: #fef3f2;
+    --sev-alta: #b54708;
+    --sev-alta-fondo: #fff8f0;
+    --sev-media: #8a6100;
+    --sev-media-fondo: #fffaeb;
+    --sev-baja: #3f6212;
+    --sev-baja-fondo: #f4faf0;
+    --sev-neutra: #667085;
+    --sev-neutra-fondo: #f3f4f7;
+
+    /* Bootstrap lee estas al pintar el cuerpo, los bordes y los enlaces. */
+    --bs-body-bg: var(--sc-fondo);
+    --bs-body-color: var(--sc-texto);
+    --bs-border-color: var(--sc-borde);
+    --bs-border-radius: var(--sc-radio-chico);
+    --bs-link-color: var(--sc-acento);
+    --bs-link-hover-color: var(--sc-acento-oscuro);
+    --bs-emphasis-color: var(--sc-texto);
+    --bs-secondary-color: var(--sc-texto-suave);
 }
 
 body {
     min-height: 100vh;
-    background-color: #f4f6f9;
-    color: #212529;
+    background-color: var(--sc-fondo);
+    color: var(--sc-texto);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-.pagina-login {
+/* Los números alineados en columna: en una tabla de saldos y fechas, que no
+   bailen de ancho es la diferencia entre poder comparar de un vistazo o no. */
+table,
+.font-numerica {
+    font-variant-numeric: tabular-nums;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.015em;
+    color: var(--sc-texto);
+}
+
+.text-muted {
+    color: var(--sc-texto-suave) !important;
+}
+
+a {
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+:focus-visible {
+    outline: 2px solid var(--sc-acento);
+    outline-offset: 2px;
+}
+
+/* --- Barra superior ---------------------------------------------------- */
+
+/* Tres grupos, de izquierda a derecha: a dónde ir, qué hay pendiente, quién
+   soy. Antes iba todo en una fila sola y el nombre del funcionario quedaba
+   entre la marca y los enlaces, así que no se distinguía la navegación de los
+   contadores ni el dato de los controles. */
+
+.navbar {
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    background-color: rgb(255 255 255 / 88%) !important;
+    backdrop-filter: saturate(140%) blur(10px);
+    border-bottom: 1px solid var(--sc-borde) !important;
+    padding-block: 0.5rem;
+}
+
+.navbar > .barra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+}
+
+.navbar-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-right: 0.25rem;
+    padding-block: 0;
+    font-size: 1rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    color: var(--sc-texto);
+}
+
+/* El punto del logo: una marca mínima que da identidad sin pedir un archivo. */
+.navbar-brand::before {
+    content: "";
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--sc-acento), #6d8ef0);
+    box-shadow: 0 0 0 3px var(--sc-acento-suave);
+}
+
+.navbar-brand:hover {
+    text-decoration: none;
+}
+
+/* Grupo 1 · navegación: píldoras planas, la sección actual marcada. */
+
+.nav-principal {
+    gap: 0.125rem;
+}
+
+.nav-principal .nav-link {
+    padding: 0.375rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--sc-texto-suave);
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.nav-principal .nav-link:hover {
+    background-color: #f1f3f8;
+    color: var(--sc-texto);
+    text-decoration: none;
+}
+
+.nav-principal .nav-link.activo {
+    background-color: var(--sc-acento-suave);
+    color: var(--sc-acento-oscuro);
+    font-weight: 600;
+}
+
+/* Todo lo que no es navegación se va a la derecha. */
+.barra-derecha {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin-left: auto;
+}
+
+/* Grupo 2 · pendientes: atajos con un número, no secciones. Otra forma —con
+   borde— para que no se lean como parte de la navegación. */
+
+.nav-pendientes {
+    gap: 0.375rem;
+}
+
+.nav-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4375rem;
+    padding: 0.3125rem 0.4375rem 0.3125rem 0.6875rem;
+    border: 1px solid var(--sc-borde);
+    border-radius: 999px;
+    background-color: #fcfdff;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--sc-texto-suave);
+    transition: background-color 0.15s ease, border-color 0.15s ease,
+        color 0.15s ease;
+}
+
+.nav-chip:hover {
+    border-color: color-mix(in srgb, var(--sc-acento) 30%, transparent);
+    background-color: var(--sc-acento-suave);
+    color: var(--sc-acento-oscuro);
+    text-decoration: none;
+}
+
+.nav-chip.activo {
+    border-color: color-mix(in srgb, var(--sc-acento) 35%, transparent);
+    background-color: var(--sc-acento-suave);
+    color: var(--sc-acento-oscuro);
+    font-weight: 600;
+}
+
+/* Un cero no es lo mismo que tres cosas sin atender, y el color lo dice sin
+   que haya que leer el número. */
+.nav-contador {
+    min-width: 1.375rem;
+    padding: 0.125rem 0.375rem;
+    border-radius: 999px;
+    background-color: #eceff5;
+    color: var(--sc-texto-suave);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1.45;
+    text-align: center;
+}
+
+.nav-contador.hay {
+    background-color: var(--sc-acento);
+    color: #fff;
+}
+
+.nav-contador.urgente {
+    background-color: var(--sev-critica);
+    color: #fff;
+}
+
+.nav-separador {
+    width: 1px;
+    height: 1.5rem;
+    background-color: var(--sc-borde);
+}
+
+/* Grupo 3 · identidad: el nombre es un dato, no un control. Sin borde ni
+   fondo, al lado de sus iniciales. */
+
+.nav-usuario {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.nav-avatar {
+    display: grid;
+    place-items: center;
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 50%;
+    background-color: var(--sc-acento-suave);
+    color: var(--sc-acento-oscuro);
+    font-size: 0.6875rem;
+    font-weight: 700;
+}
+
+.nav-usuario-nombre {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sc-texto);
+    white-space: nowrap;
+}
+
+/* El aviso de error de la barra ocupa su propia línea, debajo de todo. */
+.navbar [data-nav-error] {
+    flex-basis: 100%;
+    margin-top: 0.5rem;
+}
+
+@media (max-width: 575.98px) {
+    .nav-separador {
+        display: none;
+    }
+}
+
+/* --- Encabezado de página --------------------------------------------- */
+
+main > header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+main > header p {
+    font-size: 0.9375rem;
+}
+
+/* --- Tarjetas ---------------------------------------------------------- */
+
+.card {
+    --bs-card-border-radius: var(--sc-radio);
+    --bs-card-inner-border-radius: calc(var(--sc-radio) - 1px);
+    --bs-card-bg: var(--sc-superficie);
+    border: 1px solid var(--sc-borde) !important;
+    box-shadow: var(--sc-sombra) !important;
+}
+
+.card-header {
+    background-color: var(--sc-superficie) !important;
+    border-bottom: 1px solid var(--sc-borde);
+    padding-block: 0.875rem;
+}
+
+.card-header h2,
+.card-header h3 {
+    font-size: 1rem;
+    font-weight: 650;
+}
+
+.card-footer {
+    background-color: var(--sc-superficie) !important;
+    border-top: 1px solid var(--sc-borde);
+}
+
+/* Los encabezados de color que traen algunas páginas se suavizan para que no
+   compitan con el contenido. */
+.card-header.bg-dark,
+.card-header.bg-success {
+    background-color: var(--sc-superficie) !important;
+    color: var(--sc-texto) !important;
+}
+
+/* --- Tablas ------------------------------------------------------------ */
+
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-hover-bg: #f8f9fc;
+    --bs-table-color: var(--sc-texto);
+    margin-bottom: 0;
+}
+
+.table > thead {
+    background-color: #fbfcfe;
+}
+
+.table > thead th {
+    padding-block: 0.75rem;
+    font-size: 0.6875rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--sc-texto-suave);
+    border-bottom: 1px solid var(--sc-borde) !important;
+    white-space: nowrap;
+}
+
+.table > tbody td {
+    padding-block: 0.8125rem;
+    border-bottom-color: var(--sc-borde);
+    font-size: 0.9375rem;
+    vertical-align: middle;
+}
+
+.table > tbody tr:last-child td {
+    border-bottom-width: 0;
+}
+
+/* El encabezado queda fijo al barrer una bandeja larga. */
+.table-responsive {
+    max-height: min(68vh, 44rem);
+    overflow-y: auto;
+}
+
+.table-responsive > .table > thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: #fbfcfe;
+}
+
+/* --- Severidad --------------------------------------------------------- */
+
+/* Antes la severidad pintaba la fila entera y el color le ganaba al contenido.
+   Ahora es una etiqueta: el nivel se lee en su columna y la fila queda limpia.
+   `.fila-*` sobrevive —AC-T1-07 las exige en este archivo y `claseDeColor` las
+   devuelve (AC-T1-09)— pero ya no tiñe: deja un filo de 3 px al costado, que
+   alcanza para encontrar lo urgente barriendo con la vista. */
+.fila-rojo > td:first-child {
+    box-shadow: inset 0.1875rem 0 0 0 var(--sev-critica);
+}
+
+.fila-naranja > td:first-child {
+    box-shadow: inset 0.1875rem 0 0 0 var(--sev-alta);
+}
+
+.fila-amarillo > td:first-child {
+    box-shadow: inset 0.1875rem 0 0 0 var(--sev-media);
+}
+
+/* Verde es "no pasa nada": sin filo, para que solo resalte lo que importa. */
+.fila-verde > td:first-child {
+    box-shadow: none;
+}
+
+.sev {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.1875rem 0.5rem 0.1875rem 0.4375rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 650;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+.sev::before {
+    content: "";
+    width: 0.4375rem;
+    height: 0.4375rem;
+    border-radius: 50%;
+    background-color: currentcolor;
+}
+
+.sev-critica {
+    color: var(--sev-critica);
+    background-color: var(--sev-critica-fondo);
+    border-color: color-mix(in srgb, var(--sev-critica) 22%, transparent);
+}
+
+.sev-alta {
+    color: var(--sev-alta);
+    background-color: var(--sev-alta-fondo);
+    border-color: color-mix(in srgb, var(--sev-alta) 22%, transparent);
+}
+
+.sev-media {
+    color: var(--sev-media);
+    background-color: var(--sev-media-fondo);
+    border-color: color-mix(in srgb, var(--sev-media) 22%, transparent);
+}
+
+.sev-baja {
+    color: var(--sev-baja);
+    background-color: var(--sev-baja-fondo);
+    border-color: color-mix(in srgb, var(--sev-baja) 22%, transparent);
+}
+
+.sev-neutra {
+    color: var(--sev-neutra);
+    background-color: var(--sev-neutra-fondo);
+    border-color: color-mix(in srgb, var(--sev-neutra) 22%, transparent);
+}
+
+/* El contador de alertas que acompaña a la etiqueta. */
+.sev-cuenta {
+    margin-left: 0.375rem;
+    font-size: 0.75rem;
+    color: var(--sc-texto-suave);
+}
+
+/* --- Grillas de tarjetas ----------------------------------------------- */
+
+/* Reemplazan a las tablas en todo grupo de datos: cada elemento es una tarjeta
+   y la grilla acomoda tantas columnas como entren (una sola en el celular). */
+.grilla-tarjetas {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 18.5rem), 1fr));
+    gap: 1rem;
+    padding: 1rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Dentro de una `.card` la grilla va sobre un fondo apenas gris, para que las
+   tarjetas se despeguen del contenedor. */
+.card > .grilla-tarjetas {
+    background-color: #f8f9fc;
+}
+
+/* Una sola columna y sin margen: para paneles laterales angostos. */
+.grilla-angosta {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    padding: 0;
+}
+
+.grilla-angosta .tarjeta {
+    padding: 0.75rem 0.875rem;
+    gap: 0.5rem;
+}
+
+.grilla-tarjetas:empty {
+    display: none;
+}
+
+.grilla-vacia {
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--sc-texto-suave);
+}
+
+.tarjeta {
+    /* El color de la urgencia: lo pone `.tarjeta-<color>`. Neutro si no hay. */
+    --tarjeta-color: var(--sc-borde-fuerte);
+    --tarjeta-fondo: var(--sc-superficie);
+
+    position: relative;
     display: flex;
     flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+    padding: 1rem 1.125rem;
+    border: 1px solid var(--sc-borde);
+    border-top: 0.25rem solid var(--tarjeta-color);
+    border-radius: var(--sc-radio);
+    background:
+        linear-gradient(180deg, var(--tarjeta-fondo) 0, var(--sc-superficie) 7rem);
+    box-shadow: var(--sc-sombra);
+    transition: box-shadow 0.15s ease, transform 0.15s ease,
+        border-color 0.15s ease;
 }
 
-.login-card {
-    max-width: 28rem;
+.tarjeta-cliqueable:hover,
+.tarjeta-cliqueable:focus-within,
+.tarjeta.seleccionada {
+    box-shadow: var(--sc-sombra-alta);
+    transform: translateY(-2px);
 }
 
-.fila-rojo {
-    --bs-table-bg: #f8d7da;
-    --bs-table-color: #58151c;
+.tarjeta.seleccionada {
+    outline: 2px solid var(--sc-acento);
+    outline-offset: 2px;
 }
 
-.fila-naranja {
-    --bs-table-bg: #ffe5d0;
-    --bs-table-color: #663c00;
+.tarjeta-rojo {
+    --tarjeta-color: var(--sev-critica);
+    --tarjeta-fondo: var(--sev-critica-fondo);
 }
 
-.fila-amarillo {
-    --bs-table-bg: #fff3cd;
-    --bs-table-color: #664d03;
+.tarjeta-naranja {
+    --tarjeta-color: var(--sev-alta);
+    --tarjeta-fondo: var(--sev-alta-fondo);
 }
 
-.fila-verde {
-    --bs-table-bg: #d1e7dd;
-    --bs-table-color: #0f5132;
+.tarjeta-amarillo {
+    --tarjeta-color: #d6a100;
+    --tarjeta-fondo: var(--sev-media-fondo);
 }
 
+.tarjeta-verde {
+    --tarjeta-color: #7fb069;
+    --tarjeta-fondo: var(--sev-baja-fondo);
+}
+
+.tarjeta-azul {
+    --tarjeta-color: var(--sc-acento);
+    --tarjeta-fondo: var(--sc-acento-suave);
+}
+
+/* Algo que ya no está en uso (un usuario desactivado, un cliente de baja). */
+.tarjeta-apagada {
+    --tarjeta-color: var(--sc-borde-fuerte);
+    --tarjeta-fondo: #f3f4f7;
+    opacity: 0.72;
+}
+
+.tarjeta-encabezado {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.tarjeta-cabecera {
+    flex: 1;
+    min-width: 0;
+}
+
+.tarjeta-avatar {
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 0.75rem;
+}
+
+.tarjeta-titulo {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+}
+
+.tarjeta-enlace {
+    color: var(--sc-texto);
+}
+
+/* Toda la tarjeta lleva al enlace del título; los botones del pie quedan
+   por encima y siguen siendo suyos. */
+.tarjeta-enlace::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+}
+
+.tarjeta-enlace:hover {
+    color: var(--sc-acento);
+    text-decoration: none;
+}
+
+.tarjeta-subtitulo {
+    margin: 0.125rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--sc-texto-suave);
+    overflow-wrap: anywhere;
+}
+
+.tarjeta-insignias {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.375rem;
+    flex-shrink: 0;
+    max-width: 55%;
+}
+
+.tarjeta-texto {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.tarjeta-datos {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.375rem 0.875rem;
+    margin: 0;
+    font-size: 0.875rem;
+}
+
+.tarjeta-datos dt {
+    font-size: 0.6875rem;
+    font-weight: 650;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--sc-texto-suave);
+    align-self: center;
+}
+
+.tarjeta-datos dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.tarjeta-pie {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: auto;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--sc-borde);
+}
+
+.tarjeta-pie > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* --- Píldoras de estado ------------------------------------------------ */
+
+/* Estado, modo y demás valores cortos: en vez de texto suelto en la celda,
+   una píldora gris que se distingue del dato real sin gritar. */
+.pildora {
+    display: inline-block;
+    padding: 0.1875rem 0.5rem;
+    border: 1px solid var(--sc-borde-fuerte);
+    border-radius: 999px;
+    background-color: #fafbfd;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--sc-texto-suave);
+    white-space: nowrap;
+}
+
+.pildora-activa {
+    border-color: color-mix(in srgb, var(--sc-acento) 25%, transparent);
+    background-color: var(--sc-acento-suave);
+    color: var(--sc-acento-oscuro);
+}
+
+.pildora-aviso {
+    border-color: color-mix(in srgb, var(--sev-alta) 25%, transparent);
+    background-color: var(--sev-alta-fondo);
+    color: var(--sev-alta);
+}
+
+/* --- Formularios ------------------------------------------------------- */
+
+.form-label {
+    margin-bottom: 0.3125rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--sc-texto-suave);
+}
+
+.form-control,
+.form-select {
+    border-color: var(--sc-borde-fuerte);
+    border-radius: var(--sc-radio-chico);
+    font-size: 0.9375rem;
+    padding: 0.5rem 0.75rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--sc-acento);
+    box-shadow: 0 0 0 3px var(--sc-acento-suave);
+}
+
+.form-control::placeholder {
+    color: #aab1c0;
+}
+
+.form-check-input:checked {
+    background-color: var(--sc-acento);
+    border-color: var(--sc-acento);
+}
+
+.form-check-input:focus {
+    border-color: var(--sc-acento);
+    box-shadow: 0 0 0 3px var(--sc-acento-suave);
+}
+
+.form-text {
+    font-size: 0.8125rem;
+    color: var(--sc-texto-suave);
+}
+
+/* --- Botones ----------------------------------------------------------- */
+
+.btn {
+    --bs-btn-border-radius: var(--sc-radio-chico);
+    --bs-btn-font-weight: 600;
+    --bs-btn-font-size: 0.9375rem;
+    transition: background-color 0.15s ease, border-color 0.15s ease,
+        color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.btn-sm {
+    --bs-btn-font-size: 0.8125rem;
+    --bs-btn-padding-y: 0.3125rem;
+    --bs-btn-padding-x: 0.6875rem;
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--sc-acento);
+    --bs-btn-border-color: var(--sc-acento);
+    --bs-btn-hover-bg: var(--sc-acento-oscuro);
+    --bs-btn-hover-border-color: var(--sc-acento-oscuro);
+    --bs-btn-active-bg: var(--sc-acento-oscuro);
+    --bs-btn-active-border-color: var(--sc-acento-oscuro);
+    --bs-btn-disabled-bg: #9db0e6;
+    --bs-btn-disabled-border-color: #9db0e6;
+}
+
+.btn-outline-secondary {
+    --bs-btn-color: var(--sc-texto-suave);
+    --bs-btn-border-color: var(--sc-borde-fuerte);
+    --bs-btn-hover-bg: #f1f3f8;
+    --bs-btn-hover-border-color: var(--sc-borde-fuerte);
+    --bs-btn-hover-color: var(--sc-texto);
+    --bs-btn-active-bg: #e9ecf4;
+    --bs-btn-active-border-color: var(--sc-borde-fuerte);
+    --bs-btn-active-color: var(--sc-texto);
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--sc-acento);
+    --bs-btn-border-color: color-mix(in srgb, var(--sc-acento) 35%, transparent);
+    --bs-btn-hover-bg: var(--sc-acento);
+    --bs-btn-hover-border-color: var(--sc-acento);
+    --bs-btn-active-bg: var(--sc-acento-oscuro);
+    --bs-btn-active-border-color: var(--sc-acento-oscuro);
+}
+
+/* --- Avisos ------------------------------------------------------------ */
+
+.alert {
+    --bs-alert-border-radius: var(--sc-radio-chico);
+    border-width: 1px;
+    font-size: 0.9375rem;
+    padding: 0.75rem 1rem;
+}
+
+/* --- Listas ------------------------------------------------------------ */
+
+.list-group-item {
+    border-color: var(--sc-borde);
+    background-color: transparent;
+}
+
+/* --- Bandeja de la conversación ---------------------------------------- */
+
+.chat-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    min-height: 20rem;
+    max-height: 65vh;
+    overflow-y: auto;
+    padding: 1.25rem;
+    background-color: #eceff5;
+    background-image:
+        radial-gradient(circle at 1px 1px, rgb(27 33 48 / 5%) 1px, transparent 0);
+    background-size: 1.25rem 1.25rem;
+}
+
+.mensaje-chat {
+    width: fit-content;
+    max-width: min(85%, 52rem);
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--sc-borde);
+    border-radius: 1rem;
+    background-color: var(--sc-superficie);
+    box-shadow: 0 1px 2px rgb(16 24 40 / 6%);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.msg-cliente {
+    align-self: flex-start;
+    border-bottom-left-radius: 0.3125rem;
+}
+
+.msg-saliente {
+    align-self: flex-end;
+    border-bottom-right-radius: 0.3125rem;
+}
+
+.mensaje-chat.msg-saliente {
+    border-color: #bfe3cf;
+    background-color: #e7f7ee;
+}
+
+/* Retenido: lo que el bot quiso decir y alguien tiene que mirar antes. */
 .msg-retenido {
     border: 2px solid #dc3545;
+}
+
+.mensaje-chat.msg-retenido {
+    border-color: var(--sev-critica);
+    background-color: var(--sev-critica-fondo);
 }
 
 .msg-descartado {
     text-decoration: line-through;
 }
 
-.msg-cliente {
-    align-self: flex-start;
-}
-
-.msg-saliente {
-    align-self: flex-end;
-}
-
-.chat-messages {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    min-height: 20rem;
-    max-height: 65vh;
-    overflow-y: auto;
-    background-color: #e5ddd5;
-}
-
-.mensaje-chat {
-    width: fit-content;
-    max-width: min(85%, 52rem);
-    padding: 0.75rem 1rem;
-    border-radius: 0.75rem;
-    background-color: #fff;
-    box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
-    overflow-wrap: anywhere;
-}
-
-.mensaje-chat.msg-saliente {
-    background-color: #d1e7dd;
-}
-
-.mensaje-chat.msg-retenido {
-    background-color: #fff3f3;
-}
-
 .mensaje-chat.msg-descartado {
-    background-color: #e9ecef;
+    border-color: var(--sc-borde-fuerte);
+    background-color: #eef0f4;
+    color: var(--sc-texto-suave);
 }
+
+/* --- Diálogos ---------------------------------------------------------- */
 
 .dialog-accion {
     width: min(36rem, calc(100% - 2rem));
     border: 0;
-    border-radius: 0.75rem;
-    box-shadow: 0 1rem 3rem rgb(0 0 0 / 20%);
+    border-radius: var(--sc-radio);
+    box-shadow: var(--sc-sombra-alta);
+    padding: 0;
 }
 
 .dialog-accion::backdrop {
-    background-color: rgb(33 37 41 / 55%);
+    background-color: rgb(27 33 48 / 45%);
+    backdrop-filter: blur(2px);
 }
 
-.derivacion-urgente {
-    border-left: 0.35rem solid #dc3545 !important;
-    background-color: #fff3f3;
+/* --- Alta de póliza ---------------------------------------------------- */
+
+.caja-nueva-poliza {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    min-height: 11rem;
+    height: 100%;
+    padding: 1.5rem;
+    border: 2px dashed color-mix(in srgb, var(--sc-acento) 40%, transparent);
+    border-radius: var(--sc-radio);
+    background-color: color-mix(in srgb, var(--sc-acento-suave) 55%, transparent);
+    color: var(--sc-acento-oscuro);
+    text-align: center;
+    cursor: pointer;
+    list-style: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.caja-nueva-poliza::-webkit-details-marker {
+    display: none;
+}
+
+.caja-nueva-poliza:hover,
+.caja-nueva-poliza:focus-visible {
+    border-color: var(--sc-acento);
+    background-color: var(--sc-acento-suave);
+}
+
+.caja-nueva-poliza-mas {
+    font-size: 2.25rem;
+    font-weight: 300;
+    line-height: 1;
+}
+
+/* Abierta es un encabezado, no una invitación: se achica y deja de ser hueco. */
+details[open] > .caja-nueva-poliza {
+    min-height: 0;
+    flex-direction: row;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-style: solid;
+}
+
+details[open] > .caja-nueva-poliza .caja-nueva-poliza-mas {
+    font-size: 1.5rem;
+}
+
+/* El panel de edición de la ficha usa el mismo `details`. */
+#panel-edicion-cliente > summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+#panel-edicion-cliente > summary::-webkit-details-marker {
+    display: none;
+}
+
+#panel-edicion-cliente > summary::after {
+    content: "▾";
+    float: right;
+    color: var(--sc-texto-suave);
+    transition: transform 0.15s ease;
+}
+
+#panel-edicion-cliente[open] > summary::after {
+    content: "▴";
+}
+
+/* --- Login ------------------------------------------------------------- */
+
+.pagina-login {
+    display: flex;
+    flex-direction: column;
+    background:
+        radial-gradient(60rem 40rem at 50% -10%, #e7edfd 0%, transparent 60%),
+        var(--sc-fondo);
+}
+
+.login-card {
+    max-width: 26rem;
+    border-radius: var(--sc-radio);
+    box-shadow: var(--sc-sombra-alta) !important;
+}
+
+/* --- Movimiento -------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
 }

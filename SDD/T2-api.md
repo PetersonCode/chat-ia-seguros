@@ -48,7 +48,7 @@ Todo dentro de `api/`. En `config/settings.py`, **solo** agregar: el bloque `RES
 ### Etapa E · Clientes y pólizas (solo lectura)
 | ID | Criterio |
 |---|---|
-| AC-T2-18 | Dados `GET /api/clientes/?q=`, `GET /api/clientes/{id}/` y `GET /api/polizas/{id}/`, entonces devuelven `cliente_resumen`, `cliente_detalle` y `poliza_detalle` desde `buscar_clientes`, `detalle_cliente` (+ `resumen_polizas`) y `detalle_poliza`; `POST`/`PUT`/`PATCH`/`DELETE` → 405. |
+| AC-T2-18 | Dados `GET /api/clientes/?q=`, `GET /api/clientes/{id}/` y `GET /api/polizas/{id}/`, entonces devuelven `cliente_resumen`, `cliente_detalle` y `poliza_detalle` desde `buscar_clientes`, `detalle_cliente` (+ `resumen_polizas`) y `detalle_poliza`; sobre `/api/polizas/{id}/` cualquier escritura → 405, y sobre clientes `PUT`/`DELETE` → 405 (el ABM usa `POST` en la colección y `PATCH` en el detalle: AC-T2-22 y AC-T2-23). |
 
 ### Etapa F · Webhook de WhatsApp y páginas del front
 | ID | Criterio |
@@ -56,6 +56,8 @@ Todo dentro de `api/`. En `config/settings.py`, **solo** agregar: el bloque `RES
 | AC-T2-19 | Dado `GET /webhook/whatsapp/` con `hub.mode`, `hub.verify_token` y `hub.challenge`, entonces responde 200 con el challenge como `text/plain` si `verificar_suscripcion` lo devuelve; si no, 403. |
 | AC-T2-20 | Dado `POST /webhook/whatsapp/`, entonces (sin CSRF, sin sesión) verifica la firma con `verificar_firma(request.body, header)` **antes** de parsear: inválida → 403 y no se llama a nada; JSON inválido → 400; válido → llama `procesar_webhook(payload)` y responde 200 aunque el payload no tenga mensajes. |
 | AC-T2-21 | Dadas las rutas `/` (login), `/panel/` (bandeja), `/panel/conversacion/`, `/panel/alertas/`, `/panel/cerrados/`, `/panel/acciones/`, `/panel/derivaciones/`, `/panel/clientes/`, `/panel/cliente/`, entonces Django devuelve el archivo correspondiente de `frontend/pages/` (`login.html`, `bandeja.html`, `conversacion.html`, `alertas.html`, `cerrados.html`, `acciones.html`, `derivaciones.html`, `clientes.html`, `cliente.html`) con una lista blanca fija; otra ruta → 404; si el archivo todavía no existe (T1 no lo hizo), 404. Los JS/CSS se sirven en `/static/`. Las páginas no necesitan sesión (no contienen datos). |
+| AC-T2-22 | Dado `POST /api/clientes/` con `{dni, nombre, apellido, telefono, email?}`, entonces responde **201** con `cliente_detalle`; los datos sucios o repetidos son 400 `datos_invalidos` y falta de un campo obligatorio también; un funcionario sin `puede_aprobar` recibe 403 `permiso_denegado` y sin sesión 401, mientras que los `GET` de clientes siguen abiertos a cualquier funcionario. |
+| AC-T2-23 | Dados `PATCH /api/clientes/{id}/`, `POST /api/clientes/{id}/baja/` y `POST /api/clientes/{id}/reactivar/`, entonces responden 200 con `cliente_detalle`; el PATCH actualiza solo lo recibido y con datos inválidos es 400 sin cambiar nada; la baja con pólizas vigentes y la reactivación de un cliente activo son 409 `estado_invalido`; un id inexistente es 404; las tres exigen `puede_aprobar`. |
 
 ## 4. Diseño (guía para la IA)
 - `api/permisos.py`, `api/errores.py` (manejador), `api/serializers.py` (solo traducen; nada de reglas), `api/views.py` (`APIView` o vistas de función con `@api_view`), `api/webhook.py`, `api/paginas.py` (`FileResponse` de `BASE_DIR / "frontend" / "pages" / <archivo>`), `api/paginacion.py`, `api/urls.py`.

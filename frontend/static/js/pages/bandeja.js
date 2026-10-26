@@ -1,8 +1,9 @@
-import { api } from "../api.js";
-import { inicializarNav } from "../nav.js";
-import { claseDeColor } from "../lib/color.js";
-import { armarQuery } from "../lib/consulta.js";
-import { debounce } from "../lib/debounce.js";
+import { api } from "../api.js?v=20261020b";
+import { inicializarNav } from "../nav.js?v=20261020b";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261020b";
+import { claseTarjeta, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261020b";
+import { armarQuery } from "../lib/consulta.js?v=20261020b";
+import { debounce } from "../lib/debounce.js?v=20261020b";
 
 const formulario = document.getElementById("formulario-filtros");
 const campoEstado = document.getElementById("filtro-estado");
@@ -16,22 +17,9 @@ const paginaActual = document.getElementById("pagina-actual");
 const botonAnterior = document.getElementById("pagina-anterior");
 const botonSiguiente = document.getElementById("pagina-siguiente");
 
-const etiquetasSeveridad = {
-    baja: "Baja",
-    media: "Media",
-    alta: "Alta",
-    critica: "Crítica",
-};
-
 let paginaSeleccionada = 1;
 let paginasTotales = 1;
 let solicitudActual = 0;
-
-function crearCelda(texto) {
-    const celda = document.createElement("td");
-    celda.textContent = texto;
-    return celda;
-}
 
 function nombreCliente(cliente) {
     if (!cliente) {
@@ -40,58 +28,58 @@ function nombreCliente(cliente) {
     return [cliente.nombre, cliente.apellido].filter(Boolean).join(" ") || "Contacto desconocido";
 }
 
-function enlaceConversacion(conversacion, texto, clase = "") {
-    const enlace = document.createElement("a");
-    enlace.href = `/panel/conversacion/?id=${encodeURIComponent(conversacion.id)}`;
-    enlace.className = clase;
-    enlace.textContent = texto;
-    enlace.setAttribute("aria-label", `Abrir conversación ${conversacion.whatsapp}`);
-    return enlace;
+/** La etiqueta de severidad, con la cantidad de alertas abiertas si hay. */
+function insigniaSeveridad(conversacion) {
+    const etiqueta = crearInsignia(
+        etiquetaSeveridad(conversacion.severidad_maxima),
+        claseSeveridad(conversacion.severidad_maxima),
+    );
+    if (Number.isInteger(conversacion.alertas_abiertas) && conversacion.alertas_abiertas > 0) {
+        etiqueta.append(` · ${conversacion.alertas_abiertas}`);
+    }
+    return etiqueta;
 }
 
-function crearFila(conversacion) {
-    const fila = document.createElement("tr");
-    fila.className = claseDeColor(conversacion.color);
-    const numero = document.createElement("td");
-    numero.append(enlaceConversacion(conversacion, conversacion.whatsapp));
-    fila.append(numero);
-    fila.append(crearCelda(nombreCliente(conversacion.cliente)));
-    fila.append(crearCelda(conversacion.ultimo_mensaje?.texto ?? "—"));
-    fila.append(crearCelda(conversacion.estado));
-    fila.append(crearCelda(conversacion.modo));
-    fila.append(crearCelda(conversacion.atendida_por?.nombre ?? "—"));
+/** La tarjeta toma el color de la urgencia que calcula el servidor. */
+function crearTarjetaConversacion(conversacion) {
+    const enlace = `/panel/conversacion/?id=${encodeURIComponent(conversacion.id)}`;
+    const ver = document.createElement("a");
+    ver.href = enlace;
+    ver.className = "btn btn-sm btn-outline-primary";
+    ver.textContent = "Ver";
+    ver.setAttribute("aria-label", `Abrir conversación ${conversacion.whatsapp}`);
 
-    const severidad = etiquetasSeveridad[conversacion.severidad_maxima] ?? "—";
-    const celdaSeveridad = document.createElement("td");
-    celdaSeveridad.textContent = severidad;
-    if (Number.isInteger(conversacion.alertas_abiertas) && conversacion.alertas_abiertas > 0) {
-        const cantidad = document.createElement("span");
-        cantidad.className = "ms-1 small";
-        cantidad.textContent = `(${conversacion.alertas_abiertas})`;
-        celdaSeveridad.append(cantidad);
-    }
-    fila.append(celdaSeveridad);
-    fila.append(crearCelda(conversacion.sin_respuesta ? "Sin respuesta" : "—"));
-
-    const accion = document.createElement("td");
-    accion.append(enlaceConversacion(conversacion, "Ver", "btn btn-sm btn-outline-primary"));
-    fila.append(accion);
-    return fila;
+    return crearTarjeta({
+        titulo: nombreCliente(conversacion.cliente),
+        enlace,
+        subtitulo: conversacion.whatsapp,
+        clase: claseTarjeta(conversacion.color),
+        insignias: [
+            insigniaSeveridad(conversacion),
+            conversacion.sin_respuesta
+                ? crearInsignia("Sin respuesta", "pildora pildora-aviso")
+                : null,
+        ],
+        texto: conversacion.ultimo_mensaje?.texto ?? "Sin mensajes.",
+        datos: [
+            ["Estado", crearInsignia(conversacion.estado)],
+            ["Modo", crearInsignia(
+                conversacion.modo,
+                conversacion.modo === "humano" ? "pildora pildora-activa" : "pildora",
+            )],
+            ["Atiende", conversacion.atendida_por?.nombre ?? "—"],
+        ],
+        acciones: [ver],
+    });
 }
 
 function mostrarConversaciones(resultados) {
     filas.replaceChildren();
     if (resultados.length === 0) {
-        const filaVacia = document.createElement("tr");
-        const celda = document.createElement("td");
-        celda.colSpan = 9;
-        celda.className = "text-center text-muted py-4";
-        celda.textContent = "No se encontraron conversaciones.";
-        filaVacia.append(celda);
-        filas.append(filaVacia);
+        filas.append(crearTarjetaVacia("No se encontraron conversaciones."));
         return;
     }
-    filas.append(...resultados.map(crearFila));
+    filas.append(...resultados.map(crearTarjetaConversacion));
 }
 
 function filtrosActuales() {

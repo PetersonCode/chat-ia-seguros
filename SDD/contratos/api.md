@@ -49,7 +49,11 @@ Cambiar un endpoint o una forma de respuesta requiere acuerdo de las 4 personas.
 | `GET /api/derivaciones/` | sesión | `?atendidas=1` → página de `derivacion` (del usuario) |
 | `POST /api/derivaciones/{id}/atender/` | sesión (el asignado) | → `200 derivacion` |
 | `GET /api/clientes/` | sesión | `?q=&pagina=` → página de `cliente_resumen` |
+| `POST /api/clientes/` | aprobador | `{dni, nombre, apellido, telefono, email?}` → `201 cliente_detalle` |
 | `GET /api/clientes/{id}/` | sesión | → `cliente_detalle` |
+| `PATCH /api/clientes/{id}/` | aprobador | `{dni?, nombre?, apellido?, telefono?, email?}` → `200 cliente_detalle` |
+| `POST /api/clientes/{id}/baja/` | aprobador | → `200 cliente_detalle` (baja lógica) |
+| `POST /api/clientes/{id}/reactivar/` | aprobador | → `200 cliente_detalle` |
 | `GET /api/polizas/{id}/` | sesión | → `poliza_detalle` |
 
 **No son de la API JSON pero también los hace T2:** `GET /webhook/whatsapp/` (verificación de Meta, responde el `hub.challenge` como texto) y `POST /webhook/whatsapp/` (mensajes entrantes); y las páginas del front (ver spec T2).
@@ -70,7 +74,8 @@ Cambiar un endpoint o una forma de respuesta requiere acuerdo de las 4 personas.
  "respuestas_retenidas": 1, "sin_respuesta": false, "ventana_24h_abierta": true}
 
 // conversacion_detalle = conversacion_resumen + 
-{"cliente_info": {"id": 1, "dni": "27345678", "nombre": "Laura", "apellido": "Fernández",
+{"nombre_perfil": "Daniel",   // nombre del perfil de WhatsApp, para prellenar el alta; null si no hay
+ "cliente_info": {"id": 1, "dni": "27345678", "nombre": "Laura", "apellido": "Fernández",
                   "polizas": [poliza_resumen…]},                       // null si es desconocido
  "alertas": [alerta…]}
 
@@ -99,10 +104,10 @@ Cambiar un endpoint o una forma de respuesta requiere acuerdo de las 4 personas.
 {"id": 1, "consulta_id": 8, "conversacion_id": 8, "prioridad": "urgente", "motivo": "…", "creada_en": "…", "atendida_en": null}
 
 // cliente_resumen
-{"id": 1, "dni": "27345678", "nombre": "Laura", "apellido": "Fernández", "email": "…", "polizas_vigentes": 2}
+{"id": 1, "dni": "27345678", "nombre": "Laura", "apellido": "Fernández", "email": "…", "activo": true, "polizas_vigentes": 2}
 
 // cliente_detalle
-{"id": 1, "dni": "…", "nombre": "…", "apellido": "…", "email": "…",
+{"id": 1, "dni": "…", "nombre": "…", "apellido": "…", "email": "…", "activo": true,
  "contactos": ["+5491155551001"], "polizas": [poliza_resumen…], "siniestros": [siniestro…]}
 
 // poliza_detalle = poliza_resumen + 

@@ -1,4 +1,4 @@
-import { api } from "./api.js";
+import { api } from "./api.js?v=20261020b";
 
 const contadores = [
     { clave: "acciones", etiqueta: "Acciones", destino: "/panel/acciones/" },
@@ -46,36 +46,83 @@ export function notificarActualizacionPendientes() {
     document.dispatchEvent(new Event("pendientes:actualizar"));
 }
 
-function crearNavegacion(nav) {
-    nav.className = "navbar navbar-expand-lg bg-white border-bottom px-3";
-    const contenedor = crearElemento("div", "container-fluid");
-    const marca = crearElemento("a", "navbar-brand fw-semibold", "Seguros Castaño");
-    marca.href = "/panel/";
-    const usuario = crearElemento("span", "navbar-text ms-auto me-3");
-    usuario.dataset.usuario = "true";
-    const lista = crearElemento("ul", "navbar-nav flex-row flex-wrap gap-2 gap-lg-3 align-items-center");
-    const enlaces = new Map();
+/** Marca el enlace de la sección donde está parado el funcionario.
+ *
+ * Compara solo la ruta: "Alertas críticas" apunta a `/panel/alertas/?severidad=…`
+ * y tiene que marcarse igual cuando se está en esa página. Es solo estilo: el
+ * enlace sigue llevando exactamente al mismo lado.
+ */
+function marcarSiEsLaActual(enlace, destino) {
+    const ruta = destino.split("?")[0];
+    if (globalThis.location?.pathname === ruta) {
+        enlace.classList.add("activo");
+        enlace.setAttribute("aria-current", "page");
+    }
+}
 
+/** Las iniciales del funcionario, para el círculo de identidad. */
+function iniciales(nombre) {
+    return (nombre || "")
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((palabra) => palabra[0].toUpperCase())
+        .join("");
+}
+
+/**
+ * Arma la barra en tres grupos, de izquierda a derecha: a dónde ir, qué hay
+ * pendiente, y quién soy.
+ *
+ * Antes iban todos mezclados en una sola fila —y el nombre del funcionario
+ * quedaba en el medio, entre la marca y los enlaces—, así que no se distinguía
+ * la navegación de los contadores ni el dato de los controles.
+ */
+function crearNavegacion(nav) {
+    nav.className = "navbar bg-white border-bottom";
+    const contenedor = crearElemento("div", "container-fluid barra");
+
+    const marca = crearElemento("a", "navbar-brand", "Seguros Castaño");
+    marca.href = "/panel/";
+
+    // Grupo 1: navegación.
+    const principal = crearElemento("ul", "navbar-nav nav-principal flex-row");
     for (const destino of destinos) {
         const item = crearElemento("li", "nav-item");
         const enlace = crearElemento("a", "nav-link", destino.etiqueta);
         enlace.href = destino.destino;
+        marcarSiEsLaActual(enlace, destino.destino);
         item.append(enlace);
-        lista.append(item);
+        principal.append(item);
     }
 
+    // Grupo 2: pendientes. Son atajos con un número, no secciones: van juntos
+    // y con otra forma para que no se confundan con la navegación.
+    const enlaces = new Map();
+    const pendientes = crearElemento("ul", "navbar-nav nav-pendientes flex-row");
+    pendientes.setAttribute("aria-label", "Pendientes");
     for (const contador of contadores) {
         const item = crearElemento("li", "nav-item");
-        const enlace = crearElemento("a", "nav-link");
+        const enlace = crearElemento("a", "nav-link nav-chip");
         enlace.href = contador.destino;
-        enlace.append(document.createTextNode(`${contador.etiqueta} `));
-        const badge = crearElemento("span", "badge text-bg-secondary", "—");
-        badge.dataset.contador = contador.clave;
-        enlace.append(badge);
+        marcarSiEsLaActual(enlace, contador.destino);
+        enlace.append(crearElemento("span", "nav-chip-texto", contador.etiqueta));
+        const numero = crearElemento("span", "nav-contador", "—");
+        numero.dataset.contador = contador.clave;
+        enlace.append(numero);
         item.append(enlace);
-        lista.append(item);
-        enlaces.set(contador.clave, badge);
+        pendientes.append(item);
+        enlaces.set(contador.clave, numero);
     }
+
+    // Grupo 3: identidad. El nombre es un dato, no un control: va sin borde ni
+    // fondo, al lado de sus iniciales.
+    const identidad = crearElemento("div", "nav-usuario");
+    const avatar = crearElemento("span", "nav-avatar", "—");
+    avatar.setAttribute("aria-hidden", "true");
+    const usuario = crearElemento("span", "nav-usuario-nombre");
+    usuario.dataset.usuario = "true";
+    identidad.append(avatar, usuario);
 
     const salida = crearElemento("button", "btn btn-outline-secondary btn-sm", "Salir");
     salida.type = "button";
@@ -90,16 +137,54 @@ function crearNavegacion(nav) {
         }
     });
 
-    contenedor.append(marca, usuario, lista, salida);
+    const derecha = crearElemento("div", "barra-derecha");
+    derecha.append(
+        pendientes,
+        crearElemento("span", "nav-separador"),
+        identidad,
+        salida,
+    );
+
+    contenedor.append(marca, principal, derecha);
     nav.replaceChildren(contenedor);
-    return { usuario, enlaces };
+    return { usuario, avatar, enlaces, principal };
 }
 
 function actualizarContadores(enlaces, pendientes) {
-    for (const { clave } of contadores) {
+    for (const { clave, etiqueta } of contadores) {
         const valor = pendientes[clave];
-        enlaces.get(clave).textContent = Number.isFinite(valor) ? String(valor) : "—";
+        const hay = Number.isFinite(valor) && valor > 0;
+        const numero = enlaces.get(clave);
+        numero.textContent = Number.isFinite(valor) ? String(valor) : "—";
+        // Un cero no es lo mismo que tres cosas sin atender: el color lo dice
+        // sin que haya que leer el número.
+        numero.className = "nav-contador";
+        if (hay) {
+            numero.classList.add(clave === "alertas_criticas" ? "urgente" : "hay");
+        }
+        numero.closest(".nav-chip")?.setAttribute(
+            "aria-label",
+            Number.isFinite(valor) ? `${etiqueta}: ${valor}` : etiqueta,
+        );
     }
+}
+
+/**
+ * Suma "Usuarios" a la navegación, una sola vez, si quien entró es el
+ * propietario. Es solo para no mostrarle un enlace inútil al resto: quien
+ * decide el acceso es la API, que a cualquier otro le contesta 403.
+ */
+function agregarSeccionPropietario(principal, me) {
+    if (me?.rol !== "propietario" || principal.querySelector("[data-usuarios]")) {
+        return;
+    }
+    const item = crearElemento("li", "nav-item");
+    const enlace = crearElemento("a", "nav-link", "Usuarios");
+    enlace.href = "/panel/usuarios/";
+    enlace.dataset.usuarios = "true";
+    marcarSiEsLaActual(enlace, "/panel/usuarios/");
+    item.append(enlace);
+    principal.append(item);
 }
 
 /**
@@ -119,6 +204,8 @@ export async function inicializarNav(nav = document.getElementById("nav")) {
                 api.get("/api/pendientes/"),
             ]);
             elementos.usuario.textContent = me.nombre;
+            elementos.avatar.textContent = iniciales(me.nombre) || "—";
+            agregarSeccionPropietario(elementos.principal, me);
             actualizarContadores(elementos.enlaces, pendientes);
             limpiarError(nav);
         } catch (error) {

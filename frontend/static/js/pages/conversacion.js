@@ -1,7 +1,9 @@
-import { api } from "../api.js";
-import { inicializarNav } from "../nav.js";
-import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js";
-import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js";
+import { api } from "../api.js?v=20261020b";
+import { inicializarNav } from "../nav.js?v=20261020b";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261020b";
+import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261020b";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261020b";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261020b";
 
 const idConversacion = new URLSearchParams(globalThis.location.search).get("id");
 const tituloChat = document.getElementById("titulo-chat");
@@ -12,6 +14,8 @@ const panelCliente = document.getElementById("panel-cliente");
 const panelAlertas = document.getElementById("panel-alertas");
 const mensajesChat = document.getElementById("mensajes-chat");
 const botonModo = document.getElementById("boton-modo");
+const botonCerrarCasos = document.getElementById("boton-cerrar-casos");
+const botonVaciar = document.getElementById("boton-vaciar");
 const formularioRespuesta = document.getElementById("formulario-respuesta");
 const textoRespuesta = document.getElementById("texto-respuesta");
 const botonResponder = document.getElementById("boton-responder");
@@ -128,7 +132,17 @@ function renderizarCliente(detalle) {
     const cliente = detalle.cliente_info;
     if (!cliente) {
         panelCliente.append(crearElemento("p", "mb-1", "Contacto desconocido"));
-        panelCliente.append(crearElemento("p", "text-muted small mb-0", detalle.whatsapp));
+        panelCliente.append(crearElemento("p", "text-muted small mb-3", detalle.whatsapp));
+
+        // Abre el alta con el teléfono y el nombre de perfil ya cargados. No se
+        // crea ningún cliente acá: los datos reales los completa la persona.
+        const parametros = new URLSearchParams({ telefono: detalle.whatsapp ?? "" });
+        if (detalle.nombre_perfil) {
+            parametros.set("perfil", detalle.nombre_perfil);
+        }
+        const alta = crearElemento("a", "btn btn-sm btn-outline-primary", "Dar de alta como cliente");
+        alta.href = `/panel/clientes/?${parametros.toString()}`;
+        panelCliente.append(alta);
         return;
     }
 
@@ -142,16 +156,30 @@ function renderizarCliente(detalle) {
         return;
     }
 
-    const lista = crearElemento("ul", "list-group list-group-flush");
+    const grilla = crearElemento("div", "grilla-tarjetas grilla-angosta");
     for (const poliza of polizas) {
-        const item = crearElemento("li", "list-group-item px-0");
-        item.append(crearElemento("strong", "", poliza.numero_poliza));
-        item.append(crearElemento("div", "small", `${poliza.tipo_seguro} · ${poliza.estado}`));
-        item.append(crearElemento("div", "small", `Saldo pendiente: ${formatearMonto(poliza.saldo_pendiente)}`));
-        item.append(crearElemento("div", "small", `Próximo vencimiento: ${formatearFecha(poliza.proximo_vencimiento_pago)}`));
-        lista.append(item);
+        // `saldo_pendiente` sale de `v_polizas_resumen`: si es cero no hay
+        // ninguna cuota que cobrar y el botón no tendría qué hacer.
+        const debe = Number(poliza.saldo_pendiente ?? 0) > 0;
+        let pagar = null;
+        if (debe) {
+            pagar = crearElemento("button", "btn btn-sm btn-outline-success", "Póliza pagada");
+            pagar.type = "button";
+            pagar.addEventListener("click", () => confirmarPago(poliza));
+        }
+        grilla.append(crearTarjeta({
+            titulo: poliza.numero_poliza,
+            subtitulo: poliza.tipo_seguro,
+            clase: debe ? "tarjeta-amarillo" : "tarjeta-verde",
+            insignias: [crearInsignia(poliza.estado)],
+            datos: [
+                ["Saldo", debe ? formatearMonto(poliza.saldo_pendiente) : "Sin cuotas pendientes"],
+                ["Vence pago", formatearFecha(poliza.proximo_vencimiento_pago)],
+            ],
+            acciones: [pagar],
+        }));
     }
-    panelCliente.append(lista);
+    panelCliente.append(grilla);
 }
 
 function renderizarAlertas(alertas) {
@@ -161,14 +189,16 @@ function renderizarAlertas(alertas) {
         return;
     }
 
-    const lista = crearElemento("ul", "list-group list-group-flush");
+    const grilla = crearElemento("div", "grilla-tarjetas grilla-angosta");
     for (const alerta of alertas) {
-        const item = crearElemento("li", "list-group-item px-0");
-        item.append(crearElemento("strong", "d-block", `${alerta.severidad}: ${alerta.tipo}`));
-        item.append(crearElemento("span", "small", alerta.descripcion));
-        lista.append(item);
+        grilla.append(crearTarjeta({
+            titulo: alerta.tipo,
+            clase: claseTarjetaSeveridad(alerta.severidad),
+            insignias: [crearInsignia(etiquetaSeveridad(alerta.severidad), claseSeveridad(alerta.severidad))],
+            texto: alerta.descripcion,
+        }));
     }
-    panelAlertas.append(lista);
+    panelAlertas.append(grilla);
 }
 
 function renderizarConversacion(detalle) {
@@ -177,11 +207,21 @@ function renderizarConversacion(detalle) {
     contactoChat.textContent = `Chat con: ${detalle.whatsapp}`;
     estadoChat.textContent = `Estado: ${detalle.estado} · Modo: ${detalle.modo}`;
 
-    botonModo.hidden = false;
+    // Una conversación vaciada ya no recibe mensajes: el cliente sigue en una
+    // nueva. Queda solo para consulta.
+    const cerrada = detalle.estado === "cerrada";
+    botonModo.hidden = cerrada;
     botonModo.textContent = detalle.modo === "humano" ? "Devolver al bot" : "Tomar conversación";
+    botonVaciar.hidden = cerrada;
+
+    const casosAbiertos = Array.isArray(detalle.casos_abiertos) ? detalle.casos_abiertos : [];
+    botonCerrarCasos.hidden = casosAbiertos.length === 0;
+    botonCerrarCasos.textContent = casosAbiertos.length > 1
+        ? `Cerrar ${casosAbiertos.length} casos`
+        : "Cerrar caso";
 
     const modoHumano = detalle.modo === "humano";
-    formularioRespuesta.hidden = !modoHumano;
+    formularioRespuesta.hidden = !modoHumano || cerrada;
     textoRespuesta.disabled = !detalle.ventana_24h_abierta;
     botonResponder.disabled = !detalle.ventana_24h_abierta;
     avisoVentana.hidden = detalle.ventana_24h_abierta;
@@ -191,6 +231,72 @@ function renderizarConversacion(detalle) {
 
     renderizarCliente(detalle);
     renderizarAlertas(detalle.alertas);
+}
+
+/**
+ * Abre el mismo diálogo que los mensajes retenidos, pero para una confirmación
+ * simple: sin textarea y con la acción como callback.
+ */
+function abrirConfirmacion(titulo, descripcion, alConfirmar) {
+    accionSeleccionada = { alConfirmar };
+    dialogoError.textContent = "";
+    dialogoTexto.value = "";
+    dialogoLabel.hidden = true;
+    dialogoTexto.hidden = true;
+    dialogoTexto.required = false;
+    dialogoTitulo.textContent = titulo;
+    dialogoDescripcion.textContent = descripcion;
+    dialogo.showModal();
+}
+
+function confirmarPago(poliza) {
+    abrirConfirmacion(
+        "Registrar pago",
+        `Se va a marcar como pagada la cuota que vence el ${formatearFecha(poliza.proximo_vencimiento_pago)}`
+        + ` de la póliza ${poliza.numero_poliza}. Es una sola cuota: el saldo baja un mes.`,
+        async () => {
+            await api.post(`/api/polizas/${poliza.id}/pagos/`);
+            conversacion = await api.get(`/api/conversaciones/${idConversacion}/`);
+            renderizarConversacion(conversacion);
+            mostrarMensajePagina(`Pago registrado en ${poliza.numero_poliza}.`);
+        },
+    );
+}
+
+function cerrarCasos() {
+    const casos = conversacion?.casos_abiertos ?? [];
+    if (casos.length === 0) {
+        return;
+    }
+    const codigos = casos.map((caso) => caso.codigo_caso).join(", ");
+    abrirConfirmacion(
+        casos.length > 1 ? "Cerrar los casos" : "Cerrar el caso",
+        `Se dan por terminados: ${codigos}. El chat queda abierto, así que el cliente`
+        + " puede volver a escribir y el bot va a seguir atendiéndolo.",
+        async () => {
+            conversacion = await api.post(`/api/conversaciones/${idConversacion}/cerrar-casos/`);
+            renderizarConversacion(conversacion);
+            mostrarMensajePagina(casos.length > 1 ? "Casos cerrados." : "Caso cerrado.");
+        },
+    );
+}
+
+function vaciarChat() {
+    abrirConfirmacion(
+        "Vaciar chat",
+        "El bot se olvida de todo lo hablado: el próximo mensaje del cliente abre una"
+        + " conversación nueva, sin historial. Los mensajes, casos y alertas de esta"
+        + " quedan guardados para consulta.",
+        async () => {
+            conversacion = await api.post(`/api/conversaciones/${idConversacion}/vaciar/`);
+            renderizarConversacion(conversacion);
+            mensajes = [];
+            mensajesPorId.clear();
+            nodosPorId.clear();
+            mensajesChat.replaceChildren();
+            mostrarMensajePagina("Chat vaciado. El próximo mensaje del cliente empieza una conversación nueva.");
+        },
+    );
 }
 
 function abrirDialogo(mensaje, accion) {
@@ -219,6 +325,21 @@ function abrirDialogo(mensaje, accion) {
 
 async function confirmarAccion() {
     if (!accionSeleccionada) {
+        return;
+    }
+    // Confirmación simple (cerrar caso, registrar pago): la acción ya viene
+    // resuelta en el callback y no hay texto que validar.
+    if (accionSeleccionada.alConfirmar) {
+        dialogoConfirmar.disabled = true;
+        dialogoError.textContent = "";
+        try {
+            await accionSeleccionada.alConfirmar();
+            dialogo.close();
+        } catch (error) {
+            dialogoError.textContent = error.mensaje ?? error.message ?? "No se pudo completar la acción.";
+        } finally {
+            dialogoConfirmar.disabled = false;
+        }
         return;
     }
     const { mensaje, accion } = accionSeleccionada;
@@ -342,6 +463,8 @@ async function iniciar() {
 }
 
 botonModo.addEventListener("click", cambiarModo);
+botonCerrarCasos.addEventListener("click", cerrarCasos);
+botonVaciar.addEventListener("click", vaciarChat);
 formularioRespuesta.addEventListener("submit", responder);
 dialogoCancelar.addEventListener("click", () => dialogo.close());
 dialogoConfirmar.addEventListener("click", confirmarAccion);

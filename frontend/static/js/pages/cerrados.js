@@ -1,5 +1,7 @@
-import { api } from "../api.js";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js";
+import { api } from "../api.js?v=20261020b";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261020b";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261020b";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261020b";
 
 const filas = document.getElementById("filas-casos");
 const estado = document.getElementById("estado-casos");
@@ -13,42 +15,39 @@ let paginasTotales = 1;
 let funcionario = null;
 let solicitudActual = 0;
 
-function crearCelda(texto) {
-    const celda = document.createElement("td");
-    celda.textContent = texto ?? "—";
-    return celda;
-}
+function crearTarjetaCaso(caso) {
+    const enlace = `/panel/conversacion/?id=${encodeURIComponent(caso.conversacion_id)}`;
+    const abrir = document.createElement("a");
+    abrir.href = enlace;
+    abrir.className = "btn btn-sm btn-outline-secondary";
+    abrir.textContent = "Abrir conversación";
 
-function crearFila(caso) {
-    const fila = document.createElement("tr");
-    fila.append(crearCelda(caso.codigo_caso));
-    fila.append(crearCelda(caso.cliente
-        ? [caso.cliente.nombre, caso.cliente.apellido].filter(Boolean).join(" ")
-        : "Contacto desconocido"));
-    fila.append(crearCelda(caso.tipo_consulta));
-    fila.append(crearCelda(String(caso.alertas_abiertas)));
-    fila.append(crearCelda(caso.severidad_maxima));
-
-    const enlace = document.createElement("a");
-    enlace.href = `/panel/conversacion/?id=${encodeURIComponent(caso.conversacion_id)}`;
-    enlace.textContent = "Abrir conversación";
-    const celdaEnlace = document.createElement("td");
-    celdaEnlace.append(enlace);
-    fila.append(celdaEnlace);
-
-    const celdaAccion = document.createElement("td");
+    let reabrir = null;
     if (funcionario.puede_aprobar) {
-        const boton = document.createElement("button");
-        boton.type = "button";
-        boton.className = "btn btn-sm btn-outline-primary";
-        boton.textContent = "Reabrir";
-        boton.addEventListener("click", () => reabrirCaso(caso.id, boton));
-        celdaAccion.append(boton);
-    } else {
-        celdaAccion.textContent = "—";
+        reabrir = document.createElement("button");
+        reabrir.type = "button";
+        reabrir.className = "btn btn-sm btn-outline-primary";
+        reabrir.textContent = "Reabrir";
+        reabrir.addEventListener("click", () => reabrirCaso(caso.id, reabrir));
     }
-    fila.append(celdaAccion);
-    return fila;
+
+    return crearTarjeta({
+        titulo: caso.codigo_caso,
+        enlace,
+        subtitulo: caso.cliente
+            ? [caso.cliente.nombre, caso.cliente.apellido].filter(Boolean).join(" ")
+            : "Contacto desconocido",
+        clase: claseTarjetaSeveridad(caso.severidad_maxima),
+        insignias: [crearInsignia(
+            etiquetaSeveridad(caso.severidad_maxima),
+            claseSeveridad(caso.severidad_maxima),
+        )],
+        datos: [
+            ["Consulta", caso.tipo_consulta ?? "—"],
+            ["Alertas abiertas", String(caso.alertas_abiertas)],
+        ],
+        acciones: [abrir, reabrir],
+    });
 }
 
 function actualizarPaginacion(datos) {
@@ -83,14 +82,9 @@ async function cargarCasos(pagina = paginaSeleccionada) {
         }
 
         if (datos.resultados.length === 0) {
-            const filaVacia = document.createElement("tr");
-            const celda = crearCelda("No hay casos cerrados con alertas abiertas.");
-            celda.colSpan = 7;
-            celda.className = "text-center text-muted py-4";
-            filaVacia.append(celda);
-            filas.append(filaVacia);
+            filas.append(crearTarjetaVacia("No hay casos cerrados con alertas abiertas."));
         } else {
-            filas.append(...datos.resultados.map(crearFila));
+            filas.append(...datos.resultados.map(crearTarjetaCaso));
         }
         actualizarPaginacion(datos);
         estado.textContent = "";

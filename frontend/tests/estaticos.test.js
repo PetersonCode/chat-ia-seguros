@@ -58,3 +58,39 @@ test("AC-T1-08: los módulos JS no usan HTML inseguro ni hacen fetch fuera de ap
 
     assert.deepEqual(usosFetch, ["api.js"]);
 });
+
+test("todas las URLs de estáticos llevan versión, para que la caché no sirva lo viejo", async () => {
+    // Los estáticos se sirven con max-age de horas: un archivo que cambia y
+    // conserva su URL se sigue leyendo viejo. Peor todavía, un `import` sin
+    // versión puede traer una librería vieja que ya no exporta lo que el
+    // script nuevo le pide, y ahí la página entera deja de cargar.
+    // `python manage.py versionar_estaticos` los pone todos de una.
+    const paginas = join(raiz, "pages");
+    const sinVersion = [];
+
+    for (const ruta of await archivosRecursivos(paginas)) {
+        if (!ruta.endsWith(".html")) {
+            continue;
+        }
+        const html = await readFile(ruta, "utf8");
+        for (const [, url] of html.matchAll(/(?:href|src)="(\/static\/[^"]+)"/g)) {
+            if (!url.includes("?v=")) {
+                sinVersion.push(`${relative(raiz, ruta)} -> ${url}`);
+            }
+        }
+    }
+
+    for (const ruta of await archivosRecursivos(raizJs)) {
+        if (!ruta.endsWith(".js")) {
+            continue;
+        }
+        const codigo = await readFile(ruta, "utf8");
+        for (const [, especificador] of codigo.matchAll(/from "(\.{1,2}\/[^"]+)"/g)) {
+            if (!especificador.includes("?v=")) {
+                sinVersion.push(`${relative(raizJs, ruta)} -> ${especificador}`);
+            }
+        }
+    }
+
+    assert.deepEqual(sinVersion, []);
+});
