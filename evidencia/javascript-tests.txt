@@ -1,0 +1,60 @@
+
+> test
+> node --test
+
+✔ AC-T1-17: describirAccion presenta acciones y pólizas en texto legible (26.4459ms)
+✔ AC-T1-17: faltantes informa los parámetros necesarios para cada acción (2.2795ms)
+✔ describirAccion y faltantes conocen el alta de cliente que arma el bot (0.3212ms)
+✔ AC-T1-02: get envía encabezados JSON y devuelve el cuerpo (2.8098ms)
+✔ AC-T1-02: post y patch serializan sus cuerpos (1.2521ms)
+✔ las cargas multipart conservan CSRF y dejan elegir el boundary al navegador (32.8145ms)
+✔ AC-T1-02: errores de API conservan status, codigo y mensaje (0.8445ms)
+✔ AC-T1-02: una respuesta 401 redirige al login y lanza ApiError (0.3569ms)
+✔ AC-T1-22: limpiarDni deja solo los dígitos (2.3247ms)
+✔ AC-T1-22: digitosNacionales descarta +54, el 9 y el 0 inicial (0.3214ms)
+✔ AC-T1-22: un cliente completo y correcto no tiene errores (1.1665ms)
+✔ AC-T1-22: el email es opcional pero si viene se valida (0.3205ms)
+✔ AC-T1-22: se rechazan DNI, teléfono y nombres sucios (0.3732ms)
+✔ AC-T1-22: el alta exige todos los campos obligatorios (0.3485ms)
+✔ AC-T1-22: separarNombrePerfil parte en nombre y apellido sin inventar (0.3319ms)
+✔ AC-T1-22: prellenadoDesdeUrl arma el alta a partir de la conversación (0.2987ms)
+✔ AC-T1-23: en modo parcial solo se valida lo que viene cargado (0.2921ms)
+✔ AC-T1-09: cada color de bandeja tiene su clase y lo desconocido queda en verde (1.1936ms)
+✔ una conversación sin alertas se muestra como Baja, no como un guion (0.2482ms)
+✔ la severidad no decide el color: sin alertas la fila sigue verde (0.1763ms)
+✔ claseSeveridad da la etiqueta de cada nivel y cae en baja si no hay alertas (0.9962ms)
+✔ AC-T1-09: armarQuery codifica valores y conserva el orden de los parámetros (1.1219ms)
+✔ AC-T1-09: armarQuery omite campos vacíos, nulos y falsos (0.2598ms)
+✔ AC-T1-04: debounce ejecuta una vez tras la última llamada y usa sus argumentos (2.7857ms)
+✔ AC-T1-07: app.css define las clases visuales requeridas (5.8546ms)
+✔ AC-T1-01: package.json configura módulos ES, proyecto privado y tests sin dependencias (1.7727ms)
+✔ el formulario de pagos pide referencia e importe completo de cuota (24.2307ms)
+✔ el detalle de conversación expone acciones pendientes y bloquea el cierre (18.1149ms)
+✔ la vista previa anuncia cuotas por aniversario y vencimiento al inicio del ciclo (17.3203ms)
+✔ el expediente permite registrar y documenta decisiones internas (16.1354ms)
+✔ los reportes muestran filtros de período e indicadores sin afirmar tasa de resolución (16.1853ms)
+✔ la consulta documental cita fragmentos y explicita abstención y búsqueda lexical (15.0788ms)
+✔ AC-T1-08: los módulos JS no usan HTML inseguro ni hacen fetch fuera de api.js (114.5492ms)
+✔ todas las URLs de estáticos llevan versión, para que la caché no sirva lo viejo (13.0363ms)
+✔ AC-T1-03: formatear monto con agrupación argentina y centavos (15.9328ms)
+✔ AC-T1-03: formatear fechas en español y hora de Buenos Aires (4.7127ms)
+✔ AC-T1-03: datos nulos o inválidos se representan con guion (0.2328ms)
+✔ AC-T1-11: fusionarMensajes ordena por fecha e id, quita duplicados y no muta las entradas (1.2682ms)
+✔ AC-T1-11: accionesPermitidas exige aprobador y mensaje retenido (0.161ms)
+✔ AC-T1-20: ordenarPolizas pone vigentes primero por vencimiento sin mutar la lista (11.2735ms)
+✔ AC-T1-20: etiquetaEstadoPoliza traduce estados conocidos y marca desconocidos (0.1815ms)
+✔ validarPoliza acepta un alta completa y el número vacío (lo pone el servidor) (0.3433ms)
+✔ validarPoliza marca los campos que faltan o están mal (0.2694ms)
+✔ validarPoliza exige que el vencimiento sea posterior al inicio (0.1705ms)
+✔ mesesDeCobertura cuenta ciclos mensuales desde la fecha de inicio (0.2266ms)
+✔ la prima rechaza valores no finitos, fuera de rango y fracciones de centavo (0.1545ms)
+✔ la tarjeta toma el color de la urgencia y lo desconocido queda en verde (0.9827ms)
+✔ la severidad se pinta con la misma escala que el servidor (0.1578ms)
+ℹ tests 48
+ℹ suites 0
+ℹ pass 48
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 470.005

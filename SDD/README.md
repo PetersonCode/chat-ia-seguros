@@ -14,8 +14,9 @@ Spec Driven Development para **4 personas, 4 tareas, 4 branches**. Cada persona 
 | `plantillas/env.example` | Base del `.env.example` del repo |
 | `verificar.py` | Comprueba que cada AC tenga su test (`python SDD/verificar.py T3`) |
 
-## Estado (2026-10-05)
-Las cuatro tareas están integradas en este directorio y sus entregas están en `SDD/entregas/`.
+## Línea base histórica (2026-10-05)
+Las cifras de esta tabla corresponden únicamente al estado de ese día; no son
+evidencia del estado actual tras las entregas posteriores.
 
 | Tarea | AC con test | Suite |
 |---|---|---|
@@ -24,14 +25,19 @@ Las cuatro tareas están integradas en este directorio y sus entregas están en 
 | **T2 · API** | 21/21 | `python manage.py test api` → 75 OK |
 | **T1 · Frontend** | 10/21 | `npm test` → 20 OK |
 
-Total: **238 tests de Python + 20 de JavaScript, todos en verde** contra PostgreSQL 17.11 real.
+Total histórico: **238 tests de Python + 20 de JavaScript**, registrados como
+verdes contra PostgreSQL 17.11. Estos números no incluyen las tareas posteriores
+ni deben tomarse como resultado de la suite actual. La verificación más reciente
+de esta preparación (incluidos los límites del entorno local y los pendientes
+del equipo) está en [`entregas/T15.md`](./entregas/T15.md).
 
-Faltan dos cosas, las dos necesitan una persona:
-1. **`python manage.py migrate`** — crea las tablas propias de Django (usuarios, sesiones) en `proyecto`.
-   Es la única excepción que R8 permite y la corre **una sola persona, una sola vez**. Sin esto el login
-   no funciona contra la base real. Después: `python manage.py crear_usuarios_funcionarios --clave <clave>`.
-2. **El QA manual de `SDD/qa/T1.md`** — son los 11 AC de T1 marcados `**(QA)**`, que son de pantalla y
-   no se pueden automatizar. Hay que hacerlos con el navegador, como Graciela y como Diego.
+## Pendientes operativos
+La base de cada instalación necesita las migraciones Django y la creación
+explícita de cuentas de funcionarios después de cargar el esquema SQL. Los pasos
+vigentes están en [`README.md`](../README.md); las contraseñas no se restablecen
+al iniciar la aplicación. La revisión visual con perfiles de aprobador y
+operador y los recorridos operativos quedan pendientes hasta que una persona
+complete el QA y lo registre en `entregas/T15.md`.
 
 ## Orden de ejecución (importante)
 Se hace **de abajo hacia arriba**, porque cada capa usa la anterior:
@@ -57,7 +63,7 @@ git push -u origin tarea-N-nombre             # publicás tu branch
 Quien sigue revisa el PR de quien termina (T3 revisa a T4, T2 a T3, T1 a T2, T4 a T1): así lee lo que va a usar.
 
 ## Paso a paso para cada persona
-1. **Antes de empezar:** `git pull` de `main` y leé `SDD/entregas/` de las tareas anteriores. Copiá `.env.example` a `.env`: ya trae los datos de conexión que funcionan en este equipo, no hay que completar nada para empezar. Si llegás a cargar un token real de WhatsApp o de LLM, va **solo** en tu `.env` (ignorado por git) y **no** se pega en la IA.
+1. **Antes de empezar:** `git pull` de `main` y leé `SDD/entregas/` de las tareas anteriores. Para preparar la aplicación en una clonación nueva, seguí [`README.md`](../README.md): crea una base local, configura `.env` y aplica los scripts SQL en orden. La plantilla contiene valores de ejemplo, no credenciales. Si cargás un token real de WhatsApp o de LLM, va **solo** en tu `.env` (ignorado por git) y **no** se pega en la IA.
 2. **Abrí una sesión nueva** de tu IA y pegá, en este orden: `00-comun.md`, tu `Tn-*.md`, los contratos que indica tu spec y las entregas anteriores.
 3. **Arrancá con este mensaje** (una etapa por vez):
    ```
@@ -84,9 +90,14 @@ Quien sigue revisa el PR de quien termina (T3 revisa a T4, T2 a T3, T1 a T2, T4 
 ## Modelos de IA
 Cualquier modelo gratuito sirve, pero conviene uno con **ventana de contexto de al menos 32k tokens**: el paquete de documentos de una tarea ronda los 8 a 14k tokens antes de empezar a escribir código. Si tu modelo tiene poca ventana, pegá solo `00-comun.md`, la etapa actual de tu spec y la sección del contrato que esa etapa usa.
 
-## Datos de conexión (para el `.env`)
-`postgresql://irusu:CONTRASEÑA@localhost:25432/proyecto?sslmode=require` — conexión local a la base publicada en este equipo; la base se borra en un mes y los datos son ficticios.
-
-La contraseña real ya está puesta en `.env.example` (y en `SDD/plantillas/env.example`, que es su copia exacta): la base está abierta a propósito, corre en el mismo equipo que el código y solo tiene datos ficticios. El `sslmode=require` **no es opcional**: el servidor rechaza las conexiones sin SSL (`no pg_hba.conf entry`), así que `OPTIONS={"sslmode": "require"}` en `config/settings.py` tiene que quedar como está.
-
-Para comprobar que tu `.env` quedó bien: `python manage.py verificar_conexion` (es de solo lectura, imprime la versión de PostgreSQL y las filas de cada tabla).
+## Preparar el entorno local
+La configuración de desarrollo y producción, la creación de la base local, el
+orden de aplicación de `SDD/sql/01_schema.sql` a
+`10_trabajos_whatsapp.sql`, las
+migraciones y los comandos de verificación están documentados en
+[`README.md`](../README.md). En desarrollo se usa `DB_SSLMODE=disable`; en
+producción debe usarse `DB_SSLMODE=require` con un servidor PostgreSQL que ofrezca TLS.
+Los adjuntos privados y el flujo de media de WhatsApp están descritos en
+[`adjuntos_siniestros.md`](./adjuntos_siniestros.md).
+La consulta documental local está descrita en
+[`documentos_generales.md`](./documentos_generales.md).

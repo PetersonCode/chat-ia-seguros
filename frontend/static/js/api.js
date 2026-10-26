@@ -37,19 +37,19 @@ export function configurarApi(opciones = {}) {
     configuracion = { ...configuracion, ...opciones };
 }
 
-async function solicitar(metodo, url, cuerpo) {
+async function solicitar(metodo, url, cuerpo, multipart = false) {
     const csrf = configuracion.leerCookie("csrftoken");
-    const encabezados = {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-    };
+    const encabezados = { Accept: "application/json" };
+    if (!multipart) {
+        encabezados["Content-Type"] = "application/json";
+    }
     if (csrf) {
         encabezados["X-CSRFToken"] = csrf;
     }
 
     const opciones = { method: metodo, headers: encabezados };
     if (cuerpo !== undefined) {
-        opciones.body = JSON.stringify(cuerpo);
+        opciones.body = multipart ? cuerpo : JSON.stringify(cuerpo);
     }
 
     const respuesta = await configuracion.fetch(url, opciones);
@@ -82,5 +82,8 @@ export const api = {
     },
     patch(url, cuerpo) {
         return solicitar("PATCH", url, cuerpo);
+    },
+    upload(url, formulario) {
+        return solicitar("POST", url, formulario, true);
     },
 };

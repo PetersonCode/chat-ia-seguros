@@ -1,4 +1,4 @@
-import { formatearMonto } from "./formato.js";
+import { formatearMonto } from "./formato.js?v=20261026fix2";
 
 const tiposQueRequierenPoliza = new Set([
     "baja_poliza",
@@ -17,7 +17,7 @@ function parametroFaltante(valor) {
 }
 
 function numeroPoliza(accion) {
-    return accion.poliza?.numero_poliza ?? accion.parametros?.poliza ?? "—";
+    return accion.poliza?.numero_poliza ?? "—";
 }
 
 /**
@@ -30,9 +30,9 @@ export function describirAccion(accion) {
     if (
         !accion.poliza
         && tiposQueRequierenPoliza.has(accion.tipo_accion)
-        && parametroFaltante(parametros.poliza)
     ) {
-        return "Sin póliza asociada";
+        const nombres = { baja_poliza: "Baja de póliza", agregar_conductor: "Agregar conductor", modificar_poliza: "Modificar póliza", apertura_siniestro: "Apertura de siniestro" };
+        return `${nombres[accion.tipo_accion]} · sin póliza asociada`;
     }
 
     switch (accion.tipo_accion) {
@@ -48,6 +48,15 @@ export function describirAccion(accion) {
         }
         case "apertura_siniestro":
             return `Apertura de siniestro para la póliza ${numeroPoliza(accion)}`;
+        case "alta_cliente": {
+            // El bot ya juntó nombre y DNI; se muestran para que quien aprueba
+            // vea qué va a crear sin tener que abrir la conversación.
+            const nombre = [parametros.nombre, parametros.apellido]
+                .filter((parte) => !parametroFaltante(parte))
+                .join(" ");
+            const dni = parametroFaltante(parametros.dni) ? "" : ` (DNI ${parametros.dni})`;
+            return nombre ? `Alta de ${nombre}${dni}` : "Alta de cliente (datos incompletos)";
+        }
         default:
             return "Acción pendiente";
     }
@@ -65,6 +74,7 @@ export function faltantes(accion) {
         reembolso: ["importe"],
         modificar_poliza: ["detalle"],
         apertura_siniestro: ["fecha_ocurrencia", "descripcion"],
+        alta_cliente: ["nombre", "apellido", "dni", "telefono"],
         baja_poliza: [],
     };
     const requeridos = requeridosPorTipo[accion.tipo_accion] ?? [];
@@ -72,7 +82,6 @@ export function faltantes(accion) {
     if (
         accion.tipo_accion === "baja_poliza"
         && !accion.poliza
-        && parametroFaltante(parametros.poliza)
     ) {
         faltantesParametros.push("poliza");
     }

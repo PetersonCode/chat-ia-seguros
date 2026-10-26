@@ -8,7 +8,9 @@ identificadores inventados que los guardrails tienen que detectar.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
+
+from django.utils import timezone
 
 from datos import fabricas
 from datos.models import (
@@ -53,6 +55,7 @@ def _numero(etiqueta: str) -> str:
 def crear_escenario() -> Escenario:
     fabricas.crear_catalogos()
     automotor = TipoSeguro.objects.get(codigo="automotor")
+    hoy = timezone.localdate()
 
     laura = fabricas.crear_cliente(
         dni="27345678", nombre="Laura", apellido="Fernández"
@@ -67,13 +70,15 @@ def crear_escenario() -> Escenario:
             cliente=laura,
             numero_poliza="POL-00101",
             tipo_seguro=automotor,
-            fecha_vencimiento=date(2026, 3, 31),
+            fecha_inicio=hoy - timedelta(days=365),
+            fecha_vencimiento=hoy + timedelta(days=365),
         ),
         "POL-00102": fabricas.crear_poliza(
             cliente=laura,
             numero_poliza="POL-00102",
             tipo_seguro=automotor,
-            fecha_vencimiento=date(2026, 6, 30),
+            fecha_inicio=hoy - timedelta(days=365),
+            fecha_vencimiento=hoy + timedelta(days=365),
         ),
         "POL-00106": fabricas.crear_poliza(
             cliente=ricardo,
@@ -87,7 +92,8 @@ def crear_escenario() -> Escenario:
             cliente=nora,
             numero_poliza="POL-00123",
             tipo_seguro=automotor,
-            fecha_vencimiento=date(2026, 9, 30),
+            fecha_inicio=hoy - timedelta(days=365),
+            fecha_vencimiento=hoy + timedelta(days=365),
         ),
     }
 

@@ -1,0 +1,28 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Django: runserver",
+            "type": "process",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": ["manage.py", "runserver"],
+            "problemMatcher": []
+        },
+        {
+            "label": "Django: tests",
+            "type": "process",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": ["manage.py", "test"],
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Frontend: tests",
+            "type": "process",
+            "command": "npm.cmd",
+            "args": ["test"],
+            "group": "test",
+            "problemMatcher": []
+        }
+    ]
+}

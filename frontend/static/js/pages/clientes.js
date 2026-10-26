@@ -1,8 +1,9 @@
-import { api } from "../api.js";
-import { inicializarNav } from "../nav.js";
-import { armarQuery } from "../lib/consulta.js";
-import { debounce } from "../lib/debounce.js";
-import { limpiarDni, prellenadoDesdeUrl, validarCliente } from "../lib/clientes.js";
+import { api } from "../api.js?v=20261026fix2";
+import { inicializarNav } from "../nav.js?v=20261026fix2";
+import { armarQuery } from "../lib/consulta.js?v=20261026fix2";
+import { debounce } from "../lib/debounce.js?v=20261026fix2";
+import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261026fix2";
+import { limpiarDni, prellenadoDesdeUrl, validarCliente } from "../lib/clientes.js?v=20261026fix2";
 
 const formulario = document.getElementById("formulario-busqueda-clientes");
 const campoBusqueda = document.getElementById("busqueda-clientes");
@@ -33,41 +34,30 @@ function textoBusqueda() {
     return /^\d[\d.]*$/.test(texto) ? texto.replaceAll(".", "") : texto;
 }
 
-function crearFila(cliente) {
-    const fila = document.createElement("tr");
-    const nombre = [cliente.nombre, cliente.apellido].filter(Boolean).join(" ");
-    const celdaNombre = document.createElement("td");
-    celdaNombre.textContent = nombre;
-    fila.append(celdaNombre);
+function crearTarjetaCliente(cliente) {
+    const enlace = `/panel/cliente/?id=${encodeURIComponent(cliente.id)}`;
+    const ficha = document.createElement("a");
+    ficha.href = enlace;
+    ficha.className = "btn btn-sm btn-outline-primary";
+    ficha.textContent = "Ver ficha";
 
-    const celdaDni = document.createElement("td");
-    celdaDni.textContent = dniLegible(cliente.dni);
-    fila.append(celdaDni);
-
-    const celdaCorreo = document.createElement("td");
-    celdaCorreo.textContent = cliente.email ?? "—";
-    fila.append(celdaCorreo);
-
-    const celdaEstado = document.createElement("td");
-    const insignia = document.createElement("span");
     const dadoDeBaja = cliente.activo === false;
-    insignia.className = dadoDeBaja ? "badge text-bg-secondary" : "badge text-bg-success";
-    insignia.textContent = dadoDeBaja ? "Dado de baja" : "Activo";
-    celdaEstado.append(insignia);
-    fila.append(celdaEstado);
-
-    const celdaPolizas = document.createElement("td");
-    celdaPolizas.textContent = String(cliente.polizas_vigentes);
-    fila.append(celdaPolizas);
-
-    const celdaFicha = document.createElement("td");
-    const enlace = document.createElement("a");
-    enlace.href = `/panel/cliente/?id=${encodeURIComponent(cliente.id)}`;
-    enlace.className = "btn btn-sm btn-outline-primary";
-    enlace.textContent = "Ver ficha";
-    celdaFicha.append(enlace);
-    fila.append(celdaFicha);
-    return fila;
+    const vigentes = Number(cliente.polizas_vigentes ?? 0);
+    return crearTarjeta({
+        titulo: [cliente.nombre, cliente.apellido].filter(Boolean).join(" ") || "Cliente",
+        enlace,
+        subtitulo: `DNI ${dniLegible(cliente.dni)}`,
+        clase: dadoDeBaja ? "tarjeta-apagada" : vigentes > 0 ? "tarjeta-verde" : "tarjeta-amarillo",
+        insignias: [crearInsignia(
+            dadoDeBaja ? "Dado de baja" : "Activo",
+            dadoDeBaja ? "pildora" : "pildora pildora-activa",
+        )],
+        datos: [
+            ["Correo", cliente.email ?? "—"],
+            ["Pólizas vigentes", String(vigentes)],
+        ],
+        acciones: [ficha],
+    });
 }
 
 function actualizarPaginacion(datos) {
@@ -103,15 +93,9 @@ async function cargarClientes(pagina = paginaSeleccionada) {
             throw new Error("La respuesta de clientes no tiene el formato esperado.");
         }
         if (datos.resultados.length === 0) {
-            const filaVacia = document.createElement("tr");
-            const celda = document.createElement("td");
-            celda.colSpan = 6;
-            celda.className = "text-center text-muted py-4";
-            celda.textContent = "No se encontraron clientes.";
-            filaVacia.append(celda);
-            filas.append(filaVacia);
+            filas.append(crearTarjetaVacia("No se encontraron clientes."));
         } else {
-            filas.append(...datos.resultados.map(crearFila));
+            filas.append(...datos.resultados.map(crearTarjetaCliente));
         }
         actualizarPaginacion(datos);
         estado.textContent = "";

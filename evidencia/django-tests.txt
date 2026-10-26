@@ -1,0 +1,636 @@
+Creating test database for alias 'default' ('test_proyecto')...
+Found 536 test(s).
+Operations to perform:
+  Synchronize unmigrated apps: api, datos, messages, negocio, rest_framework, staticfiles
+  Apply all migrations: admin, auth, contenttypes, sessions
+Synchronizing apps without migrations:
+  Creating tables...
+    Running deferred SQL...
+Running migrations:
+  Applying contenttypes.0001_initial... OK
+  Applying auth.0001_initial... OK
+  Applying admin.0001_initial... OK
+  Applying admin.0002_logentry_remove_auto_add... OK
+  Applying admin.0003_logentry_add_action_flag_choices... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying auth.0002_alter_permission_name_max_length... OK
+  Applying auth.0003_alter_user_email_max_length... OK
+  Applying auth.0004_alter_user_username_opts... OK
+  Applying auth.0005_alter_user_last_login_null... OK
+  Applying auth.0006_require_contenttypes_0002... OK
+  Applying auth.0007_alter_validators_add_error_messages... OK
+  Applying auth.0008_alter_user_username_max_length... OK
+  Applying auth.0009_alter_user_last_name_max_length... OK
+  Applying auth.0010_alter_group_name_max_length... OK
+  Applying auth.0011_update_proxy_permissions... OK
+  Applying auth.0012_alter_user_first_name_max_length... OK
+  Applying sessions.0001_initial...test_aprobar_ejecuta_la_accion_y_devuelve_la_accion (api.tests.test_acciones.AccionesTests.test_aprobar_ejecuta_la_accion_y_devuelve_la_accion) ... ok
+test_aprobar_reembolso_devuelve_estado_aprobado_sin_ejecutar (api.tests.test_acciones.AccionesTests.test_aprobar_reembolso_devuelve_estado_aprobado_sin_ejecutar) ... ok
+test_baja_permite_seleccionar_una_poliza_y_aprobarla (api.tests.test_acciones.AccionesTests.test_baja_permite_seleccionar_una_poliza_y_aprobarla) ... ok
+test_baja_rechaza_poliza_ajena_y_contacto_sin_vinculacion (api.tests.test_acciones.AccionesTests.test_baja_rechaza_poliza_ajena_y_contacto_sin_vinculacion) ... ok
+test_completar_parametros_con_patch (api.tests.test_acciones.AccionesTests.test_completar_parametros_con_patch) ... ok
+test_el_detalle_de_una_accion_y_el_404 (api.tests.test_acciones.AccionesTests.test_el_detalle_de_una_accion_y_el_404) ... ok
+test_el_listado_filtra_por_estado_y_por_defecto_trae_pendientes (api.tests.test_acciones.AccionesTests.test_el_listado_filtra_por_estado_y_por_defecto_trae_pendientes) ... ok
+test_el_listado_trae_el_objeto_accion_completo (api.tests.test_acciones.AccionesTests.test_el_listado_trae_el_objeto_accion_completo) ... ok
+test_faltan_parametros_es_400_parametros_incompletos (api.tests.test_acciones.AccionesTests.test_faltan_parametros_es_400_parametros_incompletos) ... ok
+test_las_tres_operaciones_exigen_aprobador (api.tests.test_acciones.AccionesTests.test_las_tres_operaciones_exigen_aprobador) ... ok
+test_rechazar_pide_motivo_y_devuelve_la_accion (api.tests.test_acciones.AccionesTests.test_rechazar_pide_motivo_y_devuelve_la_accion) ... ok
+test_una_accion_ya_resuelta_es_409 (api.tests.test_acciones.AccionesTests.test_una_accion_ya_resuelta_es_409) ... ok
+test_atender_marca_la_derivacion_y_el_filtro_atendidas_la_muestra (api.tests.test_acciones.DerivacionesTests.test_atender_marca_la_derivacion_y_el_filtro_atendidas_la_muestra) ... ok
+test_atender_una_derivacion_ajena_es_403 (api.tests.test_acciones.DerivacionesTests.test_atender_una_derivacion_ajena_es_403) ... ok
+test_el_listado_solo_trae_las_del_usuario_y_sin_atender (api.tests.test_acciones.DerivacionesTests.test_el_listado_solo_trae_las_del_usuario_y_sin_atender) ... ok
+test_clientes_busca_por_dni_y_por_apellido (api.tests.test_acciones.LecturaTests.test_clientes_busca_por_dni_y_por_apellido) ... ok
+test_el_detalle_de_cliente_trae_contactos_polizas_y_siniestros (api.tests.test_acciones.LecturaTests.test_el_detalle_de_cliente_trae_contactos_polizas_y_siniestros) ... ok
+test_el_detalle_de_poliza_trae_conductores_y_cuotas (api.tests.test_acciones.LecturaTests.test_el_detalle_de_poliza_trae_conductores_y_cuotas) ... ok
+test_los_metodos_no_contemplados_sobre_clientes_o_polizas_son_405 (api.tests.test_acciones.LecturaTests.test_los_metodos_no_contemplados_sobre_clientes_o_polizas_son_405)
+El ABM habilita POST en la colección y PATCH en el detalle; nada más. ... ok
+test_el_alta_devuelve_201_con_el_detalle_del_cliente (api.tests.test_clientes.AltaPorApiTests.test_el_alta_devuelve_201_con_el_detalle_del_cliente) ... ok
+test_falta_un_campo_obligatorio_y_es_400 (api.tests.test_clientes.AltaPorApiTests.test_falta_un_campo_obligatorio_y_es_400) ... ok
+test_los_datos_sucios_o_repetidos_son_400 (api.tests.test_clientes.AltaPorApiTests.test_los_datos_sucios_o_repetidos_son_400) ... ok
+test_sin_sesion_el_alta_es_401 (api.tests.test_clientes.AltaPorApiTests.test_sin_sesion_el_alta_es_401) ... ok
+test_un_operador_si_puede_seguir_leyendo_la_cartera (api.tests.test_clientes.AltaPorApiTests.test_un_operador_si_puede_seguir_leyendo_la_cartera) ... ok
+test_un_operador_sin_permiso_de_aprobacion_no_puede_dar_de_alta (api.tests.test_clientes.AltaPorApiTests.test_un_operador_sin_permiso_de_aprobacion_no_puede_dar_de_alta) ... ok
+test_el_patch_actualiza_y_devuelve_el_detalle (api.tests.test_clientes.ModificacionYBajaPorApiTests.test_el_patch_actualiza_y_devuelve_el_detalle) ... ok
+test_el_patch_con_datos_invalidos_es_400_y_no_cambia_nada (api.tests.test_clientes.ModificacionYBajaPorApiTests.test_el_patch_con_datos_invalidos_es_400_y_no_cambia_nada) ... ok
+test_la_baja_con_polizas_vigentes_es_409 (api.tests.test_clientes.ModificacionYBajaPorApiTests.test_la_baja_con_polizas_vigentes_es_409) ... ok
+test_la_baja_deja_el_cliente_inactivo_sin_borrar_nada (api.tests.test_clientes.ModificacionYBajaPorApiTests.test_la_baja_deja_el_cliente_inactivo_sin_borrar_nada) ... ok
+test_reactivar_vuelve_a_dejarlo_activo_y_repetirlo_es_409 (api.tests.test_clientes.ModificacionYBajaPorApiTests.test_reactivar_vuelve_a_dejarlo_activo_y_repetirlo_es_409) ... ok
+test_sobre_un_cliente_inexistente_es_404 (api.tests.test_clientes.ModificacionYBajaPorApiTests.test_sobre_un_cliente_inexistente_es_404) ... ok
+test_un_operador_no_puede_dar_de_baja_ni_reactivar (api.tests.test_clientes.ModificacionYBajaPorApiTests.test_un_operador_no_puede_dar_de_baja_ni_reactivar) ... ok
+test_un_operador_no_puede_modificar (api.tests.test_clientes.ModificacionYBajaPorApiTests.test_un_operador_no_puede_modificar) ... ok
+test_csrf_responde_204_y_entrega_la_cookie (api.tests.test_configuracion.CsrfTests.test_csrf_responde_204_y_entrega_la_cookie) ... ok
+test_un_post_sin_el_header_x_csrftoken_es_403 (api.tests.test_configuracion.CsrfTests.test_un_post_sin_el_header_x_csrftoken_es_403) ... ok
+test_la_ventana_de_24h_cerrada_llega_con_su_codigo_especifico (api.tests.test_configuracion.ErroresTests.test_la_ventana_de_24h_cerrada_llega_con_su_codigo_especifico) ... ok
+test_los_errores_de_negocio_viajan_con_su_codigo_y_su_http (api.tests.test_configuracion.ErroresTests.test_los_errores_de_negocio_viajan_con_su_codigo_y_su_http) ... ok
+test_un_doesnotexist_de_un_selector_es_404 (api.tests.test_configuracion.ErroresTests.test_un_doesnotexist_de_un_selector_es_404) ... ok
+test_un_error_inesperado_es_500_sin_detalles_internos (api.tests.test_configuracion.ErroresTests.test_un_error_inesperado_es_500_sin_detalles_internos) ... Error no manejado en la API
+Traceback (most recent call last):
+  File "C:\Users\sebid\Documents\Codex\2026-10-24\1-alcance-del-desarrollo-mvp-1\work\.venv-review\Lib\site-packages\rest_framework\views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sebid\Documents\Codex\2026-10-24\1-alcance-del-desarrollo-mvp-1\work\.venv-review\Lib\site-packages\rest_framework\decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sebid\Documents\Codex\2026-10-24\1-alcance-del-desarrollo-mvp-1\outputs\chat-ia-seguros-corregido\api\views.py", line 571, in pendientes
+    return Response(selectors.contar_pendientes(request.funcionario.id))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sebid\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\unittest\mock.py", line 1139, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sebid\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\unittest\mock.py", line 1143, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sebid\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\unittest\mock.py", line 1198, in _execute_mock_call
+    raise effect
+RuntimeError: se cayó la base en la tabla secreta
+ok
+test_un_metodo_no_permitido_es_405 (api.tests.test_configuracion.ErroresTests.test_un_metodo_no_permitido_es_405) ... ok
+test_un_serializer_invalido_es_400_datos_invalidos (api.tests.test_configuracion.ErroresTests.test_un_serializer_invalido_es_400_datos_invalidos) ... ok
+test_el_dinero_es_string_con_dos_decimales_y_las_fechas_son_iso (api.tests.test_configuracion.PaginacionTests.test_el_dinero_es_string_con_dos_decimales_y_las_fechas_son_iso) ... ok
+test_las_horas_son_iso_en_utc_con_z (api.tests.test_configuracion.PaginacionTests.test_las_horas_son_iso_en_utc_con_z) ... ok
+test_los_listados_vienen_paginados_de_25 (api.tests.test_configuracion.PaginacionTests.test_los_listados_vienen_paginados_de_25) ... ok
+test_una_pagina_fuera_de_rango_es_404 (api.tests.test_configuracion.PaginacionTests.test_una_pagina_fuera_de_rango_es_404) ... ok
+test_el_funcionario_queda_en_request_funcionario (api.tests.test_configuracion.PermisosTests.test_el_funcionario_queda_en_request_funcionario) ... ok
+test_un_anonimo_recibe_401_no_autenticado (api.tests.test_configuracion.PermisosTests.test_un_anonimo_recibe_401_no_autenticado) ... ok
+test_un_operador_no_pasa_donde_se_exige_aprobador (api.tests.test_configuracion.PermisosTests.test_un_operador_no_pasa_donde_se_exige_aprobador) ... ok
+test_un_usuario_sin_funcionario_activo_recibe_403 (api.tests.test_configuracion.PermisosTests.test_un_usuario_sin_funcionario_activo_recibe_403) ... ok
+test_aprobar_finalizar_y_cerrar_con_historial (api.tests.test_correcciones_cierre.CorreccionesDeCierreTests.test_aprobar_finalizar_y_cerrar_con_historial) ... ok
+test_biblioteca_se_administra_y_el_operador_no_ve_borradores (api.tests.test_correcciones_cierre.CorreccionesDeCierreTests.test_biblioteca_se_administra_y_el_operador_no_ve_borradores) ... ok
+test_cobertura_y_negacion_no_disparan_emergencia (api.tests.test_correcciones_cierre.CorreccionesDeCierreTests.test_cobertura_y_negacion_no_disparan_emergencia) ... ok
+test_confirmacion_de_registro_llega_al_derivar (api.tests.test_correcciones_cierre.CorreccionesDeCierreTests.test_confirmacion_de_registro_llega_al_derivar) ... ok
+test_documento_aprobado_con_importe_y_clausula_respalda_la_cita (api.tests.test_correcciones_cierre.CorreccionesDeCierreTests.test_documento_aprobado_con_importe_y_clausula_respalda_la_cita) ... ok
+test_evidencia_no_autoriza_un_importe_agregado_ni_un_documento_retirado (api.tests.test_correcciones_cierre.CorreccionesDeCierreTests.test_evidencia_no_autoriza_un_importe_agregado_ni_un_documento_retirado) ... ok
+test_finalizacion_exige_permiso_estado_y_evidencia (api.tests.test_correcciones_cierre.CorreccionesDeCierreTests.test_finalizacion_exige_permiso_estado_y_evidencia) ... ok
+test_login_con_hash_de_la_aplicacion_normal (api.tests.test_correcciones_cierre.CorreccionesDeCierreTests.test_login_con_hash_de_la_aplicacion_normal) ... ok
+test_primas_invalidas_no_generan_datos_y_cero_no_genera_deuda (api.tests.test_correcciones_cierre.CorreccionesDeCierreTests.test_primas_invalidas_no_generan_datos_y_cero_no_genera_deuda) ... ok
+test_respuesta_insegura_se_retiene_pero_el_aviso_si_llega (api.tests.test_correcciones_cierre.CorreccionesDeCierreTests.test_respuesta_insegura_se_retiene_pero_el_aviso_si_llega) ... ok
+test_sql_no_permite_simular_finalizacion_sin_registro (api.tests.test_correcciones_cierre.CorreccionesDeCierreTests.test_sql_no_permite_simular_finalizacion_sin_registro) ... ok
+test_variantes_urgentes_pausan_y_avisan_sin_modelo (api.tests.test_correcciones_cierre.CorreccionesDeCierreTests.test_variantes_urgentes_pausan_y_avisan_sin_modelo) ... ok
+test_busqueda_y_gestion_exigen_funcionario_aprobador_para_escrituras (api.tests.test_documentos.DocumentosApiTests.test_busqueda_y_gestion_exigen_funcionario_aprobador_para_escrituras) ... ok
+test_no_repite_titulo_version_ni_aprueba_documento_retirado (api.tests.test_documentos.DocumentosApiTests.test_no_repite_titulo_version_ni_aprueba_documento_retirado) ... ok
+test_solo_documentos_aprobados_entran_en_la_busqueda_y_se_citan (api.tests.test_documentos.DocumentosApiTests.test_solo_documentos_aprobados_entran_en_la_busqueda_y_se_citan) ... ok
+test_a_un_cliente_dado_de_baja_es_409 (api.tests.test_polizas.AltaDePolizaPorApiTests.test_a_un_cliente_dado_de_baja_es_409) ... ok
+test_el_alta_devuelve_201_con_el_detalle_y_sus_cuotas (api.tests.test_polizas.AltaDePolizaPorApiTests.test_el_alta_devuelve_201_con_el_detalle_y_sus_cuotas) ... ok
+test_el_detalle_trae_el_saldo_y_el_proximo_pago_de_las_cuotas (api.tests.test_polizas.AltaDePolizaPorApiTests.test_el_detalle_trae_el_saldo_y_el_proximo_pago_de_las_cuotas)
+Venían siempre en null: `detalle_poliza` devuelve una `Poliza`, que ... ok
+test_el_numero_sugerido_avanza_despues_de_un_alta (api.tests.test_polizas.AltaDePolizaPorApiTests.test_el_numero_sugerido_avanza_despues_de_un_alta) ... ok
+test_la_poliza_nueva_aparece_en_la_ficha_del_cliente (api.tests.test_polizas.AltaDePolizaPorApiTests.test_la_poliza_nueva_aparece_en_la_ficha_del_cliente) ... ok
+test_las_opciones_traen_tipos_coberturas_y_el_proximo_numero (api.tests.test_polizas.AltaDePolizaPorApiTests.test_las_opciones_traen_tipos_coberturas_y_el_proximo_numero) ... ok
+test_los_datos_invalidos_son_400_y_no_crean_nada (api.tests.test_polizas.AltaDePolizaPorApiTests.test_los_datos_invalidos_son_400_y_no_crean_nada) ... ok
+test_sin_sesion_el_alta_es_401 (api.tests.test_polizas.AltaDePolizaPorApiTests.test_sin_sesion_el_alta_es_401) ... ok
+test_un_cliente_inexistente_es_404 (api.tests.test_polizas.AltaDePolizaPorApiTests.test_un_cliente_inexistente_es_404) ... ok
+test_un_numero_repetido_es_400 (api.tests.test_polizas.AltaDePolizaPorApiTests.test_un_numero_repetido_es_400) ... ok
+test_un_operador_si_puede_ver_las_opciones (api.tests.test_polizas.AltaDePolizaPorApiTests.test_un_operador_si_puede_ver_las_opciones) ... ok
+test_un_operador_sin_permiso_de_aprobacion_no_puede_crear (api.tests.test_polizas.AltaDePolizaPorApiTests.test_un_operador_sin_permiso_de_aprobacion_no_puede_crear) ... ok
+test_el_pago_devuelve_la_poliza_con_el_saldo_ya_bajado (api.tests.test_polizas.RegistrarPagoPorApiTests.test_el_pago_devuelve_la_poliza_con_el_saldo_ya_bajado) ... ok
+test_faltan_referencia_o_importe (api.tests.test_polizas.RegistrarPagoPorApiTests.test_faltan_referencia_o_importe) ... ok
+test_la_referencia_con_datos_incompatibles_se_rechaza (api.tests.test_polizas.RegistrarPagoPorApiTests.test_la_referencia_con_datos_incompatibles_se_rechaza) ... ok
+test_reintentar_el_mismo_comprobante_devuelve_el_pago_sin_bajar_otro_mes (api.tests.test_polizas.RegistrarPagoPorApiTests.test_reintentar_el_mismo_comprobante_devuelve_el_pago_sin_bajar_otro_mes) ... ok
+test_sin_cuotas_pendientes_es_409 (api.tests.test_polizas.RegistrarPagoPorApiTests.test_sin_cuotas_pendientes_es_409) ... ok
+test_sin_sesion_es_401 (api.tests.test_polizas.RegistrarPagoPorApiTests.test_sin_sesion_es_401) ... ok
+test_un_operador_sin_permiso_de_aprobacion_no_puede_cobrar (api.tests.test_polizas.RegistrarPagoPorApiTests.test_un_operador_sin_permiso_de_aprobacion_no_puede_cobrar) ... ok
+test_un_pago_parcial_se_rechaza_y_no_cambia_el_saldo (api.tests.test_polizas.RegistrarPagoPorApiTests.test_un_pago_parcial_se_rechaza_y_no_cambia_el_saldo) ... ok
+test_una_poliza_inexistente_es_404 (api.tests.test_polizas.RegistrarPagoPorApiTests.test_una_poliza_inexistente_es_404) ... ok
+test_csv_exporta_el_mismo_periodo_y_filtra_contenido_de_formula (api.tests.test_reportes.ReportesGestionApiTests.test_csv_exporta_el_mismo_periodo_y_filtra_contenido_de_formula) ... ok
+test_indicadores_coinciden_con_totales_calculables_a_mano (api.tests.test_reportes.ReportesGestionApiTests.test_indicadores_coinciden_con_totales_calculables_a_mano) ... ok
+test_requiere_sesion_y_rechaza_periodo_invalido_o_incompleto (api.tests.test_reportes.ReportesGestionApiTests.test_requiere_sesion_y_rechaza_periodo_invalido_o_incompleto) ... ok
+test_crea_o_actualiza_un_usuario_por_funcionario_activo (api.tests.test_sesion.CrearUsuariosTests.test_crea_o_actualiza_un_usuario_por_funcionario_activo) ... ok
+test_sin_clave_falla_con_un_mensaje_claro (api.tests.test_sesion.CrearUsuariosTests.test_sin_clave_falla_con_un_mensaje_claro) ... ok
+test_login_anonimo_con_token_csrf_invalido_es_rechazado (api.tests.test_sesion.LoginTests.test_login_anonimo_con_token_csrf_invalido_es_rechazado) ... ok
+test_login_anonimo_con_token_csrf_valido_abre_sesion (api.tests.test_sesion.LoginTests.test_login_anonimo_con_token_csrf_valido_abre_sesion) ... ok
+test_login_anonimo_sin_token_csrf_es_rechazado (api.tests.test_sesion.LoginTests.test_login_anonimo_sin_token_csrf_es_rechazado) ... ok
+test_login_correcto_devuelve_me_y_abre_sesion (api.tests.test_sesion.LoginTests.test_login_correcto_devuelve_me_y_abre_sesion) ... ok
+test_un_funcionario_dado_de_baja_no_puede_entrar (api.tests.test_sesion.LoginTests.test_un_funcionario_dado_de_baja_no_puede_entrar) ... ok
+test_un_usuario_sin_funcionario_activo_es_403 (api.tests.test_sesion.LoginTests.test_un_usuario_sin_funcionario_activo_es_403) ... ok
+test_una_clave_incorrecta_es_401 (api.tests.test_sesion.LoginTests.test_una_clave_incorrecta_es_401) ... ok
+test_logout_responde_204_y_cierra_la_sesion (api.tests.test_sesion.MeYLogoutTests.test_logout_responde_204_y_cierra_la_sesion) ... ok
+test_me_con_sesion_responde_200_y_sin_sesion_401 (api.tests.test_sesion.MeYLogoutTests.test_me_con_sesion_responde_200_y_sin_sesion_401) ... ok
+test_pendientes_devuelve_los_contadores_del_funcionario (api.tests.test_sesion.PendientesTests.test_pendientes_devuelve_los_contadores_del_funcionario) ... ok
+test_pendientes_sin_sesion_es_401 (api.tests.test_sesion.PendientesTests.test_pendientes_sin_sesion_es_401) ... ok
+test_panel_valida_guarda_y_descarga_privadamente (api.tests.test_siniestros.AdjuntoSiniestroApiTests.test_panel_valida_guarda_y_descarga_privadamente) ... ok
+test_rechaza_archivos_invalidos_y_mayores_a_10_mib (api.tests.test_siniestros.AdjuntoSiniestroApiTests.test_rechaza_archivos_invalidos_y_mayores_a_10_mib) ... ok
+test_whatsapp_adjunta_en_atencion_humana_sin_responder (api.tests.test_siniestros.AdjuntoSiniestroApiTests.test_whatsapp_adjunta_en_atencion_humana_sin_responder) ... ok
+test_whatsapp_descarga_verifica_y_adjunta_a_expediente_del_titular (api.tests.test_siniestros.AdjuntoSiniestroApiTests.test_whatsapp_descarga_verifica_y_adjunta_a_expediente_del_titular) ... ok
+test_whatsapp_no_descarga_sin_referencia (api.tests.test_siniestros.AdjuntoSiniestroApiTests.test_whatsapp_no_descarga_sin_referencia) ... ok
+test_whatsapp_no_descarga_un_expediente_de_otro_cliente (api.tests.test_siniestros.AdjuntoSiniestroApiTests.test_whatsapp_no_descarga_un_expediente_de_otro_cliente) ... ok
+test_aprobador_registra_y_consulta_el_expediente (api.tests.test_siniestros.ExpedienteSiniestrosApiTests.test_aprobador_registra_y_consulta_el_expediente) ... ok
+test_funcionario_registra_denuncia_y_solo_aprobador_decide (api.tests.test_siniestros.ExpedienteSiniestrosApiTests.test_funcionario_registra_denuncia_y_solo_aprobador_decide) ... ok
+test_rechaza_poliza_ajena_fecha_futura_y_fecha_fuera_de_cobertura (api.tests.test_siniestros.ExpedienteSiniestrosApiTests.test_rechaza_poliza_ajena_fecha_futura_y_fecha_fuera_de_cobertura) ... ok
+test_recorrido_completo_a_cierre_audita_cada_decision (api.tests.test_siniestros.ExpedienteSiniestrosApiTests.test_recorrido_completo_a_cierre_audita_cada_decision) ... ok
+test_transicion_pide_motivo_y_no_admite_saltar_estados (api.tests.test_siniestros.ExpedienteSiniestrosApiTests.test_transicion_pide_motivo_y_no_admite_saltar_estados) ... ok
+test_descartar_devuelve_el_mensaje_descartado (api.tests.test_supervision.AccionesDeSupervisionTests.test_descartar_devuelve_el_mensaje_descartado) ... ok
+test_liberar_con_correccion_devuelve_el_mensaje_nuevo (api.tests.test_supervision.AccionesDeSupervisionTests.test_liberar_con_correccion_devuelve_el_mensaje_nuevo) ... ok
+test_liberar_devuelve_el_mensaje_que_sale_al_cliente (api.tests.test_supervision.AccionesDeSupervisionTests.test_liberar_devuelve_el_mensaje_que_sale_al_cliente) ... ok
+test_liberar_y_descartar_exigen_aprobador (api.tests.test_supervision.AccionesDeSupervisionTests.test_liberar_y_descartar_exigen_aprobador) ... ok
+test_reabrir_devuelve_la_consulta_y_exige_aprobador (api.tests.test_supervision.AccionesDeSupervisionTests.test_reabrir_devuelve_la_consulta_y_exige_aprobador) ... ok
+test_responder_devuelve_201_con_el_mensaje (api.tests.test_supervision.AccionesDeSupervisionTests.test_responder_devuelve_201_con_el_mensaje) ... ok
+test_tomar_y_devolver_devuelven_el_detalle (api.tests.test_supervision.AccionesDeSupervisionTests.test_tomar_y_devolver_devuelven_el_detalle) ... ok
+test_el_detalle_trae_cliente_info_con_sus_polizas_y_las_alertas_abiertas (api.tests.test_supervision.BandejaTests.test_el_detalle_trae_cliente_info_con_sus_polizas_y_las_alertas_abiertas) ... ok
+test_la_bandeja_trae_el_resumen_completo_de_cada_conversacion (api.tests.test_supervision.BandejaTests.test_la_bandeja_trae_el_resumen_completo_de_cada_conversacion) ... ok
+test_la_derivacion_urgente_pinta_y_ordena_sin_fingir_una_alerta (api.tests.test_supervision.BandejaTests.test_la_derivacion_urgente_pinta_y_ordena_sin_fingir_una_alerta) ... ok
+test_los_filtros_de_la_query_llegan_al_selector (api.tests.test_supervision.BandejaTests.test_los_filtros_de_la_query_llegan_al_selector) ... ok
+test_los_mensajes_vienen_en_orden_con_sus_alertas_y_filtrados (api.tests.test_supervision.BandejaTests.test_los_mensajes_vienen_en_orden_con_sus_alertas_y_filtrados) ... ok
+test_sin_alertas_la_severidad_es_nula_y_el_color_verde (api.tests.test_supervision.BandejaTests.test_sin_alertas_la_severidad_es_nula_y_el_color_verde) ... ok
+test_sin_respuesta_marca_las_que_el_bot_dejo_colgadas (api.tests.test_supervision.BandejaTests.test_sin_respuesta_marca_las_que_el_bot_dejo_colgadas) ... ok
+test_un_contacto_sin_cliente_tiene_cliente_info_nulo (api.tests.test_supervision.BandejaTests.test_un_contacto_sin_cliente_tiene_cliente_info_nulo) ... ok
+test_un_despues_de_que_no_es_numero_es_400 (api.tests.test_supervision.BandejaTests.test_un_despues_de_que_no_es_numero_es_400) ... ok
+test_una_conversacion_inexistente_es_404 (api.tests.test_supervision.BandejaTests.test_una_conversacion_inexistente_es_404) ... ok
+test_cerrar_devuelve_el_detalle_sin_casos_abiertos_y_el_chat_abierto (api.tests.test_supervision.CerrarCasosTests.test_cerrar_devuelve_el_detalle_sin_casos_abiertos_y_el_chat_abierto) ... ok
+test_con_una_respuesta_retenida_es_409_y_no_cierra_nada (api.tests.test_supervision.CerrarCasosTests.test_con_una_respuesta_retenida_es_409_y_no_cierra_nada) ... ok
+test_el_detalle_avisa_que_casos_quedan_abiertos (api.tests.test_supervision.CerrarCasosTests.test_el_detalle_avisa_que_casos_quedan_abiertos) ... ok
+test_el_detalle_muestra_acciones_administrativas_sin_resolver (api.tests.test_supervision.CerrarCasosTests.test_el_detalle_muestra_acciones_administrativas_sin_resolver) ... ok
+test_no_cierra_un_caso_con_accion_pendiente_o_gestion_externa (api.tests.test_supervision.CerrarCasosTests.test_no_cierra_un_caso_con_accion_pendiente_o_gestion_externa) ... ok
+test_sin_casos_abiertos_es_409 (api.tests.test_supervision.CerrarCasosTests.test_sin_casos_abiertos_es_409) ... ok
+test_sin_sesion_es_401 (api.tests.test_supervision.CerrarCasosTests.test_sin_sesion_es_401) ... ok
+test_un_operador_sin_aprobacion_tambien_puede_cerrar (api.tests.test_supervision.CerrarCasosTests.test_un_operador_sin_aprobacion_tambien_puede_cerrar) ... ok
+test_una_conversacion_inexistente_es_404 (api.tests.test_supervision.CerrarCasosTests.test_una_conversacion_inexistente_es_404) ... ok
+test_alertas_filtra_por_tipo_severidad_y_estado (api.tests.test_supervision.ListadosTests.test_alertas_filtra_por_tipo_severidad_y_estado) ... ok
+test_consultas_cerradas_con_alertas_solo_trae_esas (api.tests.test_supervision.ListadosTests.test_consultas_cerradas_con_alertas_solo_trae_esas) ... C:\Users\sebid\Documents\Codex\2026-10-24\1-alcance-del-desarrollo-mvp-1\work\.venv-review\Lib\site-packages\rest_framework\pagination.py:207: UnorderedObjectListWarning: Pagination may yield inconsistent results with an unordered object_list: <class 'datos.models.ConsultaBot'> QuerySet.
+  paginator = self.django_paginator_class(queryset, page_size)
+ok
+test_sin_sesion_no_se_puede_vaciar (api.tests.test_supervision.VaciarChatTests.test_sin_sesion_no_se_puede_vaciar) ... ok
+test_vaciar_devuelve_el_detalle_con_la_conversacion_cerrada (api.tests.test_supervision.VaciarChatTests.test_vaciar_devuelve_el_detalle_con_la_conversacion_cerrada) ... ok
+test_vaciar_dos_veces_es_409 (api.tests.test_supervision.VaciarChatTests.test_vaciar_dos_veces_es_409) ... ok
+test_cambiar_la_contrasena (api.tests.test_usuarios.UsuariosTests.test_cambiar_la_contrasena) ... ok
+test_cambiar_rol_y_permiso_de_aprobacion (api.tests.test_usuarios.UsuariosTests.test_cambiar_rol_y_permiso_de_aprobacion) ... ok
+test_crear_un_usuario_que_despues_puede_iniciar_sesion (api.tests.test_usuarios.UsuariosTests.test_crear_un_usuario_que_despues_puede_iniciar_sesion) ... ok
+test_desactivar_impide_iniciar_sesion (api.tests.test_usuarios.UsuariosTests.test_desactivar_impide_iniciar_sesion) ... ok
+test_el_correo_repetido_o_invalido_se_rechaza (api.tests.test_usuarios.UsuariosTests.test_el_correo_repetido_o_invalido_se_rechaza) ... ok
+test_el_propietario_no_se_puede_tocar_desde_aca (api.tests.test_usuarios.UsuariosTests.test_el_propietario_no_se_puede_tocar_desde_aca) ... ok
+test_la_pagina_existe (api.tests.test_usuarios.UsuariosTests.test_la_pagina_existe) ... ok
+test_no_se_puede_ascender_a_propietario (api.tests.test_usuarios.UsuariosTests.test_no_se_puede_ascender_a_propietario) ... ok
+test_no_se_puede_crear_otro_propietario (api.tests.test_usuarios.UsuariosTests.test_no_se_puede_crear_otro_propietario) ... ok
+test_sin_sesion_es_401 (api.tests.test_usuarios.UsuariosTests.test_sin_sesion_es_401) ... ok
+test_solo_el_propietario_ve_la_lista (api.tests.test_usuarios.UsuariosTests.test_solo_el_propietario_ve_la_lista) ... ok
+test_un_usuario_inexistente_es_404 (api.tests.test_usuarios.UsuariosTests.test_un_usuario_inexistente_es_404) ... ok
+test_una_aprobadora_no_puede_crear_ni_modificar (api.tests.test_usuarios.UsuariosTests.test_una_aprobadora_no_puede_crear_ni_modificar) ... ok
+test_una_contrasena_debil_se_rechaza (api.tests.test_usuarios.UsuariosTests.test_una_contrasena_debil_se_rechaza) ... ok
+test_cada_ruta_del_panel_sirve_su_archivo_sin_pedir_sesion (api.tests.test_webhook_y_paginas.PaginasTests.test_cada_ruta_del_panel_sirve_su_archivo_sin_pedir_sesion) ... ok
+test_los_estaticos_del_front_se_sirven_bajo_static (api.tests.test_webhook_y_paginas.PaginasTests.test_los_estaticos_del_front_se_sirven_bajo_static) ... ok
+test_si_el_archivo_no_existe_todavia_la_ruta_da_404 (api.tests.test_webhook_y_paginas.PaginasTests.test_si_el_archivo_no_existe_todavia_la_ruta_da_404) ... ok
+test_una_ruta_que_no_esta_en_la_lista_blanca_es_404 (api.tests.test_webhook_y_paginas.PaginasTests.test_una_ruta_que_no_esta_en_la_lista_blanca_es_404) ... ok
+test_el_webhook_de_punta_a_punta_registra_el_mensaje (api.tests.test_webhook_y_paginas.WebhookEntranteTests.test_el_webhook_de_punta_a_punta_registra_el_mensaje) ... ok
+test_si_falla_la_persistencia_no_confirma_recepcion_a_meta (api.tests.test_webhook_y_paginas.WebhookEntranteTests.test_si_falla_la_persistencia_no_confirma_recepcion_a_meta) ... ok
+test_sin_firma_tambien_es_403 (api.tests.test_webhook_y_paginas.WebhookEntranteTests.test_sin_firma_tambien_es_403) ... ok
+test_un_json_invalido_con_firma_valida_es_400 (api.tests.test_webhook_y_paginas.WebhookEntranteTests.test_un_json_invalido_con_firma_valida_es_400) ... ok
+test_un_payload_sin_mensajes_tambien_responde_200 (api.tests.test_webhook_y_paginas.WebhookEntranteTests.test_un_payload_sin_mensajes_tambien_responde_200) ... ok
+test_un_payload_valido_llama_a_procesar_webhook_y_responde_200 (api.tests.test_webhook_y_paginas.WebhookEntranteTests.test_un_payload_valido_llama_a_procesar_webhook_y_responde_200) ... ok
+test_una_firma_invalida_es_403_y_no_se_procesa_nada (api.tests.test_webhook_y_paginas.WebhookEntranteTests.test_una_firma_invalida_es_403_y_no_se_procesa_nada) ... ok
+test_el_get_de_verificacion_devuelve_el_challenge_como_texto (api.tests.test_webhook_y_paginas.WebhookVerificacionTests.test_el_get_de_verificacion_devuelve_el_challenge_como_texto) ... ok
+test_un_token_incorrecto_o_un_modo_raro_es_403 (api.tests.test_webhook_y_paginas.WebhookVerificacionTests.test_un_token_incorrecto_o_un_modo_raro_es_403) ... ok
+test_catalogos_creados_con_politicas_del_seed_sin_duplicados (datos.tests.test_fabricas.FabricasTests.test_catalogos_creados_con_politicas_del_seed_sin_duplicados) ... ok
+test_fabricas_crean_registros_validos_con_defaults_unicos (datos.tests.test_fabricas.FabricasTests.test_fabricas_crean_registros_validos_con_defaults_unicos) ... ok
+test_fabricas_solo_requieren_los_campos_sin_default (datos.tests.test_fabricas.FabricasTests.test_fabricas_solo_requieren_los_campos_sin_default) ... ok
+test_schema_runner_usa_base_de_test_vacia (datos.tests.test_fabricas.RunnerTests.test_schema_runner_usa_base_de_test_vacia) ... ok
+test_aplica_reglas_de_estado_tipo_funcionario_y_fechas (datos.tests.test_importacion.ImportarConsultasTests.test_aplica_reglas_de_estado_tipo_funcionario_y_fechas) ... ok
+test_dry_run_no_escribe (datos.tests.test_importacion.ImportarConsultasTests.test_dry_run_no_escribe) ... ok
+test_importa_filas_con_y_sin_numero_y_guarda_origen (datos.tests.test_importacion.ImportarConsultasTests.test_importa_filas_con_y_sin_numero_y_guarda_origen) ... ok
+test_omite_duplicados_importa_el_resto_y_continua_tras_error (datos.tests.test_importacion.ImportarConsultasTests.test_omite_duplicados_importa_el_resto_y_continua_tras_error) ... ok
+test_columnas_y_nulabilidad_coinciden_con_el_esquema (datos.tests.test_models.DatabaseModelTests.test_columnas_y_nulabilidad_coinciden_con_el_esquema) ... ok
+test_defaults_modelo_coinciden_con_los_defaults_de_la_base (datos.tests.test_models.DatabaseModelTests.test_defaults_modelo_coinciden_con_los_defaults_de_la_base) ... ok
+test_textchoices_coinciden_con_las_restricciones_check (datos.tests.test_models.DatabaseModelTests.test_textchoices_coinciden_con_las_restricciones_check) ... ok
+test_acciones_pendientes_y_derivaciones_priorizadas (datos.tests.test_selectors.SelectorsTests.test_acciones_pendientes_y_derivaciones_priorizadas) ... ok
+test_alertas_abiertas_filtradas_por_consulta_conversacion_y_mensaje (datos.tests.test_selectors.SelectorsTests.test_alertas_abiertas_filtradas_por_consulta_conversacion_y_mensaje) ... ok
+test_bandeja_anotaciones_filtros_y_orden (datos.tests.test_selectors.SelectorsTests.test_bandeja_anotaciones_filtros_y_orden) ... ok
+test_bandeja_prioriza_derivaciones_urgentes_sin_alertas (datos.tests.test_selectors.SelectorsTests.test_bandeja_prioriza_derivaciones_urgentes_sin_alertas) ... ok
+test_busqueda_y_detalles_cargan_relaciones_en_hasta_cinco_consultas (datos.tests.test_selectors.SelectorsTests.test_busqueda_y_detalles_cargan_relaciones_en_hasta_cinco_consultas) ... ok
+test_consultas_de_identidad (datos.tests.test_selectors.SelectorsTests.test_consultas_de_identidad) ... ok
+test_contar_pendientes_separa_acciones_derivaciones_y_alertas_criticas (datos.tests.test_selectors.SelectorsTests.test_contar_pendientes_separa_acciones_derivaciones_y_alertas_criticas) ... ok
+test_listar_alertas_y_consultas_cerradas_con_alertas (datos.tests.test_selectors.SelectorsTests.test_listar_alertas_y_consultas_cerradas_con_alertas) ... ok
+test_mensajes_ordenados_filtrados_y_historial_limitado (datos.tests.test_selectors.SelectorsTests.test_mensajes_ordenados_filtrados_y_historial_limitado) ... ok
+test_polizas_vigentes_y_resumen_de_cuotas (datos.tests.test_selectors.SelectorsTests.test_polizas_vigentes_y_resumen_de_cuotas) ... ok
+test_aprobar_crea_el_cliente_y_adopta_el_contacto (negocio.tests.test_acciones.AltaDeClienteTests.test_aprobar_crea_el_cliente_y_adopta_el_contacto) ... ok
+test_sin_apellido_no_se_puede_ejecutar (negocio.tests.test_acciones.AltaDeClienteTests.test_sin_apellido_no_se_puede_ejecutar) ... ok
+test_un_dni_repetido_revierte_la_aprobacion_entera (negocio.tests.test_acciones.AltaDeClienteTests.test_un_dni_repetido_revierte_la_aprobacion_entera) ... ok
+test_agregar_conductor_crea_el_conductor_con_el_dni_normalizado (negocio.tests.test_acciones.AprobarAccionTests.test_agregar_conductor_crea_el_conductor_con_el_dni_normalizado) ... ok
+test_agregar_conductor_sin_nombre_ni_dni_sigue_pendiente (negocio.tests.test_acciones.AprobarAccionTests.test_agregar_conductor_sin_nombre_ni_dni_sigue_pendiente) ... ok
+test_agregar_conductor_sin_relacion_queda_en_otro (negocio.tests.test_acciones.AprobarAccionTests.test_agregar_conductor_sin_relacion_queda_en_otro) ... ok
+test_al_aprobar_se_avisa_al_cliente_y_se_envia (negocio.tests.test_acciones.AprobarAccionTests.test_al_aprobar_se_avisa_al_cliente_y_se_envia) ... ok
+test_al_aprobar_una_accion_sin_efecto_implementado_no_dice_procesada (negocio.tests.test_acciones.AprobarAccionTests.test_al_aprobar_una_accion_sin_efecto_implementado_no_dice_procesada) ... ok
+test_apertura_de_siniestro_numera_de_forma_secuencial (negocio.tests.test_acciones.AprobarAccionTests.test_apertura_de_siniestro_numera_de_forma_secuencial) ... ok
+test_apertura_de_siniestro_sin_fecha_ni_descripcion_pide_parametros (negocio.tests.test_acciones.AprobarAccionTests.test_apertura_de_siniestro_sin_fecha_ni_descripcion_pide_parametros) ... ok
+test_aprobar_una_baja_deja_la_poliza_dada_de_baja_y_la_accion_ejecutada (negocio.tests.test_acciones.AprobarAccionTests.test_aprobar_una_baja_deja_la_poliza_dada_de_baja_y_la_accion_ejecutada) ... ok
+test_baja_rechaza_contacto_sin_vinculacion_validada (negocio.tests.test_acciones.AprobarAccionTests.test_baja_rechaza_contacto_sin_vinculacion_validada) ... ok
+test_baja_rechaza_poliza_de_otro_cliente (negocio.tests.test_acciones.AprobarAccionTests.test_baja_rechaza_poliza_de_otro_cliente) ... ok
+test_baja_rechaza_poliza_inexistente (negocio.tests.test_acciones.AprobarAccionTests.test_baja_rechaza_poliza_inexistente) ... ok
+test_baja_selecciona_poliza_del_cliente_y_ejecuta_esa_poliza (negocio.tests.test_acciones.AprobarAccionTests.test_baja_selecciona_poliza_del_cliente_y_ejecuta_esa_poliza) ... ok
+test_el_aviso_de_reembolso_aprobado_indica_que_sigue_pendiente (negocio.tests.test_acciones.AprobarAccionTests.test_el_aviso_de_reembolso_aprobado_indica_que_sigue_pendiente) ... ok
+test_reembolso_sin_importe_y_modificacion_sin_detalle_piden_parametros (negocio.tests.test_acciones.AprobarAccionTests.test_reembolso_sin_importe_y_modificacion_sin_detalle_piden_parametros) ... ok
+test_reembolso_y_modificacion_quedan_aprobadas_pendientes_de_gestion_externa (negocio.tests.test_acciones.AprobarAccionTests.test_reembolso_y_modificacion_quedan_aprobadas_pendientes_de_gestion_externa) ... ok
+test_si_el_envio_falla_la_accion_queda_ejecutada_igual (negocio.tests.test_acciones.AprobarAccionTests.test_si_el_envio_falla_la_accion_queda_ejecutada_igual) ... ok
+test_si_la_consulta_no_tiene_conversacion_no_se_envia_nada (negocio.tests.test_acciones.AprobarAccionTests.test_si_la_consulta_no_tiene_conversacion_no_se_envia_nada) ... ok
+test_una_baja_sin_poliza_pide_los_parametros_y_sigue_pendiente (negocio.tests.test_acciones.AprobarAccionTests.test_una_baja_sin_poliza_pide_los_parametros_y_sigue_pendiente) ... ok
+test_una_poliza_ya_dada_de_baja_es_estado_invalido (negocio.tests.test_acciones.AprobarAccionTests.test_una_poliza_ya_dada_de_baja_es_estado_invalido) ... ok
+test_atender_derivacion_solo_la_puede_atender_su_responsable (negocio.tests.test_acciones.DerivacionTests.test_atender_derivacion_solo_la_puede_atender_su_responsable) ... ok
+test_atender_una_derivacion_inexistente_es_no_encontrado (negocio.tests.test_acciones.DerivacionTests.test_atender_una_derivacion_inexistente_es_no_encontrado) ... ok
+test_derivar_con_una_prioridad_invalida_es_datos_invalidos (negocio.tests.test_acciones.DerivacionTests.test_derivar_con_una_prioridad_invalida_es_datos_invalidos) ... ok
+test_derivar_crea_la_derivacion_y_pasa_la_conversacion_a_humano (negocio.tests.test_acciones.DerivacionTests.test_derivar_crea_la_derivacion_y_pasa_la_conversacion_a_humano) ... ok
+test_completar_parametros_mezcla_y_normaliza_el_dni (negocio.tests.test_acciones.PermisosYEstadosTests.test_completar_parametros_mezcla_y_normaliza_el_dni) ... ok
+test_completar_parametros_sobre_una_no_pendiente_es_estado_invalido (negocio.tests.test_acciones.PermisosYEstadosTests.test_completar_parametros_sobre_una_no_pendiente_es_estado_invalido) ... ok
+test_la_base_rechaza_que_resuelva_quien_no_puede_aprobar (negocio.tests.test_acciones.PermisosYEstadosTests.test_la_base_rechaza_que_resuelva_quien_no_puede_aprobar) ... ok
+test_la_base_rechaza_un_update_directo_a_ejecutada_sin_aprobacion (negocio.tests.test_acciones.PermisosYEstadosTests.test_la_base_rechaza_un_update_directo_a_ejecutada_sin_aprobacion) ... ok
+test_un_operador_no_puede_aprobar_rechazar_ni_completar (negocio.tests.test_acciones.PermisosYEstadosTests.test_un_operador_no_puede_aprobar_rechazar_ni_completar) ... ok
+test_una_accion_inexistente_es_no_encontrado (negocio.tests.test_acciones.PermisosYEstadosTests.test_una_accion_inexistente_es_no_encontrado) ... ok
+test_una_accion_ya_resuelta_no_se_puede_volver_a_resolver (negocio.tests.test_acciones.PermisosYEstadosTests.test_una_accion_ya_resuelta_no_se_puede_volver_a_resolver) ... ok
+test_al_rechazar_tambien_se_avisa_al_cliente (negocio.tests.test_acciones.RechazarAccionTests.test_al_rechazar_tambien_se_avisa_al_cliente) ... ok
+test_rechazar_con_motivo_registra_quien_cuando_y_por_que (negocio.tests.test_acciones.RechazarAccionTests.test_rechazar_con_motivo_registra_quien_cuando_y_por_que) ... ok
+test_rechazar_sin_motivo_es_datos_invalidos (negocio.tests.test_acciones.RechazarAccionTests.test_rechazar_sin_motivo_es_datos_invalidos) ... ok
+test_crea_una_accion_pendiente_sin_tocar_datos_del_cliente (negocio.tests.test_acciones.SolicitarAccionTests.test_crea_una_accion_pendiente_sin_tocar_datos_del_cliente) ... ok
+test_no_duplica_la_misma_accion_en_la_misma_conversacion (negocio.tests.test_acciones.SolicitarAccionTests.test_no_duplica_la_misma_accion_en_la_misma_conversacion) ... ok
+test_un_tipo_invalido_es_datos_invalidos (negocio.tests.test_acciones.SolicitarAccionTests.test_un_tipo_invalido_es_datos_invalidos) ... ok
+test_una_consulta_inexistente_es_no_encontrado (negocio.tests.test_acciones.SolicitarAccionTests.test_una_consulta_inexistente_es_no_encontrado) ... ok
+test_a_quien_ya_es_cliente_no_se_lo_registra_de_nuevo (negocio.tests.test_bot.AccionesQueArmaElBotTests.test_a_quien_ya_es_cliente_no_se_lo_registra_de_nuevo) ... ok
+test_adelantar_cuotas_lo_decide_una_persona (negocio.tests.test_bot.AccionesQueArmaElBotTests.test_adelantar_cuotas_lo_decide_una_persona) ... ok
+test_con_los_datos_deja_el_alta_lista_para_aprobar_sin_derivar (negocio.tests.test_bot.AccionesQueArmaElBotTests.test_con_los_datos_deja_el_alta_lista_para_aprobar_sin_derivar) ... ok
+test_con_una_sola_palabra_el_alta_nace_sin_apellido (negocio.tests.test_bot.AccionesQueArmaElBotTests.test_con_una_sola_palabra_el_alta_nace_sin_apellido)
+No se inventa un apellido: la acción queda incompleta y el panel se ... ok
+test_con_varias_polizas_lista_el_numero_de_cada_una (negocio.tests.test_bot.AccionesQueArmaElBotTests.test_con_varias_polizas_lista_el_numero_de_cada_una) ... ok
+test_el_numero_de_grua_sale_de_la_cobertura_de_su_poliza (negocio.tests.test_bot.AccionesQueArmaElBotTests.test_el_numero_de_grua_sale_de_la_cobertura_de_su_poliza) ... ok
+test_quiero_registrarme_primero_pide_los_datos_y_no_deriva (negocio.tests.test_bot.AccionesQueArmaElBotTests.test_quiero_registrarme_primero_pide_los_datos_y_no_deriva) ... ok
+test_sin_poliza_vigente_no_inventa_un_numero_y_deriva (negocio.tests.test_bot.AccionesQueArmaElBotTests.test_sin_poliza_vigente_no_inventa_un_numero_y_deriva) ... ok
+test_un_reclamo_de_cobro_deja_un_reembolso_para_completar (negocio.tests.test_bot.AccionesQueArmaElBotTests.test_un_reclamo_de_cobro_deja_un_reembolso_para_completar) ... ok
+test_el_aviso_de_adjunto_no_entra_en_la_agrupacion (negocio.tests.test_bot.AgrupacionTests.test_el_aviso_de_adjunto_no_entra_en_la_agrupacion) ... ok
+test_el_ultimo_de_la_rafaga_agrupa_a_todos_en_una_sola_consulta (negocio.tests.test_bot.AgrupacionTests.test_el_ultimo_de_la_rafaga_agrupa_a_todos_en_una_sola_consulta) ... ok
+test_la_ventana_sale_del_entorno_y_aguanta_cualquier_valor (negocio.tests.test_bot.AgrupacionTests.test_la_ventana_sale_del_entorno_y_aguanta_cualquier_valor) ... BOT_VENTANA_AGRUPACION_SEGUNDOS no es un número ('ni idea'); se usa 5.0.
+ok
+test_un_mensaje_solo_lo_contesta_el_mismo (negocio.tests.test_bot.AgrupacionTests.test_un_mensaje_solo_lo_contesta_el_mismo) ... ok
+test_un_mensaje_ya_agrupado_no_se_vuelve_a_contestar (negocio.tests.test_bot.AgrupacionTests.test_un_mensaje_ya_agrupado_no_se_vuelve_a_contestar) ... ok
+test_urgencia_no_espera_la_ventana_ni_un_mensaje_posterior (negocio.tests.test_bot.AgrupacionTests.test_urgencia_no_espera_la_ventana_ni_un_mensaje_posterior) ... ok
+test_el_modo_humano_pausa_la_recuperacion_documental (negocio.tests.test_bot.ConsultaDocumentalBotTests.test_el_modo_humano_pausa_la_recuperacion_documental) ... ok
+test_fuente_irrelevante_no_respalda_y_deriva_sin_inventar (negocio.tests.test_bot.ConsultaDocumentalBotTests.test_fuente_irrelevante_no_respalda_y_deriva_sin_inventar) ... ok
+test_retirar_fuente_la_excluye_de_las_respuestas_siguientes (negocio.tests.test_bot.ConsultaDocumentalBotTests.test_retirar_fuente_la_excluye_de_las_respuestas_siguientes) ... ok
+test_saldo_sigue_saliendo_de_la_cuenta_sin_consultar_documentos (negocio.tests.test_bot.ConsultaDocumentalBotTests.test_saldo_sigue_saliendo_de_la_cuenta_sin_consultar_documentos) ... ok
+test_un_pasaje_con_datos_no_verificados_sigue_bajo_guardrail_de_salida (negocio.tests.test_bot.ConsultaDocumentalBotTests.test_un_pasaje_con_datos_no_verificados_sigue_bajo_guardrail_de_salida) ... ok
+test_una_consulta_con_respaldo_cita_fuente_y_no_afirma_aplicacion_particular (negocio.tests.test_bot.ConsultaDocumentalBotTests.test_una_consulta_con_respaldo_cita_fuente_y_no_afirma_aplicacion_particular) ... ok
+test_una_consulta_de_documentacion_usa_la_busqueda (negocio.tests.test_bot.ConsultaDocumentalBotTests.test_una_consulta_de_documentacion_usa_la_busqueda) ... ok
+test_una_inyeccion_no_llega_a_buscar_fuentes_ni_se_contesta_con_el_documento (negocio.tests.test_bot.ConsultaDocumentalBotTests.test_una_inyeccion_no_llega_a_buscar_fuentes_ni_se_contesta_con_el_documento) ... ok
+test_vencimiento_sigue_saliendo_de_polizas_sin_consultar_documentos (negocio.tests.test_bot.ConsultaDocumentalBotTests.test_vencimiento_sigue_saliendo_de_polizas_sin_consultar_documentos) ... ok
+test_el_dni_con_y_sin_puntos (negocio.tests.test_bot.ExtraccionDeDatosTests.test_el_dni_con_y_sin_puntos) ... ok
+test_lo_que_no_hay_que_tomar_por_nombre (negocio.tests.test_bot.ExtraccionDeDatosTests.test_lo_que_no_hay_que_tomar_por_nombre) ... ok
+test_nombres_que_se_reconocen (negocio.tests.test_bot.ExtraccionDeDatosTests.test_nombres_que_se_reconocen) ... ok
+test_el_dni_del_propio_cliente_no_alerta (negocio.tests.test_bot.GuardrailsDeSalidaTests.test_el_dni_del_propio_cliente_no_alerta) ... ok
+test_la_poliza_del_propio_cliente_no_alerta (negocio.tests.test_bot.GuardrailsDeSalidaTests.test_la_poliza_del_propio_cliente_no_alerta) ... ok
+test_las_frases_de_accion_cumplida_alertan_con_su_severidad (negocio.tests.test_bot.GuardrailsDeSalidaTests.test_las_frases_de_accion_cumplida_alertan_con_su_severidad) ... ok
+test_los_valores_que_salieron_de_la_base_no_alertan (negocio.tests.test_bot.GuardrailsDeSalidaTests.test_los_valores_que_salieron_de_la_base_no_alertan) ... ok
+test_un_dni_de_otro_cliente_es_fuga_de_datos (negocio.tests.test_bot.GuardrailsDeSalidaTests.test_un_dni_de_otro_cliente_es_fuga_de_datos) ... ok
+test_un_dominio_fuera_de_la_lista_blanca_es_dato_inventado (negocio.tests.test_bot.GuardrailsDeSalidaTests.test_un_dominio_fuera_de_la_lista_blanca_es_dato_inventado) ... ok
+test_un_dominio_permitido_no_alerta (negocio.tests.test_bot.GuardrailsDeSalidaTests.test_un_dominio_permitido_no_alerta) ... ok
+test_un_identificador_que_no_existe_es_dato_inventado (negocio.tests.test_bot.GuardrailsDeSalidaTests.test_un_identificador_que_no_existe_es_dato_inventado) ... ok
+test_un_monto_sin_respaldo_es_dato_no_verificado (negocio.tests.test_bot.GuardrailsDeSalidaTests.test_un_monto_sin_respaldo_es_dato_no_verificado) ... ok
+test_un_vencimiento_real_del_cliente_no_alerta (negocio.tests.test_bot.GuardrailsDeSalidaTests.test_un_vencimiento_real_del_cliente_no_alerta) ... ok
+test_una_clausula_citada_es_dato_no_verificado_alto (negocio.tests.test_bot.GuardrailsDeSalidaTests.test_una_clausula_citada_es_dato_no_verificado_alto) ... ok
+test_una_fecha_imposible_es_dato_inconsistente_alto (negocio.tests.test_bot.GuardrailsDeSalidaTests.test_una_fecha_imposible_es_dato_inconsistente_alto) ... ok
+test_una_fecha_valida_que_el_cliente_no_tiene_es_dato_inconsistente_medio (negocio.tests.test_bot.GuardrailsDeSalidaTests.test_una_fecha_valida_que_el_cliente_no_tiene_es_dato_inconsistente_medio) ... ok
+test_una_poliza_de_otro_cliente_es_fuga_de_datos (negocio.tests.test_bot.GuardrailsDeSalidaTests.test_una_poliza_de_otro_cliente_es_fuga_de_datos) ... ok
+test_al_tercer_intento_se_marca_la_insistencia_sin_derivar (negocio.tests.test_bot.InsistenciaTests.test_al_tercer_intento_se_marca_la_insistencia_sin_derivar) ... ok
+test_el_bloqueo_es_del_numero_y_no_de_la_conversacion (negocio.tests.test_bot.InsistenciaTests.test_el_bloqueo_es_del_numero_y_no_de_la_conversacion) ... ok
+test_el_bloqueo_sigue_activo_antes_de_cumplir_24_horas (negocio.tests.test_bot.InsistenciaTests.test_el_bloqueo_sigue_activo_antes_de_cumplir_24_horas) ... ok
+test_los_dos_primeros_intentos_alertan_pero_no_derivan (negocio.tests.test_bot.InsistenciaTests.test_los_dos_primeros_intentos_alertan_pero_no_derivan) ... ok
+test_pasadas_las_24_horas_el_bot_vuelve_a_contestar (negocio.tests.test_bot.InsistenciaTests.test_pasadas_las_24_horas_el_bot_vuelve_a_contestar) ... ok
+test_pasado_el_bloqueo_la_cuenta_de_intentos_arranca_de_cero (negocio.tests.test_bot.InsistenciaTests.test_pasado_el_bloqueo_la_cuenta_de_intentos_arranca_de_cero) ... ok
+test_un_numero_bloqueado_es_ignorado_sin_respuesta_ni_alertas (negocio.tests.test_bot.InsistenciaTests.test_un_numero_bloqueado_es_ignorado_sin_respuesta_ni_alertas) ... ok
+test_con_inyeccion_no_se_llama_al_llm_y_se_responde_el_rechazo (negocio.tests.test_bot.InyeccionTests.test_con_inyeccion_no_se_llama_al_llm_y_se_responde_el_rechazo) ... ok
+test_decir_otro_nombre_desde_un_numero_registrado_no_da_datos (negocio.tests.test_bot.InyeccionTests.test_decir_otro_nombre_desde_un_numero_registrado_no_da_datos) ... ok
+test_decir_ser_otro_cliente_para_ver_su_cuenta_es_critico (negocio.tests.test_bot.InyeccionTests.test_decir_ser_otro_cliente_para_ver_su_cuenta_es_critico) ... ok
+test_el_nombre_para_el_alta_no_es_suplantacion (negocio.tests.test_bot.InyeccionTests.test_el_nombre_para_el_alta_no_es_suplantacion) ... ok
+test_el_titular_que_dice_su_propio_nombre_no_alerta (negocio.tests.test_bot.InyeccionTests.test_el_titular_que_dice_su_propio_nombre_no_alerta) ... ok
+test_evaluar_entrada_detecta_los_patrones_de_inyeccion (negocio.tests.test_bot.InyeccionTests.test_evaluar_entrada_detecta_los_patrones_de_inyeccion) ... ok
+test_la_descripcion_junta_todos_los_motivos (negocio.tests.test_bot.InyeccionTests.test_la_descripcion_junta_todos_los_motivos) ... ok
+test_un_desconocido_que_dice_ser_un_cliente_no_recibe_datos (negocio.tests.test_bot.InyeccionTests.test_un_desconocido_que_dice_ser_un_cliente_no_recibe_datos) ... ok
+test_un_numero_registrado_que_dice_otro_nombre_alerta (negocio.tests.test_bot.InyeccionTests.test_un_numero_registrado_que_dice_otro_nombre_alerta) ... ok
+test_un_numero_sin_cliente_puede_presentarse_sin_alertar (negocio.tests.test_bot.InyeccionTests.test_un_numero_sin_cliente_puede_presentarse_sin_alertar)
+No hay contra qué validarlo, y presentarse es lo que se le pide en el ... ok
+test_un_soy_que_no_es_un_nombre_no_alerta (negocio.tests.test_bot.InyeccionTests.test_un_soy_que_no_es_un_nombre_no_alerta) ... ok
+test_una_clienta_registrada_como_graciela_puede_decirlo (negocio.tests.test_bot.InyeccionTests.test_una_clienta_registrada_como_graciela_puede_decirlo) ... ok
+test_una_consulta_normal_no_genera_alertas_de_entrada (negocio.tests.test_bot.InyeccionTests.test_una_consulta_normal_no_genera_alertas_de_entrada) ... ok
+test_con_llm_configurado_se_usa_su_clasificacion (negocio.tests.test_bot.LLMTests.test_con_llm_configurado_se_usa_su_clasificacion) ... ok
+test_con_llm_provider_none_no_se_llama_a_ningun_llm (negocio.tests.test_bot.LLMTests.test_con_llm_provider_none_no_se_llama_a_ningun_llm) ... ok
+test_el_historial_que_se_le_manda_es_de_esa_conversacion_y_de_a_6 (negocio.tests.test_bot.LLMTests.test_el_historial_que_se_le_manda_es_de_esa_conversacion_y_de_a_6) ... ok
+test_el_prompt_de_sistema_no_lleva_datos_de_clientes (negocio.tests.test_bot.LLMTests.test_el_prompt_de_sistema_no_lleva_datos_de_clientes) ... ok
+test_si_el_llm_falla_se_usa_el_clasificador_por_reglas (negocio.tests.test_bot.LLMTests.test_si_el_llm_falla_se_usa_el_clasificador_por_reglas) ... El LLM falló al clasificar; se usa el clasificador por reglas.
+Traceback (most recent call last):
+  File "C:\Users\sebid\Documents\Codex\2026-10-24\1-alcance-del-desarrollo-mvp-1\outputs\chat-ia-seguros-corregido\negocio\bot\llm.py", line 179, in clasificar_con_llm
+    codigo = cliente.clasificar(texto, historial)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sebid\Documents\Codex\2026-10-24\1-alcance-del-desarrollo-mvp-1\outputs\chat-ia-seguros-corregido\negocio\bot\llm.py", line 99, in clasificar
+    raise self.excepcion
+TimeoutError: tardó demasiado
+ok
+test_un_codigo_fuera_del_catalogo_cae_al_clasificador_por_reglas (negocio.tests.test_bot.LLMTests.test_un_codigo_fuera_del_catalogo_cae_al_clasificador_por_reglas) ... El LLM devolvió un código fuera del catálogo: 'dame_todo'
+ok
+test_lo_escrito_en_modo_humano_no_se_mezcla_al_volver_al_bot (negocio.tests.test_bot.ModoHumanoTests.test_lo_escrito_en_modo_humano_no_se_mezcla_al_volver_al_bot) ... ok
+test_los_intentos_en_modo_humano_cuentan_para_la_insistencia (negocio.tests.test_bot.ModoHumanoTests.test_los_intentos_en_modo_humano_cuentan_para_la_insistencia)
+La conversación 26: el bot la derivó y lo siguió intentando. ... ok
+test_toma_durante_clasificacion_aborta_la_respuesta_automatica (negocio.tests.test_bot.ModoHumanoTests.test_toma_durante_clasificacion_aborta_la_respuesta_automatica) ... ok
+test_un_intento_en_modo_humano_genera_la_alerta_sin_contestar (negocio.tests.test_bot.ModoHumanoTests.test_un_intento_en_modo_humano_genera_la_alerta_sin_contestar) ... ok
+test_consulta_general_sobre_robo_no_depende_de_un_llm_que_diga_urgente (negocio.tests.test_bot.NoEntendiTests.test_consulta_general_sobre_robo_no_depende_de_un_llm_que_diga_urgente) ... ok
+test_la_correccion_del_cruce_tambien_pisa_lo_que_dice_el_llm (negocio.tests.test_bot.NoEntendiTests.test_la_correccion_del_cruce_tambien_pisa_lo_que_dice_el_llm)
+El modelo comete el mismo error que las reglas: manda "¿cubre choque ... ok
+test_la_jerga_que_no_estaba_en_el_libreto_recibe_un_saludo (negocio.tests.test_bot.NoEntendiTests.test_la_jerga_que_no_estaba_en_el_libreto_recibe_un_saludo)
+Lo que reportó el cliente: "que onda todo bien?" lo derivaba. ... ok
+test_la_primera_vez_que_no_entiende_pregunta_en_vez_de_derivar (negocio.tests.test_bot.NoEntendiTests.test_la_primera_vez_que_no_entiende_pregunta_en_vez_de_derivar) ... ok
+test_pedir_un_asesor_se_entiende_y_se_deriva_sin_repreguntar (negocio.tests.test_bot.NoEntendiTests.test_pedir_un_asesor_se_entiende_y_se_deriva_sin_repreguntar)
+Pedir una persona cae en `otro`, pero el bot entendió perfectamente: ... ok
+test_pregunta_tres_veces_con_otras_palabras_antes_de_derivar (negocio.tests.test_bot.NoEntendiTests.test_pregunta_tres_veces_con_otras_palabras_antes_de_derivar) ... ok
+test_preguntar_por_la_cobertura_no_devuelve_como_denunciar_un_siniestro (negocio.tests.test_bot.NoEntendiTests.test_preguntar_por_la_cobertura_no_devuelve_como_denunciar_un_siniestro) ... ok
+test_si_a_la_cuarta_tampoco_lo_entiende_deriva (negocio.tests.test_bot.NoEntendiTests.test_si_a_la_cuarta_tampoco_lo_entiende_deriva) ... ok
+test_si_en_el_medio_se_entendio_el_conteo_vuelve_a_empezar (negocio.tests.test_bot.NoEntendiTests.test_si_en_el_medio_se_entendio_el_conteo_vuelve_a_empezar) ... ok
+test_un_incidente_urgente_no_depende_de_la_clasificacion_del_llm (negocio.tests.test_bot.NoEntendiTests.test_un_incidente_urgente_no_depende_de_la_clasificacion_del_llm) ... ok
+test_un_pedido_que_si_entendio_va_a_una_persona_a_la_primera (negocio.tests.test_bot.NoEntendiTests.test_un_pedido_que_si_entendio_va_a_una_persona_a_la_primera) ... ok
+test_el_codigo_de_caso_es_el_mayor_existente_mas_uno (negocio.tests.test_bot.OrquestadorBaseTests.test_el_codigo_de_caso_es_el_mayor_existente_mas_uno) ... ok
+test_el_entrante_queda_ligado_a_su_consulta (negocio.tests.test_bot.OrquestadorBaseTests.test_el_entrante_queda_ligado_a_su_consulta) ... ok
+test_en_modo_humano_el_bot_no_hace_nada (negocio.tests.test_bot.OrquestadorBaseTests.test_en_modo_humano_el_bot_no_hace_nada) ... ok
+test_procesar_dos_veces_el_mismo_mensaje_no_duplica_nada (negocio.tests.test_bot.OrquestadorBaseTests.test_procesar_dos_veces_el_mismo_mensaje_no_duplica_nada) ... ok
+test_con_varias_polizas_vigentes_la_accion_queda_sin_poliza_y_con_aclaracion (negocio.tests.test_bot.PoliticasTests.test_con_varias_polizas_vigentes_la_accion_queda_sin_poliza_y_con_aclaracion) ... ok
+test_el_bot_nunca_dice_que_ejecuto_el_tramite (negocio.tests.test_bot.PoliticasTests.test_el_bot_nunca_dice_que_ejecuto_el_tramite) ... ok
+test_el_resto_de_las_derivaciones_va_a_graciela_en_normal (negocio.tests.test_bot.PoliticasTests.test_el_resto_de_las_derivaciones_va_a_graciela_en_normal) ... ok
+test_la_consulta_derivada_queda_en_estado_derivado (negocio.tests.test_bot.PoliticasTests.test_la_consulta_derivada_queda_en_estado_derivado) ... ok
+test_un_siniestro_urgente_va_a_roberto_con_prioridad_urgente (negocio.tests.test_bot.PoliticasTests.test_un_siniestro_urgente_va_a_roberto_con_prioridad_urgente) ... ok
+test_una_baja_registra_la_solicitud_con_la_unica_poliza_vigente (negocio.tests.test_bot.PoliticasTests.test_una_baja_registra_la_solicitud_con_la_unica_poliza_vigente) ... ok
+test_una_modificacion_pide_modificar_poliza (negocio.tests.test_bot.PoliticasTests.test_una_modificacion_pide_modificar_poliza) ... ok
+test_a_un_cliente_de_la_base_no_se_le_pide_nada (negocio.tests.test_bot.RegistroAntesDeDerivarTests.test_a_un_cliente_de_la_base_no_se_le_pide_nada) ... ok
+test_a_un_desconocido_se_le_piden_los_datos_y_todavia_no_se_deriva (negocio.tests.test_bot.RegistroAntesDeDerivarTests.test_a_un_desconocido_se_le_piden_los_datos_y_todavia_no_se_deriva) ... ok
+test_con_nombre_y_dni_se_deriva_y_el_motivo_los_lleva (negocio.tests.test_bot.RegistroAntesDeDerivarTests.test_con_nombre_y_dni_se_deriva_y_el_motivo_los_lleva) ... ok
+test_contestar_los_datos_no_registra_una_baja_aunque_el_llm_lo_diga (negocio.tests.test_bot.RegistroAntesDeDerivarTests.test_contestar_los_datos_no_registra_una_baja_aunque_el_llm_lo_diga)
+Lo que apareció probando contra el modelo de verdad: el LLM leyó ... ok
+test_el_bot_nunca_le_repite_el_dni_asi_que_no_queda_retenida (negocio.tests.test_bot.RegistroAntesDeDerivarTests.test_el_bot_nunca_le_repite_el_dni_asi_que_no_queda_retenida) ... ok
+test_si_da_solo_el_dni_se_usa_el_nombre_del_perfil_y_queda_avisado (negocio.tests.test_bot.RegistroAntesDeDerivarTests.test_si_da_solo_el_dni_se_usa_el_nombre_del_perfil_y_queda_avisado) ... ok
+test_sigue_el_alta_aunque_conteste_con_un_saludo_adelante (negocio.tests.test_bot.RegistroAntesDeDerivarTests.test_sigue_el_alta_aunque_conteste_con_un_saludo_adelante)
+El clasificador ve "hola" y dice saludo; el alta en curso igual manda. ... ok
+test_tras_dos_pedidos_sin_datos_se_deriva_igual (negocio.tests.test_bot.RegistroAntesDeDerivarTests.test_tras_dos_pedidos_sin_datos_se_deriva_igual) ... ok
+test_un_numero_dicho_antes_del_pedido_no_es_su_dni (negocio.tests.test_bot.RegistroAntesDeDerivarTests.test_un_numero_dicho_antes_del_pedido_no_es_su_dni) ... ok
+test_una_inyeccion_en_medio_del_alta_recibe_el_rechazo (negocio.tests.test_bot.RegistroAntesDeDerivarTests.test_una_inyeccion_en_medio_del_alta_recibe_el_rechazo) ... ok
+test_una_urgencia_en_medio_del_alta_se_deriva_en_el_acto (negocio.tests.test_bot.RegistroAntesDeDerivarTests.test_una_urgencia_en_medio_del_alta_se_deriva_en_el_acto) ... ok
+test_una_urgencia_se_deriva_sin_pedirle_nada (negocio.tests.test_bot.RegistroAntesDeDerivarTests.test_una_urgencia_se_deriva_sin_pedirle_nada) ... ok
+test_el_listado_nombra_el_bien_asegurado_cuando_esta_cargado (negocio.tests.test_bot.RespuestasConDatosTests.test_el_listado_nombra_el_bien_asegurado_cuando_esta_cargado) ... ok
+test_el_saludo_del_llm_igual_pasa_por_los_guardrails (negocio.tests.test_bot.RespuestasConDatosTests.test_el_saludo_del_llm_igual_pasa_por_los_guardrails) ... ok
+test_preguntar_que_polizas_tiene_lo_contesta_el_bot_y_no_deriva (negocio.tests.test_bot.RespuestasConDatosTests.test_preguntar_que_polizas_tiene_lo_contesta_el_bot_y_no_deriva)
+El bug de la conversación 16: "¿tengo pólizas o vehículos ... ok
+test_saldo_usa_el_total_y_el_vencimiento_reales (negocio.tests.test_bot.RespuestasConDatosTests.test_saldo_usa_el_total_y_el_vencimiento_reales) ... ok
+test_saludo_usa_la_plantilla_si_no_hay_llm (negocio.tests.test_bot.RespuestasConDatosTests.test_saludo_usa_la_plantilla_si_no_hay_llm) ... ok
+test_sin_polizas_se_avisa_y_se_deriva_a_graciela (negocio.tests.test_bot.RespuestasConDatosTests.test_sin_polizas_se_avisa_y_se_deriva_a_graciela) ... ok
+test_sin_saldo_pendiente_se_responde_que_esta_al_dia (negocio.tests.test_bot.RespuestasConDatosTests.test_sin_saldo_pendiente_se_responde_que_esta_al_dia) ... ok
+test_siniestro_responde_las_instrucciones_sin_urls_ni_numeros (negocio.tests.test_bot.RespuestasConDatosTests.test_siniestro_responde_las_instrucciones_sin_urls_ni_numeros) ... ok
+test_un_contacto_sin_cliente_no_recibe_datos_y_se_lo_registra (negocio.tests.test_bot.RespuestasConDatosTests.test_un_contacto_sin_cliente_no_recibe_datos_y_se_lo_registra) ... ok
+test_vencimiento_lista_una_linea_por_poliza_y_marca_las_vencidas (negocio.tests.test_bot.RespuestasConDatosTests.test_vencimiento_lista_una_linea_por_poliza_y_marca_las_vencidas) ... ok
+test_una_respuesta_con_alertas_queda_retenida_y_el_cliente_recibe_el_aviso (negocio.tests.test_bot.RetencionTests.test_una_respuesta_con_alertas_queda_retenida_y_el_cliente_recibe_el_aviso) ... ok
+test_una_respuesta_sin_alertas_sale_sin_intervencion_humana (negocio.tests.test_bot.RetencionTests.test_una_respuesta_sin_alertas_sale_sin_intervencion_humana) ... ok
+test_el_alta_crea_el_cliente_y_su_contacto_de_whatsapp (negocio.tests.test_clientes.AltaClienteTests.test_el_alta_crea_el_cliente_y_su_contacto_de_whatsapp) ... ok
+test_el_dni_se_normaliza_y_no_se_puede_repetir (negocio.tests.test_clientes.AltaClienteTests.test_el_dni_se_normaliza_y_no_se_puede_repetir) ... ok
+test_el_email_vacio_se_guarda_como_null_y_el_invalido_se_rechaza (negocio.tests.test_clientes.AltaClienteTests.test_el_email_vacio_se_guarda_como_null_y_el_invalido_se_rechaza) ... ok
+test_el_telefono_se_normaliza_y_no_se_puede_repetir (negocio.tests.test_clientes.AltaClienteTests.test_el_telefono_se_normaliza_y_no_se_puede_repetir) ... ok
+test_nombre_y_apellido_son_obligatorios_y_sin_numeros (negocio.tests.test_clientes.AltaClienteTests.test_nombre_y_apellido_son_obligatorios_y_sin_numeros) ... ok
+test_si_el_telefono_falla_no_queda_el_cliente_a_medias (negocio.tests.test_clientes.AltaClienteTests.test_si_el_telefono_falla_no_queda_el_cliente_a_medias)
+El alta es atómica: o quedan las dos filas, o ninguna. ... ok
+test_un_contacto_de_otro_cliente_nunca_se_adopta (negocio.tests.test_clientes.AltaClienteTests.test_un_contacto_de_otro_cliente_nunca_se_adopta) ... ok
+test_un_contacto_sin_cliente_se_adopta_en_vez_de_rechazarse (negocio.tests.test_clientes.AltaClienteTests.test_un_contacto_sin_cliente_se_adopta_en_vez_de_rechazarse)
+El prospecto que ya le escribió al bot y después se da de alta. ... ok
+test_un_dni_con_formato_invalido_se_rechaza (negocio.tests.test_clientes.AltaClienteTests.test_un_dni_con_formato_invalido_se_rechaza) ... ok
+test_un_telefono_invalido_se_rechaza (negocio.tests.test_clientes.AltaClienteTests.test_un_telefono_invalido_se_rechaza) ... ok
+test_con_las_polizas_dadas_de_baja_si_se_puede (negocio.tests.test_clientes.BajaClienteTests.test_con_las_polizas_dadas_de_baja_si_se_puede) ... ok
+test_dar_de_baja_dos_veces_es_estado_invalido (negocio.tests.test_clientes.BajaClienteTests.test_dar_de_baja_dos_veces_es_estado_invalido) ... ok
+test_la_baja_es_logica_y_conserva_la_fila_y_el_contacto (negocio.tests.test_clientes.BajaClienteTests.test_la_baja_es_logica_y_conserva_la_fila_y_el_contacto) ... ok
+test_no_bloquea_la_baja_por_poliza_marcada_vigente_fuera_de_fechas (negocio.tests.test_clientes.BajaClienteTests.test_no_bloquea_la_baja_por_poliza_marcada_vigente_fuera_de_fechas) ... ok
+test_no_se_da_de_baja_a_un_cliente_con_polizas_vigentes (negocio.tests.test_clientes.BajaClienteTests.test_no_se_da_de_baja_a_un_cliente_con_polizas_vigentes) ... ok
+test_reactivar_devuelve_al_cliente_y_no_se_repite (negocio.tests.test_clientes.BajaClienteTests.test_reactivar_devuelve_al_cliente_y_no_se_repite) ... ok
+test_al_modificar_tambien_se_adopta_un_contacto_sin_cliente (negocio.tests.test_clientes.ModificarClienteTests.test_al_modificar_tambien_se_adopta_un_contacto_sin_cliente) ... ok
+test_cambiar_el_telefono_reusa_el_contacto_existente (negocio.tests.test_clientes.ModificarClienteTests.test_cambiar_el_telefono_reusa_el_contacto_existente) ... ok
+test_el_email_vacio_lo_borra_y_ausente_lo_deja (negocio.tests.test_clientes.ModificarClienteTests.test_el_email_vacio_lo_borra_y_ausente_lo_deja) ... ok
+test_el_propio_dni_no_cuenta_como_repetido (negocio.tests.test_clientes.ModificarClienteTests.test_el_propio_dni_no_cuenta_como_repetido) ... ok
+test_no_se_puede_tomar_el_dni_ni_el_telefono_de_otro (negocio.tests.test_clientes.ModificarClienteTests.test_no_se_puede_tomar_el_dni_ni_el_telefono_de_otro) ... ok
+test_solo_se_actualiza_lo_que_viene (negocio.tests.test_clientes.ModificarClienteTests.test_solo_se_actualiza_lo_que_viene) ... ok
+test_un_cliente_inexistente_es_no_encontrado (negocio.tests.test_clientes.ModificarClienteTests.test_un_cliente_inexistente_es_no_encontrado) ... ok
+test_no_procesa_dos_veces_la_misma_conversacion (negocio.tests.test_comandos.ReprocesarPendientesTests.test_no_procesa_dos_veces_la_misma_conversacion) ... ok
+test_no_reintenta_el_aviso_de_adjunto (negocio.tests.test_comandos.ReprocesarPendientesTests.test_no_reintenta_el_aviso_de_adjunto)
+Un adjunto ya tuvo su respuesta y queda afuera de la agrupación, así ... ok
+test_procesa_el_ultimo_mensaje_del_cliente_que_quedo_sin_consulta (negocio.tests.test_comandos.ReprocesarPendientesTests.test_procesa_el_ultimo_mensaje_del_cliente_que_quedo_sin_consulta) ... ok
+test_reclama_un_trabajo_cuyo_lease_quedo_vencido (negocio.tests.test_comandos.ReprocesarPendientesTests.test_reclama_un_trabajo_cuyo_lease_quedo_vencido) ... ok
+test_recupera_respuesta_guardada_antes_de_enviarla_sin_duplicar (negocio.tests.test_comandos.ReprocesarPendientesTests.test_recupera_respuesta_guardada_antes_de_enviarla_sin_duplicar) ... ok
+test_saltea_lo_reciente_lo_de_modo_humano_y_lo_que_no_es_del_cliente (negocio.tests.test_comandos.ReprocesarPendientesTests.test_saltea_lo_reciente_lo_de_modo_humano_y_lo_que_no_es_del_cliente) ... ok
+test_un_lease_vencido_en_el_ultimo_intento_pasa_a_fallido (negocio.tests.test_comandos.ReprocesarPendientesTests.test_un_lease_vencido_en_el_ultimo_intento_pasa_a_fallido) ... ok
+test_avisa_cuando_la_conversacion_esta_en_modo_humano (negocio.tests.test_comandos.SimularWhatsappTests.test_avisa_cuando_la_conversacion_esta_en_modo_humano) ... ok
+test_muestra_el_estado_y_las_alertas_cuando_la_respuesta_queda_retenida (negocio.tests.test_comandos.SimularWhatsappTests.test_muestra_el_estado_y_las_alertas_cuando_la_respuesta_queda_retenida) ... ok
+test_registra_el_mensaje_lo_procesa_sin_hilo_y_muestra_la_respuesta (negocio.tests.test_comandos.SimularWhatsappTests.test_registra_el_mensaje_lo_procesa_sin_hilo_y_muestra_la_respuesta) ... ok
+test_demo_se_rechaza_fuera_de_desarrollo (negocio.tests.test_demo.DemoMvp2Tests.test_demo_se_rechaza_fuera_de_desarrollo) ... ok
+test_repetir_demo_no_duplica_datos_ni_cambia_contrasenas (negocio.tests.test_demo.DemoMvp2Tests.test_repetir_demo_no_duplica_datos_ni_cambia_contrasenas) ... ok
+test_el_clasificador_por_reglas_acierta_los_tipos_del_golden_set (negocio.tests.test_golden_set.GoldenSetTests.test_el_clasificador_por_reglas_acierta_los_tipos_del_golden_set) ... ok
+test_el_golden_set_da_exactamente_las_alertas_esperadas (negocio.tests.test_golden_set.GoldenSetTests.test_el_golden_set_da_exactamente_las_alertas_esperadas) ... ok
+test_el_golden_set_incluye_casos_buenos_que_no_alertan (negocio.tests.test_golden_set.GoldenSetTests.test_el_golden_set_incluye_casos_buenos_que_no_alertan) ... ok
+test_lo_que_no_coincide_con_ninguna_regla_queda_en_otro (negocio.tests.test_golden_set.GoldenSetTests.test_lo_que_no_coincide_con_ninguna_regla_queda_en_otro) ... ok
+test_a_un_cliente_dado_de_baja_no_se_le_agregan_polizas (negocio.tests.test_polizas.AltaPolizaTests.test_a_un_cliente_dado_de_baja_no_se_le_agregan_polizas) ... ok
+test_el_bien_asegurado_es_opcional_y_vacio_queda_en_null (negocio.tests.test_polizas.AltaPolizaTests.test_el_bien_asegurado_es_opcional_y_vacio_queda_en_null) ... ok
+test_el_cliente_tiene_que_existir (negocio.tests.test_polizas.AltaPolizaTests.test_el_cliente_tiene_que_existir) ... ok
+test_el_correlativo_sigue_al_mayor_que_exista (negocio.tests.test_polizas.AltaPolizaTests.test_el_correlativo_sigue_al_mayor_que_exista) ... ok
+test_el_numero_en_minusculas_se_normaliza (negocio.tests.test_polizas.AltaPolizaTests.test_el_numero_en_minusculas_se_normaliza) ... ok
+test_el_numero_lo_puede_elegir_el_funcionario (negocio.tests.test_polizas.AltaPolizaTests.test_el_numero_lo_puede_elegir_el_funcionario) ... ok
+test_el_saldo_que_ve_el_bot_sale_de_las_cuotas_nuevas (negocio.tests.test_polizas.AltaPolizaTests.test_el_saldo_que_ve_el_bot_sale_de_las_cuotas_nuevas) ... ok
+test_el_tipo_y_la_cobertura_tienen_que_existir (negocio.tests.test_polizas.AltaPolizaTests.test_el_tipo_y_la_cobertura_tienen_que_existir) ... ok
+test_genera_una_cuota_por_ciclo_y_vence_en_su_inicio (negocio.tests.test_polizas.AltaPolizaTests.test_genera_una_cuota_por_ciclo_y_vence_en_su_inicio) ... ok
+test_la_prima_acepta_coma_decimal (negocio.tests.test_polizas.AltaPolizaTests.test_la_prima_acepta_coma_decimal) ... ok
+test_la_prima_tiene_que_ser_un_numero_no_negativo (negocio.tests.test_polizas.AltaPolizaTests.test_la_prima_tiene_que_ser_un_numero_no_negativo) ... ok
+test_la_primera_cuota_no_vence_antes_de_que_empiece_la_poliza (negocio.tests.test_polizas.AltaPolizaTests.test_la_primera_cuota_no_vence_antes_de_que_empiece_la_poliza) ... ok
+test_las_fechas_al_reves_o_iguales_no_pasan (negocio.tests.test_polizas.AltaPolizaTests.test_las_fechas_al_reves_o_iguales_no_pasan) ... ok
+test_los_aniversarios_de_31_vuelven_al_31_despues_de_febrero (negocio.tests.test_polizas.AltaPolizaTests.test_los_aniversarios_de_31_vuelven_al_31_despues_de_febrero) ... ok
+test_si_algo_falla_no_queda_una_poliza_a_medias (negocio.tests.test_polizas.AltaPolizaTests.test_si_algo_falla_no_queda_una_poliza_a_medias) ... ok
+test_sin_numero_toma_el_proximo_libre (negocio.tests.test_polizas.AltaPolizaTests.test_sin_numero_toma_el_proximo_libre) ... ok
+test_un_numero_repetido_o_mal_formado_no_pasa (negocio.tests.test_polizas.AltaPolizaTests.test_un_numero_repetido_o_mal_formado_no_pasa) ... ok
+test_una_poliza_con_inicio_futuro_no_es_cobertura_actual (negocio.tests.test_polizas.AltaPolizaTests.test_una_poliza_con_inicio_futuro_no_es_cobertura_actual) ... ok
+test_una_poliza_con_vencimiento_futuro_nace_vigente (negocio.tests.test_polizas.AltaPolizaTests.test_una_poliza_con_vencimiento_futuro_nace_vigente) ... ok
+test_una_poliza_que_nace_con_el_vencimiento_pasado_nace_vencida (negocio.tests.test_polizas.AltaPolizaTests.test_una_poliza_que_nace_con_el_vencimiento_pasado_nace_vencida) ... ok
+test_una_poliza_que_vence_hoy_sigue_vigente_hasta_esa_fecha (negocio.tests.test_polizas.AltaPolizaTests.test_una_poliza_que_vence_hoy_sigue_vigente_hasta_esa_fecha) ... ok
+test_casos_limite_de_ciclos_mensuales (negocio.tests.test_polizas.MesesDeCoberturaTests.test_casos_limite_de_ciclos_mensuales) ... ok
+test_cobra_completo_el_ciclo_final_parcial (negocio.tests.test_polizas.MesesDeCoberturaTests.test_cobra_completo_el_ciclo_final_parcial) ... ok
+test_del_primero_de_enero_al_ultimo_de_diciembre_genera_doce (negocio.tests.test_polizas.MesesDeCoberturaTests.test_del_primero_de_enero_al_ultimo_de_diciembre_genera_doce) ... ok
+test_medio_ano_son_seis (negocio.tests.test_polizas.MesesDeCoberturaTests.test_medio_ano_son_seis) ... ok
+test_un_ano_son_doce_cuotas_y_no_trece (negocio.tests.test_polizas.MesesDeCoberturaTests.test_un_ano_son_doce_cuotas_y_no_trece) ... ok
+test_una_poliza_de_quince_dias_igual_lleva_una_cuota (negocio.tests.test_polizas.MesesDeCoberturaTests.test_una_poliza_de_quince_dias_igual_lleva_una_cuota) ... ok
+test_cobra_la_cuota_mas_vieja_con_fecha_e_importe (negocio.tests.test_polizas.RegistrarPagoTests.test_cobra_la_cuota_mas_vieja_con_fecha_e_importe) ... ok
+test_dos_pagos_seguidos_cobran_dos_meses_distintos (negocio.tests.test_polizas.RegistrarPagoTests.test_dos_pagos_seguidos_cobran_dos_meses_distintos) ... ok
+test_el_saldo_que_ve_el_bot_baja_un_mes_por_pago (negocio.tests.test_polizas.RegistrarPagoTests.test_el_saldo_que_ve_el_bot_baja_un_mes_por_pago) ... ok
+test_funcionario_inactivo_no_puede_registrar_pago (negocio.tests.test_polizas.RegistrarPagoTests.test_funcionario_inactivo_no_puede_registrar_pago) ... ok
+test_funcionario_sin_permiso_no_puede_registrar_pago (negocio.tests.test_polizas.RegistrarPagoTests.test_funcionario_sin_permiso_no_puede_registrar_pago) ... ok
+test_reintentar_el_mismo_comprobante_devuelve_el_movimiento_y_no_cobra_otra_cuota (negocio.tests.test_polizas.RegistrarPagoTests.test_reintentar_el_mismo_comprobante_devuelve_el_movimiento_y_no_cobra_otra_cuota) ... ok
+test_reutilizar_referencia_con_importe_o_poliza_distintos_se_rechaza (negocio.tests.test_polizas.RegistrarPagoTests.test_reutilizar_referencia_con_importe_o_poliza_distintos_se_rechaza) ... ok
+test_sin_cuotas_pendientes_es_estado_invalido (negocio.tests.test_polizas.RegistrarPagoTests.test_sin_cuotas_pendientes_es_estado_invalido) ... ok
+test_un_importe_parcial_o_invalido_no_cambia_la_cuota (negocio.tests.test_polizas.RegistrarPagoTests.test_un_importe_parcial_o_invalido_no_cambia_la_cuota) ... ok
+test_una_cuota_vencida_tambien_se_cobra (negocio.tests.test_polizas.RegistrarPagoTests.test_una_cuota_vencida_tambien_se_cobra) ... ok
+test_una_poliza_inexistente_es_no_encontrado (negocio.tests.test_polizas.RegistrarPagoTests.test_una_poliza_inexistente_es_no_encontrado) ... ok
+test_contar_un_siniestro_sigue_siendo_siniestro (negocio.tests.test_reglas.JergaYCoberturaTests.test_contar_un_siniestro_sigue_siendo_siniestro) ... ok
+test_la_jerga_rioplatense_cae_en_saludo (negocio.tests.test_reglas.JergaYCoberturaTests.test_la_jerga_rioplatense_cae_en_saludo) ... ok
+test_lo_que_no_es_un_pedido_de_persona (negocio.tests.test_reglas.JergaYCoberturaTests.test_lo_que_no_es_un_pedido_de_persona) ... ok
+test_pedir_una_persona_se_reconoce_aunque_caiga_en_otro (negocio.tests.test_reglas.JergaYCoberturaTests.test_pedir_una_persona_se_reconoce_aunque_caiga_en_otro) ... ok
+test_preguntar_si_algo_esta_cubierto_no_es_un_siniestro (negocio.tests.test_reglas.JergaYCoberturaTests.test_preguntar_si_algo_esta_cubierto_no_es_un_siniestro) ... ok
+test_preguntar_si_el_seguro_cubre_robo_no_es_un_incidente (negocio.tests.test_reglas.JergaYCoberturaTests.test_preguntar_si_el_seguro_cubre_robo_no_es_un_incidente) ... ok
+test_un_incidente_en_curso_se_clasifica_como_urgente (negocio.tests.test_reglas.JergaYCoberturaTests.test_un_incidente_en_curso_se_clasifica_como_urgente) ... ok
+test_un_saludo_no_le_roba_el_turno_a_un_pedido_real (negocio.tests.test_reglas.JergaYCoberturaTests.test_un_saludo_no_le_roba_el_turno_a_un_pedido_real) ... ok
+test_lo_que_sigue_siendo_de_otro_tipo (negocio.tests.test_reglas.ListadoDePolizasTests.test_lo_que_sigue_siendo_de_otro_tipo) ... ok
+test_pedir_el_listado_cae_en_vencimiento (negocio.tests.test_reglas.ListadoDePolizasTests.test_pedir_el_listado_cae_en_vencimiento) ... ok
+test_funcionario_de_rechaza_anonimos_sin_email_e_inactivos (negocio.tests.test_reglas.SesionTests.test_funcionario_de_rechaza_anonimos_sin_email_e_inactivos) ... ok
+test_funcionario_de_resuelve_por_email_sin_distinguir_mayusculas (negocio.tests.test_reglas.SesionTests.test_funcionario_de_resuelve_por_email_sin_distinguir_mayusculas) ... ok
+test_base_rechaza_cambio_de_estado_sin_historial_y_edicion_del_historial (negocio.tests.test_siniestros.ExpedienteSiniestrosTests.test_base_rechaza_cambio_de_estado_sin_historial_y_edicion_del_historial) ... ok
+test_denuncia_requiere_poliza_del_cliente_y_fecha_en_vigencia (negocio.tests.test_siniestros.ExpedienteSiniestrosTests.test_denuncia_requiere_poliza_del_cliente_y_fecha_en_vigencia) ... ok
+test_no_aprobador_no_puede_tomar_una_decision (negocio.tests.test_siniestros.ExpedienteSiniestrosTests.test_no_aprobador_no_puede_tomar_una_decision) ... ok
+test_no_permite_saltar_estados_motivo_vacio_ni_cambiar_un_cerrado (negocio.tests.test_siniestros.ExpedienteSiniestrosTests.test_no_permite_saltar_estados_motivo_vacio_ni_cambiar_un_cerrado) ... ok
+test_registra_denuncia_y_audita_responsable_y_fecha (negocio.tests.test_siniestros.ExpedienteSiniestrosTests.test_registra_denuncia_y_audita_responsable_y_fecha) ... ok
+test_registro_requiere_funcionario_activo_pero_no_aprobador (negocio.tests.test_siniestros.ExpedienteSiniestrosTests.test_registro_requiere_funcionario_activo_pero_no_aprobador) ... ok
+test_transiciones_secuenciales_registran_motivo_responsable_y_fecha (negocio.tests.test_siniestros.ExpedienteSiniestrosTests.test_transiciones_secuenciales_registran_motivo_responsable_y_fecha) ... ok
+test_un_siniestro_inexistente_da_no_encontrado (negocio.tests.test_siniestros.ExpedienteSiniestrosTests.test_un_siniestro_inexistente_da_no_encontrado) ... ok
+test_cierra_los_casos_abiertos_y_deja_la_conversacion_abierta (negocio.tests.test_supervision.CerrarCasosTests.test_cierra_los_casos_abiertos_y_deja_la_conversacion_abierta) ... ok
+test_no_cierra_mientras_haya_una_respuesta_retenida (negocio.tests.test_supervision.CerrarCasosTests.test_no_cierra_mientras_haya_una_respuesta_retenida) ... ok
+test_sin_casos_abiertos_es_estado_invalido (negocio.tests.test_supervision.CerrarCasosTests.test_sin_casos_abiertos_es_estado_invalido) ... ok
+test_tambien_cierra_los_derivados_y_los_pendientes_de_revision (negocio.tests.test_supervision.CerrarCasosTests.test_tambien_cierra_los_derivados_y_los_pendientes_de_revision) ... ok
+test_una_conversacion_inexistente_es_no_encontrado (negocio.tests.test_supervision.CerrarCasosTests.test_una_conversacion_inexistente_es_no_encontrado) ... ok
+test_cualquier_funcionario_activo_puede_reasignar_pero_solo_el_asignado_actua (negocio.tests.test_supervision.ConversacionTests.test_cualquier_funcionario_activo_puede_reasignar_pero_solo_el_asignado_actua) ... ok
+test_no_se_puede_responder_ni_devolver_un_chat_que_no_se_tomo (negocio.tests.test_supervision.ConversacionTests.test_no_se_puede_responder_ni_devolver_un_chat_que_no_se_tomo) ... ok
+test_responder_como_humano_con_la_ventana_abierta_crea_y_envia (negocio.tests.test_supervision.ConversacionTests.test_responder_como_humano_con_la_ventana_abierta_crea_y_envia) ... ok
+test_responder_con_la_ventana_cerrada_da_el_codigo_especifico (negocio.tests.test_supervision.ConversacionTests.test_responder_con_la_ventana_cerrada_da_el_codigo_especifico) ... ok
+test_responder_con_texto_vacio_es_datos_invalidos (negocio.tests.test_supervision.ConversacionTests.test_responder_con_texto_vacio_es_datos_invalidos) ... ok
+test_respuesta_liberada_sin_cambios_sale_durante_atencion_humana (negocio.tests.test_supervision.ConversacionTests.test_respuesta_liberada_sin_cambios_sale_durante_atencion_humana) ... ok
+test_tomar_descarta_la_respuesta_comun_y_envia_solo_lo_autorizado (negocio.tests.test_supervision.ConversacionTests.test_tomar_descarta_la_respuesta_comun_y_envia_solo_lo_autorizado) ... ok
+test_tomar_y_devolver_la_conversacion (negocio.tests.test_supervision.ConversacionTests.test_tomar_y_devolver_la_conversacion) ... ok
+test_una_conversacion_inexistente_es_no_encontrado (negocio.tests.test_supervision.ConversacionTests.test_una_conversacion_inexistente_es_no_encontrado) ... ok
+test_descartar_con_motivo_no_envia_nada_y_resuelve_las_alertas (negocio.tests.test_supervision.DescartarTests.test_descartar_con_motivo_no_envia_nada_y_resuelve_las_alertas) ... ok
+test_un_motivo_de_menos_de_cinco_caracteres_es_datos_invalidos (negocio.tests.test_supervision.DescartarTests.test_un_motivo_de_menos_de_cinco_caracteres_es_datos_invalidos) ... ok
+test_un_operador_no_puede_descartar (negocio.tests.test_supervision.DescartarTests.test_un_operador_no_puede_descartar) ... ok
+test_liberar_con_correccion_descarta_el_original_y_manda_el_texto_nuevo (negocio.tests.test_supervision.LiberarTests.test_liberar_con_correccion_descarta_el_original_y_manda_el_texto_nuevo) ... ok
+test_liberar_sin_texto_envia_el_original_y_descarta_sus_alertas (negocio.tests.test_supervision.LiberarTests.test_liberar_sin_texto_envia_el_original_y_descarta_sus_alertas) ... ok
+test_un_id_inexistente_es_no_encontrado (negocio.tests.test_supervision.LiberarTests.test_un_id_inexistente_es_no_encontrado) ... ok
+test_un_mensaje_que_ya_no_esta_retenido_es_estado_invalido (negocio.tests.test_supervision.LiberarTests.test_un_mensaje_que_ya_no_esta_retenido_es_estado_invalido) ... ok
+test_un_operador_no_puede_liberar (negocio.tests.test_supervision.LiberarTests.test_un_operador_no_puede_liberar) ... ok
+test_reabrir_una_consulta_cerrada_la_deja_pendiente_de_revision (negocio.tests.test_supervision.ReabrirTests.test_reabrir_una_consulta_cerrada_la_deja_pendiente_de_revision) ... ok
+test_reabrir_una_consulta_en_otro_estado_es_estado_invalido (negocio.tests.test_supervision.ReabrirTests.test_reabrir_una_consulta_en_otro_estado_es_estado_invalido) ... ok
+test_un_operador_no_puede_reabrir (negocio.tests.test_supervision.ReabrirTests.test_un_operador_no_puede_reabrir) ... ok
+test_cierra_la_conversacion_y_la_devuelve_al_bot (negocio.tests.test_supervision.VaciarChatTests.test_cierra_la_conversacion_y_la_devuelve_al_bot) ... ok
+test_el_proximo_mensaje_abre_una_conversacion_sin_historial (negocio.tests.test_supervision.VaciarChatTests.test_el_proximo_mensaje_abre_una_conversacion_sin_historial) ... ok
+test_no_borra_mensajes_casos_ni_alertas (negocio.tests.test_supervision.VaciarChatTests.test_no_borra_mensajes_casos_ni_alertas) ... ok
+test_no_vacia_con_una_respuesta_retenida (negocio.tests.test_supervision.VaciarChatTests.test_no_vacia_con_una_respuesta_retenida) ... ok
+test_una_conversacion_ya_cerrada_es_estado_invalido (negocio.tests.test_supervision.VaciarChatTests.test_una_conversacion_ya_cerrada_es_estado_invalido) ... ok
+test_el_mismo_wa_message_id_dos_veces_no_duplica_ni_redispara (negocio.tests.test_whatsapp.EntrantesTests.test_el_mismo_wa_message_id_dos_veces_no_duplica_ni_redispara) ... ok
+test_el_perfil_completa_un_contacto_viejo_pero_no_pisa_el_guardado (negocio.tests.test_whatsapp.EntrantesTests.test_el_perfil_completa_un_contacto_viejo_pero_no_pisa_el_guardado) ... ok
+test_no_devuelve_al_bot_una_conversacion_que_tomo_un_humano (negocio.tests.test_whatsapp.EntrantesTests.test_no_devuelve_al_bot_una_conversacion_que_tomo_un_humano) ... ok
+test_reutiliza_contacto_y_conversacion_abierta_en_cualquier_formato (negocio.tests.test_whatsapp.EntrantesTests.test_reutiliza_contacto_y_conversacion_abierta_en_cualquier_formato) ... ok
+test_se_guarda_el_nombre_de_perfil_que_manda_meta (negocio.tests.test_whatsapp.EntrantesTests.test_se_guarda_el_nombre_de_perfil_que_manda_meta)
+Lo único que se sabe de un desconocido: prellena su alta como cliente. ... ok
+test_si_la_conversacion_estaba_cerrada_se_abre_una_nueva (negocio.tests.test_whatsapp.EntrantesTests.test_si_la_conversacion_estaba_cerrada_se_abre_una_nueva) ... ok
+test_un_adjunto_durante_atencion_humana_no_genera_respuesta_del_bot (negocio.tests.test_whatsapp.EntrantesTests.test_un_adjunto_durante_atencion_humana_no_genera_respuesta_del_bot) ... ok
+test_un_error_de_procesamiento_se_guarda_para_reintento (negocio.tests.test_whatsapp.EntrantesTests.test_un_error_de_procesamiento_se_guarda_para_reintento) ... ok
+test_un_formato_no_soportado_se_encola_y_avisa_que_solo_hay_texto (negocio.tests.test_whatsapp.EntrantesTests.test_un_formato_no_soportado_se_encola_y_avisa_que_solo_hay_texto) ... ok
+test_un_numero_nuevo_crea_contacto_conversacion_y_mensaje (negocio.tests.test_whatsapp.EntrantesTests.test_un_numero_nuevo_crea_contacto_conversacion_y_mensaje) ... ok
+test_un_payload_con_forma_inesperada_se_loguea_y_no_lanza (negocio.tests.test_whatsapp.EntrantesTests.test_un_payload_con_forma_inesperada_se_loguea_y_no_lanza) ... Payload de WhatsApp con entry no válido.
+ok
+test_a_un_movil_argentino_se_le_envia_sin_el_9 (negocio.tests.test_whatsapp.EnvioTests.test_a_un_movil_argentino_se_le_envia_sin_el_9)
+El `wa_id` argentino lleva un 9 que la API de envío rechaza. ... ok
+test_con_la_ventana_de_24h_cerrada_quedan_fallidos_sin_llamar_a_la_api (negocio.tests.test_whatsapp.EnvioTests.test_con_la_ventana_de_24h_cerrada_quedan_fallidos_sin_llamar_a_la_api) ... ok
+test_en_atencion_humana_descarta_la_respuesta_automatica_pendiente (negocio.tests.test_whatsapp.EnvioTests.test_en_atencion_humana_descarta_la_respuesta_automatica_pendiente) ... ok
+test_en_modo_real_guarda_el_wa_message_id_que_devuelve_la_api (negocio.tests.test_whatsapp.EnvioTests.test_en_modo_real_guarda_el_wa_message_id_que_devuelve_la_api) ... ok
+test_en_modo_simulado_marca_enviado_y_no_toca_la_red (negocio.tests.test_whatsapp.EnvioTests.test_en_modo_simulado_marca_enviado_y_no_toca_la_red) ... ok
+test_nunca_envia_retenidos_descartados_enviados_ni_fallidos (negocio.tests.test_whatsapp.EnvioTests.test_nunca_envia_retenidos_descartados_enviados_ni_fallidos) ... ok
+test_si_la_api_falla_el_mensaje_queda_fallido_con_el_detalle (negocio.tests.test_whatsapp.EnvioTests.test_si_la_api_falla_el_mensaje_queda_fallido_con_el_detalle) ... Falló el envío del mensaje 455: sin red
+ok
+test_si_la_api_rechaza_el_envio_se_guarda_el_motivo_de_meta (negocio.tests.test_whatsapp.EnvioTests.test_si_la_api_rechaza_el_envio_se_guarda_el_motivo_de_meta)
+Un 400 de Meta trae el motivo en el cuerpo, no en el status. ... Falló el envío del mensaje 456: HTTP 400: (#131030) Recipient phone number not in allowed list
+ok
+test_un_envio_fallido_se_reintenta_cuando_llega_su_fecha (negocio.tests.test_whatsapp.EnvioTests.test_un_envio_fallido_se_reintenta_cuando_llega_su_fecha) ... Falló el envío del mensaje 457: sin red
+ok
+test_el_estado_avanza_en_orden (negocio.tests.test_whatsapp.EstadoEntregaTests.test_el_estado_avanza_en_orden) ... ok
+test_failed_no_aplica_sobre_entregado_ni_leido (negocio.tests.test_whatsapp.EstadoEntregaTests.test_failed_no_aplica_sobre_entregado_ni_leido) ... ok
+test_failed_si_aplica_sobre_enviado (negocio.tests.test_whatsapp.EstadoEntregaTests.test_failed_si_aplica_sobre_enviado) ... ok
+test_leido_no_vuelve_a_entregado (negocio.tests.test_whatsapp.EstadoEntregaTests.test_leido_no_vuelve_a_entregado) ... ok
+test_un_id_desconocido_o_un_status_raro_se_ignoran (negocio.tests.test_whatsapp.EstadoEntregaTests.test_un_id_desconocido_o_un_status_raro_se_ignoran) ... ok
+test_verificar_firma (negocio.tests.test_whatsapp.VerificacionTests.test_verificar_firma) ... ok
+test_verificar_firma_rechaza_secreto_faltante_o_vacio (negocio.tests.test_whatsapp.VerificacionTests.test_verificar_firma_rechaza_secreto_faltante_o_vacio) ... ok
+test_verificar_suscripcion (negocio.tests.test_whatsapp.VerificacionTests.test_verificar_suscripcion) ... ok
+test_las_cookies_estan_configuradas_para_el_front (api.tests.test_configuracion.ConfiguracionTests.test_las_cookies_estan_configuradas_para_el_front) ... ok
+test_los_estaticos_del_front_se_sirven_desde_frontend_static (api.tests.test_configuracion.ConfiguracionTests.test_los_estaticos_del_front_se_sirven_desde_frontend_static) ... ok
+test_rest_framework_usa_sesion_json_y_el_manejador_propio (api.tests.test_configuracion.ConfiguracionTests.test_rest_framework_usa_sesion_json_y_el_manejador_propio) ... ok
+test_apps_requeridas_instaladas_y_check_sin_errores (datos.tests.test_configuracion.ConfiguracionTests.test_apps_requeridas_instaladas_y_check_sin_errores) ... ok
+test_archivos_y_dependencias_fijadas (datos.tests.test_configuracion.ConfiguracionTests.test_archivos_y_dependencias_fijadas) ... ok
+test_configuracion_de_base_y_localizacion (datos.tests.test_configuracion.ConfiguracionTests.test_configuracion_de_base_y_localizacion) ... ok
+test_variable_obligatoria_faltante_falla_en_espanol_y_la_nombra (datos.tests.test_configuracion.ConfiguracionTests.test_variable_obligatoria_faltante_falla_en_espanol_y_la_nombra) ... ok
+test_rechaza_csv_sin_columnas_requeridas (datos.tests.test_importacion.ImportarCsvValidationTests.test_rechaza_csv_sin_columnas_requeridas) ... ok
+test_conexion_usa_transaccion_solo_lectura_y_solo_selects (datos.tests.test_importacion.VerificarConexionTests.test_conexion_usa_transaccion_solo_lectura_y_solo_selects) ... ok
+test_campos_con_default_declarados_en_los_modelos (datos.tests.test_models.ModelDefinitionTests.test_campos_con_default_declarados_en_los_modelos) ... ok
+test_modelos_de_tabla_mapean_las_tablas_no_administradas (datos.tests.test_models.ModelDefinitionTests.test_modelos_de_tabla_mapean_las_tablas_no_administradas) ... ok
+test_vistas_son_de_solo_lectura (datos.tests.test_models.ModelDefinitionTests.test_vistas_son_de_solo_lectura) ... ok
+test_descarga_con_bearer_y_verifica_el_hash_oficial_en_base64 (negocio.tests.test_adjuntos_siniestros.DescargaWhatsAppTests.test_descarga_con_bearer_y_verifica_el_hash_oficial_en_base64) ... ok
+test_rechaza_url_no_meta_y_checksum_incorrecto (negocio.tests.test_adjuntos_siniestros.DescargaWhatsAppTests.test_rechaza_url_no_meta_y_checksum_incorrecto) ... ok
+test_whatsapp_rechaza_webp_y_tamano_superior_a_5_mib (negocio.tests.test_adjuntos_siniestros.DescargaWhatsAppTests.test_whatsapp_rechaza_webp_y_tamano_superior_a_5_mib) ... ok
+test_acepta_y_reencoda_jpeg_png_y_webp (negocio.tests.test_adjuntos_siniestros.ValidacionImagenTests.test_acepta_y_reencoda_jpeg_png_y_webp) ... ok
+test_rechaza_contenido_falso_y_archivos_mayores_a_10_mib (negocio.tests.test_adjuntos_siniestros.ValidacionImagenTests.test_rechaza_contenido_falso_y_archivos_mayores_a_10_mib) ... ok
+test_dos_aprobaciones_concurrentes_resuelven_una_sola_vez (negocio.tests.test_cola_integracion.ColaConCommitsRealesTests.test_dos_aprobaciones_concurrentes_resuelven_una_sola_vez) ... ok
+test_dos_finalizaciones_concurrentes_registran_una_sola (negocio.tests.test_cola_integracion.ColaConCommitsRealesTests.test_dos_finalizaciones_concurrentes_registran_una_sola) ... ok
+test_webhook_y_worker_cierran_conexiones_sin_perder_el_trabajo (negocio.tests.test_cola_integracion.ColaConCommitsRealesTests.test_webhook_y_worker_cierran_conexiones_sin_perder_el_trabajo) ... ok
+test_compara_palabras_normalizadas_sin_depender_de_un_modelo_semantico (negocio.tests.test_documentos.RecuperacionLexicaTests.test_compara_palabras_normalizadas_sin_depender_de_un_modelo_semantico) ... ok
+test_el_fragmentado_conserva_texto_y_limita_la_longitud (negocio.tests.test_documentos.RecuperacionLexicaTests.test_el_fragmentado_conserva_texto_y_limita_la_longitud) ... ok
+test_el_fragmentado_no_crea_pasajes_vacios_por_espacios_repetidos (negocio.tests.test_documentos.RecuperacionLexicaTests.test_el_fragmentado_no_crea_pasajes_vacios_por_espacios_repetidos) ... ok
+test_cada_error_tiene_su_codigo_y_conserva_el_mensaje (negocio.tests.test_reglas.ErroresTests.test_cada_error_tiene_su_codigo_y_conserva_el_mensaje) ... ok
+test_estado_invalido_acepta_un_codigo_mas_especifico (negocio.tests.test_reglas.ErroresTests.test_estado_invalido_acepta_un_codigo_mas_especifico) ... ok
+test_severidad_y_color (negocio.tests.test_reglas.ReglasPurasTests.test_severidad_y_color) ... ok
+test_sin_respuesta_solo_si_el_bot_dejo_colgado_al_cliente (negocio.tests.test_reglas.ReglasPurasTests.test_sin_respuesta_solo_si_el_bot_dejo_colgado_al_cliente) ... ok
+test_ventana_24h (negocio.tests.test_reglas.ReglasPurasTests.test_ventana_24h) ... ok
+test_normalizar_dni_acepta_formatos_y_rechaza_valores_invalidos (datos.tests.test_limpieza.LimpiezaTests.test_normalizar_dni_acepta_formatos_y_rechaza_valores_invalidos) ... ok
+test_normalizar_telefono_aplica_formato_canonico (datos.tests.test_limpieza.LimpiezaTests.test_normalizar_telefono_aplica_formato_canonico) ... ok
+test_normalizar_tipo_seguro_resuelve_aliases (datos.tests.test_limpieza.LimpiezaTests.test_normalizar_tipo_seguro_resuelve_aliases) ... ok
+test_parsear_fecha_hora_reconoce_formatos_explicitos (datos.tests.test_limpieza.LimpiezaTests.test_parsear_fecha_hora_reconoce_formatos_explicitos) ... ok
+test_parsear_fecha_sin_hora_y_rechaza_valores_invalidos (datos.tests.test_limpieza.LimpiezaTests.test_parsear_fecha_sin_hora_y_rechaza_valores_invalidos) ... ok
+
+----------------------------------------------------------------------
+Ran 536 tests in 32.440s
+
+OK
+Destroying test database for alias 'default' ('test_proyecto')...
+ OK
+System check identified no issues (0 silenced).
+Trabajos completados: 1
+Mensajes salientes enviados: 0
+Trabajos completados: 1
+Mensajes salientes enviados: 0
+Trabajos completados: 1
+Mensajes salientes enviados: 0
+Trabajos completados: 1
+Mensajes salientes enviados: 0
+Trabajos completados: 0
+Mensajes salientes enviados: 0
+Trabajos completados: 1
+Mensajes salientes enviados: 0
+System check identified no issues (0 silenced).

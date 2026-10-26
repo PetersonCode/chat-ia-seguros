@@ -24,6 +24,7 @@ from negocio.reglas import (
     sin_respuesta,
     ventana_24h_abierta,
 )
+from negocio.bot.clasificador import clasificar, pide_un_humano
 from negocio.sesion import funcionario_de
 
 
@@ -130,3 +131,104 @@ class ReglasPurasTests(SimpleTestCase):
         self.assertTrue(ventana_24h_abierta(ahora - timedelta(hours=23), ahora))
         self.assertFalse(ventana_24h_abierta(ahora - timedelta(hours=25), ahora))
         self.assertFalse(ventana_24h_abierta(None, ahora))
+
+
+class ListadoDePolizasTests(TestCase):
+    """Preguntar qué pólizas o vehículos tiene es pedir el listado, no una
+    consulta de cobertura: lo primero lo contesta el bot, lo segundo deriva."""
+
+    def test_pedir_el_listado_cae_en_vencimiento(self):
+        for texto in (
+            "Queria saber si tengo polizas o vehiculos registrados",
+            "que polizas tengo?",
+            "cuales son mis polizas",
+            "cuantas polizas tengo",
+            "tengo algun vehiculo registrado?",
+            "que vehiculos tengo asegurados",
+            "que seguros tengo contratados",
+            "mis polizas activas",
+        ):
+            with self.subTest(texto=texto):
+                self.assertEqual(clasificar(texto), "vencimiento")
+
+    def test_lo_que_sigue_siendo_de_otro_tipo(self):
+        for texto, esperado in (
+            ("que cubre mi poliza?", "consulta_cobertura"),
+            ("que incluye mi cobertura?", "consulta_cobertura"),
+            ("condiciones de la poliza", "consulta_cobertura"),
+            ("cuanto cuesta una poliza nueva", "cotizacion"),
+            ("quiero cotizar un seguro para mi moto", "cotizacion"),
+            ("quiero dar de baja la poliza", "baja"),
+            ("cuando vence mi seguro", "vencimiento"),
+        ):
+            with self.subTest(texto=texto):
+                self.assertEqual(clasificar(texto), esperado)
+
+
+class JergaYCoberturaTests(TestCase):
+    """Dos cruces del clasificador por reglas, sin tocar el orden (AC-T3-33)."""
+
+    def test_la_jerga_rioplatense_cae_en_saludo(self):
+        for texto in (
+            "que onda todo bien?",
+            "como andas",
+            "como va",
+            "holis",
+            "todo bien?",
+            "saludos",
+        ):
+            with self.subTest(texto=texto):
+                self.assertEqual(clasificar(texto), "saludo")
+
+    def test_preguntar_si_algo_esta_cubierto_no_es_un_siniestro(self):
+        # Nombran un siniestro, pero preguntan por la cobertura: el bot no
+        # puede contestarlas y deriva, en vez de mandar cómo denunciar.
+        for texto in (
+            "me cubre el granizo?",
+            "esta cubierto el robo de ruedas?",
+            "mi cobertura incluye choque con animales",
+            "el granizo entra en mi cobertura?",
+        ):
+            with self.subTest(texto=texto):
+                self.assertEqual(clasificar(texto), "consulta_cobertura")
+
+    def test_contar_un_siniestro_sigue_siendo_siniestro(self):
+        for texto in (
+            "Mi auto choco ayer, como hago el siniestro?",
+            "quiero denunciar un robo",
+            "quiero hacer la denuncia por granizo",
+        ):
+            with self.subTest(texto=texto):
+                self.assertEqual(clasificar(texto), "siniestro")
+
+    def test_un_incidente_en_curso_se_clasifica_como_urgente(self):
+        for texto in (
+            "tuve un choque",
+            "me robaron el auto",
+            "estoy en el hospital",
+        ):
+            with self.subTest(texto=texto):
+                self.assertEqual(clasificar(texto), "siniestro_urgente")
+
+    def test_preguntar_si_el_seguro_cubre_robo_no_es_un_incidente(self):
+        self.assertEqual(clasificar("¿mi seguro cubre robo?"), "consulta_cobertura")
+
+    def test_un_saludo_no_le_roba_el_turno_a_un_pedido_real(self):
+        self.assertEqual(clasificar("todo bien, quiero saber mi saldo"), "saldo")
+        self.assertEqual(clasificar("hola, cuando vence mi poliza"), "vencimiento")
+
+    def test_pedir_una_persona_se_reconoce_aunque_caiga_en_otro(self):
+        for texto in (
+            "necesito hablar con un asesor",
+            "quiero hablar con alguien",
+            "me atienda una persona por favor",
+            "pasame con atencion al cliente",
+        ):
+            with self.subTest(texto=texto):
+                self.assertEqual(clasificar(texto), "otro")
+                self.assertTrue(pide_un_humano(texto))
+
+    def test_lo_que_no_es_un_pedido_de_persona(self):
+        for texto in ("que onda todo bien?", "cuanto debo", "asdkjh qwe"):
+            with self.subTest(texto=texto):
+                self.assertFalse(pide_un_humano(texto))

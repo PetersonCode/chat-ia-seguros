@@ -1,9 +1,9 @@
 """Acciones contractuales y derivaciones.
 
 R11: el bot **nunca** ejecuta un cambio contractual. Crea una `AccionPendiente`
-y la aprueba un funcionario con `puede_aprobar`. El efecto real (dar de baja la
-póliza, agregar el conductor, abrir el siniestro) ocurre recién al aprobar, en
-la misma transacción que deja la acción en `ejecutada`.
+y la aprueba un funcionario con `puede_aprobar`. Solo los efectos implementados
+se aplican al aprobar y dejan la acción en `ejecutada`; lo que requiere gestión
+externa queda `aprobada`.
 
 La base también lo hace cumplir: el trigger `acciones_pendientes_control`
 rechaza una acción que nace resuelta, un `ejecutada` sin `aprobada` previa y
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 
-from django.db import connection, transaction
+from django.db import transaction
 from django.utils import timezone
 
 from datos.limpieza import normalizar_dni
@@ -26,7 +26,6 @@ from datos.models import (
     EstadoAccion,
     EstadoConsulta,
     EstadoPoliza,
-    EstadoSiniestro,
     Funcionario,
     Direccion,
     Emisor,
@@ -36,11 +35,11 @@ from datos.models import (
     Poliza,
     Prioridad,
     Relacion,
-    Siniestro,
     TipoAccion,
 )
 from negocio.bot.plantillas import (
     ACCION_APROBADA,
+    ACCION_APROBADA_PENDIENTE,
     ACCION_RECHAZADA,
     formatear_monto,
 )
@@ -52,9 +51,7 @@ from negocio.errores import (
     PermisoDenegado,
 )
 from negocio.whatsapp import enviar_pendientes
-
-# Llave del advisory lock que serializa la numeración de siniestros (AC-T3-18).
-LOCK_NUMERO_SINIESTRO = 4243
+from negocio.siniestros import registrar_denuncia_desde_accion
 
 MOTIVO_MINIMO = 3
 
@@ -64,6 +61,10 @@ PARAMETROS_REQUERIDOS = {
     TipoAccion.MODIFICAR_POLIZA: ("detalle",),
     TipoAccion.REEMBOLSO: ("importe",),
     TipoAccion.APERTURA_SINIESTRO: ("fecha_ocurrencia", "descripcion"),
+    # El bot junta nombre, DNI y teléfono de la conversación. El apellido puede
+    # faltar —si la persona escribió una sola palabra— y entonces el panel se
+    # lo pide a quien va a aprobar antes de dejarla ejecutar.
+    TipoAccion.ALTA_CLIENTE: ("nombre", "apellido", "dni", "telefono"),
 }
 # Acciones que no se pueden ejecutar sin una póliza concreta.
 REQUIEREN_POLIZA = {TipoAccion.BAJA_POLIZA, TipoAccion.AGREGAR_CONDUCTOR}
@@ -81,7 +82,11 @@ def _aprobador(funcionario_id: int) -> Funcionario:
 def _accion(accion_id: int) -> AccionPendiente:
     accion = (
         AccionPendiente.objects.select_related(
-            "poliza", "consulta", "consulta__conversacion"
+            "poliza",
+            "consulta",
+            "consulta__contacto",
+            "consulta__conversacion",
+            "consulta__conversacion__contacto",
         )
         .filter(pk=accion_id)
         .first()
@@ -143,20 +148,80 @@ def solicitar_accion(
     )
 
 
+@transaction.atomic
 def completar_parametros(
     accion_id: int, funcionario_id: int, parametros: dict
 ) -> AccionPendiente:
     """Mezcla parámetros nuevos con los que ya tenía la acción (AC-T3-22)."""
     _aprobador(funcionario_id)
-    accion = _accion(accion_id)
+    accion = _accion_bloqueada(accion_id)
     if accion.estado != EstadoAccion.PENDIENTE:
         raise EstadoInvalido("La acción ya fue resuelta.")
+
+    nuevos = _normalizar_parametros(parametros)
+    poliza_seleccionada = nuevos.pop("poliza", None)
+    if "poliza" in parametros:
+        if accion.tipo_accion != TipoAccion.BAJA_POLIZA:
+            raise DatosInvalidos("La selección de póliza solo aplica a una baja.")
+        cliente_id = _cliente_validado_para_accion(accion)
+        if isinstance(poliza_seleccionada, bool) or not isinstance(
+            poliza_seleccionada, (int, str)
+        ):
+            raise DatosInvalidos("Seleccioná una póliza válida del cliente.")
+        if isinstance(poliza_seleccionada, str):
+            poliza_seleccionada = poliza_seleccionada.strip()
+            if not poliza_seleccionada.isdigit():
+                raise DatosInvalidos("Seleccioná una póliza válida del cliente.")
+        poliza = Poliza.objects.filter(pk=poliza_seleccionada).first()
+        if poliza is None:
+            raise NoEncontrado("La póliza seleccionada no existe.")
+        if poliza.cliente_id != cliente_id:
+            raise DatosInvalidos(
+                "La póliza seleccionada no pertenece al cliente vinculado."
+            )
+        accion.poliza = poliza
+
     accion.parametros = {
         **(accion.parametros or {}),
-        **_normalizar_parametros(parametros),
+        **nuevos,
     }
-    accion.save(update_fields=["parametros"])
+    update_fields = ["parametros"]
+    if "poliza" in parametros:
+        update_fields.append("poliza")
+    accion.save(update_fields=update_fields)
     return accion
+
+
+def _cliente_validado_para_accion(accion: AccionPendiente) -> int:
+    """Devuelve el cliente asociado al contacto que originó la consulta."""
+    consulta = accion.consulta
+    contacto_conversacion = (
+        consulta.conversacion.contacto if consulta.conversacion_id is not None else None
+    )
+    contacto = consulta.contacto or contacto_conversacion
+    if contacto is None or contacto.cliente_id is None:
+        raise DatosInvalidos(
+            "No se puede seleccionar una póliza sin un contacto vinculado a un cliente."
+        )
+    if (
+        contacto_conversacion is not None
+        and contacto_conversacion.id != contacto.id
+    ):
+        raise DatosInvalidos(
+            "El contacto de la consulta no coincide con el de la conversación."
+        )
+    return contacto.cliente_id
+
+
+def polizas_disponibles_para_baja(accion_id: int) -> list[Poliza]:
+    """Lista pólizas del cliente validado para completar una baja pendiente."""
+    accion = _accion(accion_id)
+    if accion.tipo_accion != TipoAccion.BAJA_POLIZA:
+        raise DatosInvalidos("La selección de póliza solo aplica a una baja.")
+    cliente_id = _cliente_validado_para_accion(accion)
+    return list(
+        Poliza.objects.filter(cliente_id=cliente_id).order_by("numero_poliza", "id")
+    )
 
 
 def _faltantes(accion: AccionPendiente) -> list[str]:
@@ -171,26 +236,8 @@ def _faltantes(accion: AccionPendiente) -> list[str]:
     return faltan
 
 
-def _proximo_numero_siniestro() -> str:
-    """`SIN-<año>-<5 dígitos>` secuencial, serializado por advisory lock."""
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT pg_advisory_xact_lock(%s)", [LOCK_NUMERO_SINIESTRO])
-    anio = timezone.now().year
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT COALESCE(MAX(SUBSTRING(numero_siniestro FROM 'SIN-[0-9]{4}-([0-9]+)$')::int), 0)
-            FROM siniestros
-            WHERE numero_siniestro ~ %s
-            """,
-            [f"^SIN-{anio}-[0-9]+$"],
-        )
-        maximo = cursor.fetchone()[0] or 0
-    return f"SIN-{anio}-{maximo + 1:05d}"
-
-
-def _ejecutar(accion: AccionPendiente) -> None:
-    """Aplica el efecto real de la acción. Corre dentro de la transacción."""
+def _ejecutar(accion: AccionPendiente, funcionario: Funcionario) -> bool:
+    """Aplica el efecto implementado y confirma si ocurrió dentro de la transacción."""
     faltan = _faltantes(accion)
     if faltan:
         raise ParametrosIncompletos(
@@ -201,6 +248,11 @@ def _ejecutar(accion: AccionPendiente) -> None:
 
     if tipo == TipoAccion.BAJA_POLIZA:
         poliza = Poliza.objects.select_for_update().get(pk=accion.poliza_id)
+        cliente_id = _cliente_validado_para_accion(accion)
+        if poliza.cliente_id != cliente_id:
+            raise DatosInvalidos(
+                "La póliza seleccionada no pertenece al cliente vinculado."
+            )
         if poliza.estado == EstadoPoliza.DADA_DE_BAJA:
             raise EstadoInvalido("La póliza ya está dada de baja.")
         poliza.estado = EstadoPoliza.DADA_DE_BAJA
@@ -219,20 +271,42 @@ def _ejecutar(accion: AccionPendiente) -> None:
         )
 
     elif tipo == TipoAccion.APERTURA_SINIESTRO:
-        numero = _proximo_numero_siniestro()
-        Siniestro.objects.create(
-            numero_siniestro=numero,
+        cliente_id = _cliente_validado_para_accion(accion)
+        siniestro = registrar_denuncia_desde_accion(
+            cliente_id=cliente_id,
             poliza_id=accion.poliza_id,
             consulta_id=accion.consulta_id,
             fecha_ocurrencia=parametros["fecha_ocurrencia"],
             descripcion=parametros["descripcion"],
-            estado=EstadoSiniestro.DENUNCIADO,
+            funcionario_id=funcionario.id,
         )
         # Queda en los parámetros para poder nombrarlo en el aviso al cliente.
-        accion.parametros = {**parametros, "numero_siniestro": numero}
+        accion.parametros = {
+            **parametros,
+            "numero_siniestro": siniestro.numero_siniestro,
+        }
 
-    # `reembolso` y `modificar_poliza` quedan `ejecutada` sin tocar datos:
-    # el movimiento real lo hace administración por fuera del sistema.
+    elif tipo == TipoAccion.ALTA_CLIENTE:
+        # El alta real es la misma del panel, con sus validaciones: un DNI
+        # repetido, un teléfono que ya es de otro cliente o un nombre con
+        # dígitos lanzan `DatosInvalidos` y revierten la aprobación entera.
+        # Si el número ya existía sin cliente —lo creó el webhook cuando esta
+        # persona escribió— se adopta, y la conversación queda enganchada al
+        # cliente nuevo sin duplicar el contacto.
+        from negocio.clientes import alta_cliente
+
+        alta_cliente(
+            dni=str(parametros["dni"]),
+            nombre=str(parametros["nombre"]),
+            apellido=str(parametros["apellido"]),
+            telefono=str(parametros["telefono"]),
+            email=(parametros.get("email") or None),
+        )
+
+    elif tipo in (TipoAccion.REEMBOLSO, TipoAccion.MODIFICAR_POLIZA):
+        return False
+
+    return True
 
 
 def _descripcion(accion: AccionPendiente) -> str:
@@ -251,6 +325,10 @@ def _descripcion(accion: AccionPendiente) -> str:
         except (InvalidOperation, ValueError):
             monto = str(parametros.get("importe", ""))
         return f"reembolso de {monto}"
+    if accion.tipo_accion == TipoAccion.ALTA_CLIENTE:
+        # Sin nombre ni DNI: este texto se le manda al cliente y no hay por qué
+        # devolverle sus propios datos personales por WhatsApp.
+        return "alta como cliente"
     if accion.tipo_accion == TipoAccion.APERTURA_SINIESTRO:
         return (
             "denuncia de siniestro "
@@ -277,16 +355,22 @@ def _avisar_al_cliente(accion: AccionPendiente, texto: str, funcionario: Funcion
     enviar_pendientes(conversacion.id)
 
 
+def _accion_bloqueada(accion_id):
+    # Lock sobre la fila propia, sin bloquear los outer joins de _accion.
+    if not AccionPendiente.objects.select_for_update().filter(pk=accion_id).exists():
+        raise NoEncontrado("La acción no existe.")
+    return _accion(accion_id)
+
+
 def aprobar_accion(
     accion_id: int, funcionario_id: int, motivo: str | None = None
 ) -> AccionPendiente:
-    """Aprueba y ejecuta la acción en una sola transacción (AC-T3-17)."""
+    """Aprueba y ejecuta solo los efectos implementados (AC-T3-17)."""
     funcionario = _aprobador(funcionario_id)
-    accion = _accion(accion_id)
-    if accion.estado != EstadoAccion.PENDIENTE:
-        raise EstadoInvalido("La acción ya fue resuelta.")
-
     with transaction.atomic():
+        accion = _accion_bloqueada(accion_id)
+        if accion.estado != EstadoAccion.PENDIENTE:
+            raise EstadoInvalido("La acción ya fue resuelta.")
         accion.estado = EstadoAccion.APROBADA
         accion.resuelta_por = funcionario
         accion.resuelta_en = timezone.now()
@@ -294,12 +378,17 @@ def aprobar_accion(
         accion.save(
             update_fields=["estado", "resuelta_por", "resuelta_en", "motivo"]
         )
-        _ejecutar(accion)
-        accion.estado = EstadoAccion.EJECUTADA
-        accion.save(update_fields=["estado", "parametros"])
+        if _ejecutar(accion, funcionario):
+            accion.estado = EstadoAccion.EJECUTADA
+            accion.save(update_fields=["estado", "parametros"])
 
+    plantilla = (
+        ACCION_APROBADA
+        if accion.estado == EstadoAccion.EJECUTADA
+        else ACCION_APROBADA_PENDIENTE
+    )
     _avisar_al_cliente(
-        accion, ACCION_APROBADA.format(descripcion=_descripcion(accion)), funcionario
+        accion, plantilla.format(descripcion=_descripcion(accion)), funcionario
     )
     return accion
 
@@ -311,11 +400,10 @@ def rechazar_accion(
     funcionario = _aprobador(funcionario_id)
     if not motivo or len(motivo.strip()) < MOTIVO_MINIMO:
         raise DatosInvalidos("Hay que indicar un motivo para rechazar la acción.")
-    accion = _accion(accion_id)
-    if accion.estado != EstadoAccion.PENDIENTE:
-        raise EstadoInvalido("La acción ya fue resuelta.")
-
     with transaction.atomic():
+        accion = _accion_bloqueada(accion_id)
+        if accion.estado != EstadoAccion.PENDIENTE:
+            raise EstadoInvalido("La acción ya fue resuelta.")
         accion.estado = EstadoAccion.RECHAZADA
         accion.resuelta_por = funcionario
         accion.resuelta_en = timezone.now()
@@ -325,6 +413,32 @@ def rechazar_accion(
         )
 
     _avisar_al_cliente(accion, ACCION_RECHAZADA, funcionario)
+    return accion
+
+
+@transaction.atomic
+def finalizar_gestion_externa(
+    accion_id: int, funcionario_id: int, *, referencia: str, motivo: str
+) -> AccionPendiente:
+    """Registra evidencia de una gestión manual; no mueve dinero ni contratos."""
+    from datos.models import FinalizacionAccion
+
+    funcionario = _aprobador(funcionario_id)
+    accion = AccionPendiente.objects.select_for_update().filter(pk=accion_id).first()
+    if accion is None:
+        raise NoEncontrado("La acción no existe.")
+    if accion.estado != EstadoAccion.APROBADA or accion.tipo_accion not in (
+        TipoAccion.REEMBOLSO, TipoAccion.MODIFICAR_POLIZA
+    ):
+        raise EstadoInvalido("Solo se puede completar una gestión externa aprobada.")
+    referencia = referencia.strip()
+    motivo = motivo.strip()
+    if not 3 <= len(referencia) <= 100 or len(motivo) < MOTIVO_MINIMO:
+        raise DatosInvalidos("Indicá una referencia de 3 a 100 caracteres y un motivo de al menos 3.")
+    FinalizacionAccion.objects.create(
+        accion=accion, funcionario=funcionario, referencia=referencia, motivo=motivo
+    )
+    accion.refresh_from_db()
     return accion
 
 

@@ -11,7 +11,17 @@ from django.test import TestCase
 from django.utils import timezone
 
 from datos import fabricas
-from datos.models import ConsultaBot, EstadoEnvio, Mensaje
+from datos.tests.transacciones import conservar_conexion_del_test
+from datos.models import (
+    ConsultaBot,
+    Direccion,
+    Emisor,
+    EstadoEnvio,
+    EstadoTrabajoWhatsApp,
+    Mensaje,
+    TipoTrabajoWhatsApp,
+    TrabajoWhatsApp,
+)
 from negocio.tests.datos_prueba import crear_escenario
 
 
@@ -22,16 +32,12 @@ class SimularWhatsappTests(TestCase):
     # AC-T3-45
     def test_registra_el_mensaje_lo_procesa_sin_hilo_y_muestra_la_respuesta(self):
         salida = StringIO()
-        with patch("negocio.whatsapp.en_segundo_plano") as fondo:
-            call_command(
-                "simular_whatsapp",
-                "+5491155551001",
-                "cuánto me falta pagar",
-                stdout=salida,
-            )
-
-        # "sin hilo": el comando no delega en `en_segundo_plano`.
-        fondo.assert_not_called()
+        call_command(
+            "simular_whatsapp",
+            "+5491155551001",
+            "cuánto me falta pagar",
+            stdout=salida,
+        )
 
         entrante = Mensaje.objects.get(direccion="entrante")
         self.assertTrue(entrante.wa_message_id.startswith("sim-"))
@@ -68,11 +74,13 @@ class SimularWhatsappTests(TestCase):
         salida = StringIO()
         call_command("simular_whatsapp", "+5491155551001", "hola", stdout=salida)
         self.assertIn("no intervino", salida.getvalue())
-        self.assertFalse(ConsultaBot.objects.exists())
+        # La vigilancia registra el entrante para auditoría, sin responder.
+        self.assertFalse(Mensaje.objects.filter(direccion="saliente").exists())
 
 
 class ReprocesarPendientesTests(TestCase):
     def setUp(self):
+        conservar_conexion_del_test(self)
         self.escenario = crear_escenario()
 
     def _conversacion(self, etiqueta: str, **campos):
@@ -94,7 +102,7 @@ class ReprocesarPendientesTests(TestCase):
         salida = StringIO()
         call_command("reprocesar_pendientes", stdout=salida)
 
-        self.assertIn("Conversaciones procesadas: 1", salida.getvalue())
+        self.assertIn("Trabajos completados: 1", salida.getvalue())
         self.assertEqual(ConsultaBot.objects.count(), 1)
 
     # AC-T3-46
@@ -110,10 +118,28 @@ class ReprocesarPendientesTests(TestCase):
         salida = StringIO()
         call_command("reprocesar_pendientes", stdout=salida)
 
-        self.assertIn("Conversaciones procesadas: 0", salida.getvalue())
+        self.assertIn("Trabajos completados: 0", salida.getvalue())
         self.assertEqual(ConsultaBot.objects.count(), 1)
 
     # AC-T3-46
+    def test_no_reintenta_el_aviso_de_adjunto(self):
+        """Un adjunto ya tuvo su respuesta y queda afuera de la agrupación, así
+        que nunca va a tener consulta: si el worker lo tomara, lo reintentaría
+        una vez por minuto para siempre."""
+        from negocio.whatsapp import PREFIJO_NO_SOPORTADO
+
+        conversacion = self._conversacion("1001")
+        fabricas.crear_mensaje(
+            conversacion,
+            texto=f"{PREFIJO_NO_SOPORTADO}image no soportado]",
+            fecha_hora=timezone.now() - timedelta(minutes=5),
+        )
+
+        salida = StringIO()
+        call_command("reprocesar_pendientes", stdout=salida)
+
+        self.assertIn("Trabajos completados: 0", salida.getvalue())
+
     def test_saltea_lo_reciente_lo_de_modo_humano_y_lo_que_no_es_del_cliente(self):
         reciente = self._conversacion("1001")
         fabricas.crear_mensaje(reciente, texto="recién llegó", fecha_hora=timezone.now())
@@ -138,5 +164,94 @@ class ReprocesarPendientesTests(TestCase):
         salida = StringIO()
         call_command("reprocesar_pendientes", stdout=salida)
 
-        self.assertIn("Conversaciones procesadas: 0", salida.getvalue())
+        self.assertIn("Trabajos completados: 0", salida.getvalue())
         self.assertFalse(ConsultaBot.objects.exists())
+
+    def test_recupera_respuesta_guardada_antes_de_enviarla_sin_duplicar(self):
+        conversacion = self._conversacion("1001")
+        entrante = fabricas.crear_mensaje(
+            conversacion,
+            texto="cuánto me falta pagar",
+            fecha_hora=timezone.now() - timedelta(minutes=5),
+        )
+        tarea = TrabajoWhatsApp.objects.create(
+            mensaje=entrante, tipo=TipoTrabajoWhatsApp.TEXTO
+        )
+
+        from negocio.bot.orquestador import procesar_mensaje
+
+        with self.captureOnCommitCallbacks(execute=False) as callbacks:
+            procesar_mensaje(entrante.id)
+        self.assertEqual(len(callbacks), 1)
+        with patch(
+            "negocio.bot.orquestador.enviar_pendientes",
+            side_effect=RuntimeError("fallo entre guardar y enviar"),
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError, "fallo entre guardar y enviar"
+            ):
+                callbacks[0]()
+
+        self.assertEqual(ConsultaBot.objects.count(), 1)
+        respuesta = Mensaje.objects.get(
+            conversacion=conversacion,
+            direccion=Direccion.SALIENTE,
+            emisor=Emisor.BOT,
+        )
+        self.assertEqual(respuesta.estado_envio, EstadoEnvio.PENDIENTE_ENVIO)
+
+        call_command("reprocesar_pendientes", stdout=StringIO())
+
+        tarea.refresh_from_db()
+        respuesta.refresh_from_db()
+        self.assertEqual(tarea.estado, EstadoTrabajoWhatsApp.COMPLETADO)
+        self.assertEqual(ConsultaBot.objects.count(), 1)
+        self.assertEqual(
+            Mensaje.objects.filter(
+                conversacion=conversacion,
+                direccion=Direccion.SALIENTE,
+                emisor=Emisor.BOT,
+            ).count(),
+            1,
+        )
+        self.assertEqual(respuesta.estado_envio, EstadoEnvio.ENVIADO)
+
+    def test_reclama_un_trabajo_cuyo_lease_quedo_vencido(self):
+        conversacion = self._conversacion("1001")
+        entrante = fabricas.crear_mensaje(
+            conversacion, texto="hola", fecha_hora=timezone.now()
+        )
+        tarea = TrabajoWhatsApp.objects.create(
+            mensaje=entrante,
+            tipo=TipoTrabajoWhatsApp.TEXTO,
+            estado=EstadoTrabajoWhatsApp.PROCESANDO,
+            intentos=2,
+            tomado_en=timezone.now() - timedelta(minutes=30),
+        )
+
+        with patch(
+            "negocio.management.commands.reprocesar_pendientes.ejecutar_trabajo_whatsapp"
+        ):
+            call_command("reprocesar_pendientes", stdout=StringIO())
+
+        tarea.refresh_from_db()
+        self.assertEqual(tarea.estado, EstadoTrabajoWhatsApp.COMPLETADO)
+        self.assertEqual(tarea.intentos, 3)
+
+    def test_un_lease_vencido_en_el_ultimo_intento_pasa_a_fallido(self):
+        conversacion = self._conversacion("1001")
+        entrante = fabricas.crear_mensaje(conversacion, texto="hola")
+        tarea = TrabajoWhatsApp.objects.create(
+            mensaje=entrante,
+            tipo=TipoTrabajoWhatsApp.TEXTO,
+            estado=EstadoTrabajoWhatsApp.PROCESANDO,
+            intentos=8,
+            tomado_en=timezone.now() - timedelta(minutes=30),
+        )
+
+        call_command("reprocesar_pendientes", stdout=StringIO())
+
+        tarea.refresh_from_db()
+        self.assertEqual(tarea.estado, EstadoTrabajoWhatsApp.FALLIDO)
+        self.assertEqual(tarea.intentos, 8)
+        self.assertIsNone(tarea.tomado_en)

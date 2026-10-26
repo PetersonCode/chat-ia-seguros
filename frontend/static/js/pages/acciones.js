@@ -1,10 +1,16 @@
-import { api } from "../api.js";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js";
-import { armarQuery } from "../lib/consulta.js";
-import { describirAccion, faltantes } from "../lib/acciones.js";
-import { formatearFechaHora } from "../lib/formato.js";
+import { api } from "../api.js?v=20261026fix2";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261026fix2";
+import { armarQuery } from "../lib/consulta.js?v=20261026fix2";
+import { describirAccion, faltantes } from "../lib/acciones.js?v=20261026fix2";
+import { formatearFechaHora } from "../lib/formato.js?v=20261026fix2";
+import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261026fix2";
 
 const estado = document.getElementById("estado-acciones");
+const filtroEstado = document.getElementById("filtro-estado-acciones");
+const estadoInicial = new URLSearchParams(globalThis.location.search).get("estado");
+if (["pendiente", "aprobada", "ejecutada", "rechazada"].includes(estadoInicial)) {
+    filtroEstado.value = estadoInicial;
+}
 const carga = document.getElementById("carga-acciones");
 const total = document.getElementById("total-acciones");
 const filas = document.getElementById("filas-acciones");
@@ -13,6 +19,7 @@ const botonAnterior = document.getElementById("acciones-anterior");
 const botonSiguiente = document.getElementById("acciones-siguiente");
 const panelDetalle = document.getElementById("detalle-accion");
 const descripcionDetalle = document.getElementById("descripcion-accion");
+const estadoDetalle = document.getElementById("estado-detalle-accion");
 const clienteDetalle = document.getElementById("cliente-accion");
 const listaParametros = document.getElementById("parametros-accion");
 const formularioParametros = document.getElementById("formulario-parametros");
@@ -27,6 +34,11 @@ const motivoResolucion = document.getElementById("motivo-resolucion");
 const errorResolucion = document.getElementById("error-resolucion");
 const botonCancelar = document.getElementById("cancelar-resolucion");
 const botonConfirmar = document.getElementById("confirmar-resolucion");
+const botonAprobar = document.getElementById("aprobar-accion");
+const botonFinalizar = document.getElementById("finalizar-accion");
+const finalizacionDetalle = document.getElementById("finalizacion-accion");
+const campoReferencia = document.getElementById("campo-referencia-finalizacion");
+const referenciaFinalizacion = document.getElementById("referencia-finalizacion");
 
 let funcionario = null;
 let accionSeleccionada = null;
@@ -42,7 +54,7 @@ const etiquetasParametros = {
     detalle: "Detalle de la modificación",
     fecha_ocurrencia: "Fecha de ocurrencia",
     descripcion: "Descripción del siniestro",
-    poliza: "Número de póliza",
+    poliza: "Póliza",
 };
 
 function mostrarEstado(mensaje, error = false) {
@@ -69,35 +81,48 @@ function antiguedad(fecha) {
     return formato.format(Math.round(horas / 24), "day");
 }
 
-function crearCelda(texto) {
-    const celda = document.createElement("td");
-    celda.textContent = texto ?? "—";
-    return celda;
+/** Marca la tarjeta cuyo detalle se está viendo al lado. */
+function marcarSeleccionada(id) {
+    for (const tarjeta of filas.querySelectorAll(".tarjeta")) {
+        tarjeta.classList.toggle("seleccionada", tarjeta.dataset.id === String(id));
+    }
 }
 
-function crearFila(accion) {
-    const fila = document.createElement("tr");
-    fila.append(crearCelda(describirAccion(accion)));
-    fila.append(crearCelda(accion.cliente
-        ? [accion.cliente.nombre, accion.cliente.apellido].filter(Boolean).join(" ")
-        : "Contacto desconocido"));
-    fila.append(crearCelda(antiguedad(accion.solicitada_en)));
-
-    const celdaAccion = document.createElement("td");
+function crearTarjetaAccion(accion) {
     const boton = document.createElement("button");
     boton.type = "button";
     boton.className = "btn btn-sm btn-outline-primary";
     boton.textContent = "Ver detalle";
-    boton.addEventListener("click", () => cargarDetalle(accion.id));
-    celdaAccion.append(boton);
-    fila.append(celdaAccion);
-    return fila;
+    boton.addEventListener("click", () => {
+        marcarSeleccionada(accion.id);
+        cargarDetalle(accion.id);
+    });
+
+    const tarjeta = crearTarjeta({
+        titulo: describirAccion(accion),
+        subtitulo: accion.cliente
+            ? [accion.cliente.nombre, accion.cliente.apellido].filter(Boolean).join(" ")
+            : "Contacto desconocido",
+        clase: "tarjeta-azul",
+        datos: [
+            [
+                "Estado",
+                accion.estado === "aprobada"
+                    ? "Aprobada · gestión externa pendiente"
+                    : ({ pendiente: "Pendiente de aprobación", ejecutada: "Completada", rechazada: "Rechazada" }[accion.estado] ?? accion.estado),
+            ],
+            ["Solicitada", antiguedad(accion.solicitada_en)],
+        ],
+        acciones: [boton],
+    });
+    tarjeta.dataset.id = String(accion.id);
+    return tarjeta;
 }
 
 function actualizarPaginacion(datos) {
     paginaSeleccionada = datos.pagina;
     paginasTotales = Math.max(1, Math.ceil(datos.total / datos.por_pagina));
-    total.textContent = `${datos.total} acción${datos.total === 1 ? "" : "es"}`;
+    total.textContent = `${datos.total} ${datos.total === 1 ? "acción" : "acciones"}`;
     paginaTexto.textContent = `Página ${paginaSeleccionada} de ${paginasTotales}`;
     botonAnterior.disabled = paginaSeleccionada <= 1;
     botonSiguiente.disabled = paginaSeleccionada >= paginasTotales;
@@ -112,7 +137,7 @@ async function cargarAcciones(pagina = paginaSeleccionada) {
 
     try {
         const datos = await api.get(`/api/acciones/${armarQuery({
-            estado: "pendiente",
+            estado: filtroEstado.value,
             pagina: paginaSeleccionada,
         })}`);
         if (idSolicitud !== solicitudActual) {
@@ -128,14 +153,16 @@ async function cargarAcciones(pagina = paginaSeleccionada) {
             throw new Error("La respuesta de acciones no tiene el formato esperado.");
         }
         if (datos.resultados.length === 0) {
-            const filaVacia = document.createElement("tr");
-            const celda = crearCelda("No hay acciones pendientes.");
-            celda.colSpan = 4;
-            celda.className = "text-center text-muted py-4";
-            filaVacia.append(celda);
-            filas.append(filaVacia);
+            filas.append(crearTarjetaVacia(
+                {
+                    aprobada: "No hay acciones aprobadas pendientes de gestión externa.",
+                    pendiente: "No hay acciones pendientes de aprobación.",
+                    ejecutada: "No hay gestiones completadas.",
+                    rechazada: "No hay acciones rechazadas.",
+                }[filtroEstado.value] ?? "No hay acciones para este filtro.",
+            ));
         } else {
-            filas.append(...datos.resultados.map(crearFila));
+            filas.append(...datos.resultados.map(crearTarjetaAccion));
         }
         actualizarPaginacion(datos);
         carga.textContent = "";
@@ -158,7 +185,7 @@ function valorLegible(valor) {
     return typeof valor === "object" ? JSON.stringify(valor) : String(valor);
 }
 
-function crearCampoParametro(clave) {
+function crearCampoParametro(clave, accion) {
     const contenedor = document.createElement("div");
     contenedor.className = "mb-3";
     const label = document.createElement("label");
@@ -166,12 +193,27 @@ function crearCampoParametro(clave) {
     label.htmlFor = `parametro-${clave}`;
     label.textContent = etiquetasParametros[clave] ?? clave;
 
-    const input = document.createElement(clave === "descripcion" ? "textarea" : "input");
+    const input = clave === "poliza"
+        ? document.createElement("select")
+        : document.createElement(clave === "descripcion" ? "textarea" : "input");
     input.id = `parametro-${clave}`;
     input.name = clave;
-    input.className = "form-control";
+    input.className = clave === "poliza" ? "form-select" : "form-control";
     input.required = true;
-    if (clave === "importe") {
+    if (clave === "poliza") {
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "Seleccioná una póliza";
+        input.append(placeholder);
+        for (const poliza of accion.polizas_disponibles ?? []) {
+            const opcion = document.createElement("option");
+            opcion.value = String(poliza.id);
+            opcion.textContent = poliza.bien_asegurado
+                ? `${poliza.numero_poliza} · ${poliza.bien_asegurado}`
+                : poliza.numero_poliza;
+            input.append(opcion);
+        }
+    } else if (clave === "importe") {
         input.type = "number";
         input.step = "0.01";
     } else if (clave === "fecha_ocurrencia") {
@@ -189,9 +231,23 @@ function renderizarDetalle(accion) {
     accionSeleccionada = accion;
     panelDetalle.hidden = false;
     descripcionDetalle.textContent = describirAccion(accion);
+    estadoDetalle.hidden = accion.estado !== "aprobada";
+    if (accion.estado === "aprobada") {
+        estadoDetalle.textContent = accion.tipo_accion === "reembolso"
+            ? "Aprobada; el reembolso todavía no se realizó y queda pendiente de gestión externa."
+            : accion.tipo_accion === "modificar_poliza"
+                ? "Aprobada; el cambio todavía no se aplicó y queda pendiente de gestión externa."
+                : "Aprobada; pendiente de gestión externa.";
+    }
     clienteDetalle.textContent = accion.cliente
         ? `Cliente: ${[accion.cliente.nombre, accion.cliente.apellido].filter(Boolean).join(" ")}`
         : "Cliente: Contacto desconocido";
+    botonFinalizar.hidden = !funcionario.puede_aprobar || accion.estado !== "aprobada"
+        || !["reembolso", "modificar_poliza"].includes(accion.tipo_accion);
+    finalizacionDetalle.hidden = !accion.finalizacion;
+    finalizacionDetalle.textContent = accion.finalizacion
+        ? `Gestión completada por ${accion.finalizacion.funcionario.nombre} el ${formatearFechaHora(accion.finalizacion.fecha)}. Referencia: ${accion.finalizacion.referencia}. ${accion.finalizacion.motivo}`
+        : "";
 
     listaParametros.replaceChildren();
     for (const [clave, valor] of Object.entries(accion.parametros ?? {})) {
@@ -214,13 +270,24 @@ function renderizarDetalle(accion) {
     }
 
     const campos = faltantes(accion);
-    camposFaltantes.replaceChildren(...campos.map(crearCampoParametro));
-    formularioParametros.hidden = campos.length === 0 || !funcionario.puede_aprobar;
-    avisoParametros.hidden = campos.length === 0 || funcionario.puede_aprobar;
-    avisoParametros.textContent = campos.length > 0 && !funcionario.puede_aprobar
-        ? "Faltan datos requeridos. Solo un aprobador puede completarlos."
-        : "";
-    botonesResolucion.hidden = !funcionario.puede_aprobar;
+    const polizaNoDisponible = campos.includes("poliza")
+        && Boolean(accion.poliza_no_disponible || !accion.polizas_disponibles?.length);
+    camposFaltantes.replaceChildren(...campos.map((clave) => crearCampoParametro(clave, accion)));
+    const pendiente = accion.estado === "pendiente";
+    formularioParametros.hidden = campos.length === 0
+        || !funcionario.puede_aprobar
+        || !pendiente
+        || polizaNoDisponible;
+    avisoParametros.hidden = !pendiente
+        || (campos.length === 0 && !accion.poliza_no_disponible)
+        || (funcionario.puede_aprobar && !polizaNoDisponible);
+    avisoParametros.textContent = polizaNoDisponible
+        ? accion.poliza_no_disponible || "No hay pólizas disponibles para seleccionar."
+        : campos.length > 0 && !funcionario.puede_aprobar
+            ? "Faltan datos requeridos. Solo un aprobador puede completarlos."
+            : "";
+    botonesResolucion.hidden = !funcionario.puede_aprobar || !pendiente;
+    botonAprobar.hidden = polizaNoDisponible;
 }
 
 async function cargarDetalle(id) {
@@ -234,14 +301,20 @@ async function cargarDetalle(id) {
 }
 
 function parametrosCompletados() {
-    const campos = [...camposFaltantes.querySelectorAll("input, textarea")];
+    const campos = [...camposFaltantes.querySelectorAll("input, textarea, select")];
     const parametros = {};
     for (const campo of campos) {
         const valor = campo.value.trim();
         if (!valor) {
             throw new Error(`${etiquetasParametros[campo.name] ?? campo.name} es obligatorio.`);
         }
-        if (campo.name === "importe") {
+        if (campo.name === "poliza") {
+            const id = Number(valor);
+            if (!Number.isSafeInteger(id) || id <= 0) {
+                throw new Error("Seleccioná una póliza válida.");
+            }
+            parametros[campo.name] = id;
+        } else if (campo.name === "importe") {
             const importe = Number(valor);
             if (!Number.isFinite(importe)) {
                 throw new Error("El importe debe ser un número válido.");
@@ -281,11 +354,17 @@ function abrirDialogoResolucion(resolucion) {
     resolucionSeleccionada = resolucion;
     errorResolucion.textContent = "";
     motivoResolucion.value = "";
-    motivoResolucion.required = resolucion === "rechazar";
+    referenciaFinalizacion.value = "";
+    campoReferencia.hidden = resolucion !== "finalizar";
+    motivoResolucion.required = resolucion !== "aprobar";
     if (resolucion === "aprobar") {
         tituloDialogo.textContent = "Aprobar acción";
         descripcionDialogo.textContent = "¿Confirmás la aprobación de esta acción?";
         labelMotivo.textContent = "Motivo (opcional)";
+    } else if (resolucion === "finalizar") {
+        tituloDialogo.textContent = "Registrar gestión completada";
+        descripcionDialogo.textContent = "Confirmá que la gestión ya se completó fuera del sistema e indicá la evidencia. Este registro no mueve dinero ni modifica contratos externos.";
+        labelMotivo.textContent = "Detalle de lo realizado";
     } else {
         tituloDialogo.textContent = "Rechazar acción";
         descripcionDialogo.textContent = "Indicá el motivo del rechazo.";
@@ -299,8 +378,12 @@ async function confirmarResolucion() {
         return;
     }
     const motivo = motivoResolucion.value.trim();
-    if (resolucionSeleccionada === "rechazar" && !motivo) {
-        errorResolucion.textContent = "El motivo del rechazo es obligatorio.";
+    if (resolucionSeleccionada !== "aprobar" && motivo.length < 3) {
+        errorResolucion.textContent = "Indicá un motivo de al menos 3 caracteres.";
+        return;
+    }
+    if (resolucionSeleccionada === "finalizar" && referenciaFinalizacion.value.trim().length < 3) {
+        errorResolucion.textContent = "La referencia del trámite es obligatoria (mínimo 3 caracteres).";
         return;
     }
 
@@ -309,15 +392,27 @@ async function confirmarResolucion() {
     const id = accionSeleccionada.id;
     try {
         const ruta = `/api/acciones/${id}/${resolucionSeleccionada}/`;
+        let resultado;
         if (resolucionSeleccionada === "aprobar" && !motivo) {
-            await api.post(ruta);
+            resultado = await api.post(ruta);
         } else {
-            await api.post(ruta, { motivo });
+            resultado = await api.post(ruta, {
+                motivo,
+                ...(resolucionSeleccionada === "finalizar" ? { referencia: referenciaFinalizacion.value.trim() } : {}),
+            });
         }
         dialogo.close();
         panelDetalle.hidden = true;
         accionSeleccionada = null;
-        mostrarEstado(resolucionSeleccionada === "aprobar" ? "Acción aprobada." : "Acción rechazada.");
+        mostrarEstado(
+            resolucionSeleccionada === "rechazar"
+                ? "Acción rechazada."
+                : resolucionSeleccionada === "finalizar"
+                    ? "Gestión completada y registrada con su referencia."
+                : resultado.estado === "aprobada"
+                    ? "Acción aprobada; pendiente de gestión externa."
+                    : "Acción aprobada y ejecutada.",
+        );
         notificarActualizacionPendientes();
         await cargarAcciones(paginaSeleccionada);
     } catch (error) {
@@ -328,6 +423,11 @@ async function confirmarResolucion() {
 }
 
 formularioParametros.addEventListener("submit", guardarParametros);
+filtroEstado.addEventListener("change", () => {
+    panelDetalle.hidden = true;
+    accionSeleccionada = null;
+    cargarAcciones(1);
+});
 botonAnterior.addEventListener("click", () => {
     if (paginaSeleccionada > 1) {
         cargarAcciones(paginaSeleccionada - 1);
@@ -340,6 +440,7 @@ botonSiguiente.addEventListener("click", () => {
 });
 document.getElementById("aprobar-accion").addEventListener("click", () => abrirDialogoResolucion("aprobar"));
 document.getElementById("rechazar-accion").addEventListener("click", () => abrirDialogoResolucion("rechazar"));
+botonFinalizar.addEventListener("click", () => abrirDialogoResolucion("finalizar"));
 botonCancelar.addEventListener("click", () => dialogo.close());
 botonConfirmar.addEventListener("click", confirmarResolucion);
 

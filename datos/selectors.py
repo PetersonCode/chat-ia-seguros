@@ -1,7 +1,11 @@
+from datetime import datetime, time
+
 from django.db.models import (
     Case,
     Count,
+    Exists,
     F,
+    Func,
     IntegerField,
     Max,
     OuterRef,
@@ -9,11 +13,13 @@ from django.db.models import (
     Q,
     QuerySet,
     Subquery,
+    Sum,
     TextField,
     When,
     Value,
 )
 from django.db.models.functions import Lower, Replace
+from django.utils import timezone
 
 from datos.limpieza import normalizar_dni
 from datos.models import (
@@ -31,8 +37,10 @@ from datos.models import (
     EstadoEnvio,
     EstadoPoliza,
     Funcionario,
+    HistorialSiniestro,
     Mensaje,
     Prioridad,
+    Pago,
     Poliza,
     Severidad,
     Siniestro,
@@ -41,6 +49,65 @@ from datos.models import (
 )
 
 _ALERTAS_ABIERTAS = (EstadoAlerta.ABIERTA, EstadoAlerta.EN_REVISION)
+
+
+def reporte_gestion(desde, hasta) -> dict:
+    """Agrega indicadores por período, usando la fecha propia de cada entidad."""
+    zona = timezone.get_current_timezone()
+    inicio = timezone.make_aware(datetime.combine(desde, time.min), zona)
+    fin_inclusivo = timezone.make_aware(datetime.combine(hasta, time.max), zona)
+
+    consultas = ConsultaBot.objects.filter(
+        fecha_hora__gte=inicio,
+        fecha_hora__lte=fin_inclusivo,
+    )
+    totales_consultas = consultas.aggregate(
+        total=Count("id"),
+        cerradas=Count("id", filter=Q(estado=EstadoConsulta.CERRADO)),
+        pendientes=Count(
+            "id",
+            filter=Q(
+                estado__in=(
+                    EstadoConsulta.ABIERTO,
+                    EstadoConsulta.PENDIENTE_REVISION,
+                    EstadoConsulta.DERIVADO,
+                )
+            ),
+        ),
+    )
+    motivos = list(
+        consultas.values(
+            "tipo_consulta__codigo",
+            "tipo_consulta__nombre",
+        )
+        .annotate(cantidad=Count("id"))
+        .order_by("-cantidad", "tipo_consulta__nombre")
+    )
+    derivaciones_urgentes = Derivacion.objects.filter(
+        prioridad=Prioridad.URGENTE,
+        creada_en__gte=inicio,
+        creada_en__lte=fin_inclusivo,
+    ).count()
+    cobros = Pago.objects.filter(fecha_pago__range=(desde, hasta)).aggregate(
+        cantidad=Count("id"),
+        importe_total=Sum("importe"),
+    )
+    return {
+        "consultas": totales_consultas,
+        "motivos": [
+            {
+                "codigo": fila["tipo_consulta__codigo"],
+                "nombre": fila["tipo_consulta__nombre"],
+                "cantidad": fila["cantidad"],
+            }
+            for fila in motivos
+        ],
+        "derivaciones_urgentes": derivaciones_urgentes,
+        "cobros": {
+            "cantidad": cobros["cantidad"],
+            "importe_total": cobros["importe_total"] or 0,
+        },
+    }
 
 
 def funcionario_por_email(email: str) -> Funcionario | None:
@@ -112,10 +179,43 @@ def siniestro_por_numero(numero: str) -> Siniestro | None:
     return Siniestro.objects.filter(numero_siniestro=numero).first()
 
 
+def siniestros(estado: str | None = None) -> QuerySet[Siniestro]:
+    historial = HistorialSiniestro.objects.select_related("responsable").order_by(
+        "fecha", "id"
+    )
+    siniestros = Siniestro.objects.select_related("poliza__cliente")
+    siniestros = siniestros.prefetch_related(
+        Prefetch("historial", queryset=historial)
+    )
+    if estado:
+        siniestros = siniestros.filter(estado=estado)
+    return siniestros.order_by("-creado_en", "-id")
+
+
+def detalle_siniestro(siniestro_id: int) -> Siniestro:
+    return siniestros().get(pk=siniestro_id)
+
+
 def polizas_vigentes(cliente_id: int) -> QuerySet[Poliza]:
+    hoy = timezone.localdate()
     return Poliza.objects.filter(
         cliente_id=cliente_id,
         estado=EstadoPoliza.VIGENTE,
+        fecha_inicio__lte=hoy,
+        fecha_vencimiento__gte=hoy,
+    )
+
+
+def bienes_asegurados(cliente_id: int) -> dict[str, str | None]:
+    """Qué asegura cada póliza del cliente, por número de póliza.
+
+    `v_polizas_resumen` no trae `bien_asegurado`, y el listado de pólizas lo
+    necesita para contestar por el vehículo y no solo por el número.
+    """
+    return dict(
+        Poliza.objects.filter(cliente_id=cliente_id).values_list(
+            "numero_poliza", "bien_asegurado"
+        )
     )
 
 
@@ -152,6 +252,13 @@ def bandeja(
         conversacion_id=OuterRef("pk")
     ).order_by("-fecha_hora", "-id")
     conversaciones = Conversacion.objects.annotate(
+        derivacion_urgente=Exists(
+            Derivacion.objects.filter(
+                consulta__conversacion_id=OuterRef("pk"),
+                prioridad=Prioridad.URGENTE,
+                atendida_en__isnull=True,
+            )
+        ),
         alertas_abiertas=Count(
             "consultas__alertas",
             filter=Q(consultas__alertas__estado__in=_ALERTAS_ABIERTAS),
@@ -201,19 +308,34 @@ def bandeja(
     if esperando_humano:
         conversaciones = conversaciones.filter(modo="humano")
     if q:
+        # TRANSLATE antes de LOWER también funciona en clusters con locale C,
+        # donde UPPER/LOWER no convierten todas las letras acentuadas.
+        acentos = "ÁÉÍÓÚÜÑáéíóúüñ"
+        simples = "AEIOUUNaeiouun"
+        def texto_busqueda(campo):
+            return Lower(Func(F(campo), Value(acentos), Value(simples), function="TRANSLATE", output_field=TextField()))
+        buscado = q.translate(str.maketrans(acentos, simples)).lower()
+        conversaciones = conversaciones.annotate(
+            nombre_busqueda=texto_busqueda("contacto__cliente__nombre"),
+            apellido_busqueda=texto_busqueda("contacto__cliente__apellido"),
+        )
         conversaciones = conversaciones.filter(
             Q(contacto__numero__icontains=q)
-            | Q(contacto__cliente__nombre__icontains=q)
-            | Q(contacto__cliente__apellido__icontains=q)
+            | Q(nombre_busqueda__contains=buscado)
+            | Q(apellido_busqueda__contains=buscado)
         )
 
     return conversaciones.annotate(
         prioridad_bandeja=Case(
             When(
-                Q(retenidas__gt=0) | Q(severidad_rango=4),
+                derivacion_urgente=True,
                 then=Value(0),
             ),
-            default=Value(1),
+            When(
+                Q(retenidas__gt=0) | Q(severidad_rango=4),
+                then=Value(1),
+            ),
+            default=Value(2),
             output_field=IntegerField(),
         )
     ).order_by(
@@ -282,10 +404,15 @@ def derivaciones_de(
 
 
 def buscar_clientes(q: str | None = None) -> QuerySet[Cliente]:
+    hoy = timezone.localdate()
     clientes = Cliente.objects.annotate(
         polizas_vigentes=Count(
             "polizas",
-            filter=Q(polizas__estado=EstadoPoliza.VIGENTE),
+            filter=Q(
+                polizas__estado=EstadoPoliza.VIGENTE,
+                polizas__fecha_inicio__lte=hoy,
+                polizas__fecha_vencimiento__gte=hoy,
+            ),
             distinct=True,
         )
     )
@@ -313,9 +440,19 @@ def detalle_cliente(cliente_id: int) -> Cliente:
 
 
 def detalle_poliza(poliza_id: int) -> Poliza:
+    """La póliza con sus cuotas, conductores y siniestros, más su saldo.
+
+    El saldo y el próximo vencimiento de pago no son columnas de `polizas`:
+    los calcula `v_polizas_resumen` sumando cuotas. Se copian acá desde la
+    vista, en vez de recalcularlos, para que el detalle de una póliza y el
+    listado de la ficha digan siempre lo mismo (una sola definición de qué es
+    "saldo pendiente", la de la vista).
+    """
     cuotas = Cuota.objects.order_by("-periodo", "-id")
-    return (
-        Poliza.objects.select_related("cliente", "tipo_seguro")
+    poliza = (
+        # La vista entra por el mismo JOIN: es `OneToOne` con `polizas`, así que
+        # no agrega una consulta y AC-T4-19 sigue cerrando en cuatro.
+        Poliza.objects.select_related("cliente", "tipo_seguro", "vpolizaresumen")
         .prefetch_related(
             Prefetch("cuotas", queryset=cuotas),
             "conductores",
@@ -323,12 +460,18 @@ def detalle_poliza(poliza_id: int) -> Poliza:
         )
         .get(pk=poliza_id)
     )
+    resumen = getattr(poliza, "vpolizaresumen", None)
+    poliza.saldo_pendiente = resumen.saldo_pendiente if resumen else None
+    poliza.proximo_vencimiento_pago = (
+        resumen.proximo_vencimiento_pago if resumen else None
+    )
+    return poliza
 
 
 def contar_pendientes(funcionario_id: int) -> dict[str, int]:
     return {
         "acciones": AccionPendiente.objects.filter(
-            estado=EstadoAccion.PENDIENTE
+            estado__in=(EstadoAccion.PENDIENTE, EstadoAccion.APROBADA)
         ).count(),
         "derivaciones": Derivacion.objects.filter(
             derivado_a_id=funcionario_id,

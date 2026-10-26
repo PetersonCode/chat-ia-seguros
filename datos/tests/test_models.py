@@ -9,6 +9,9 @@ from datos import models
 
 
 TABLAS = (
+    (models.FinalizacionAccion, "acciones_finalizaciones"),
+    (models.AdjuntoSiniestro, "siniestro_adjuntos"),
+    (models.TrabajoWhatsApp, "trabajos_whatsapp"),
     (models.Funcionario, "funcionarios"),
     (models.TipoSeguro, "tipos_seguro"),
     (models.TipoConsulta, "tipos_consulta"),
@@ -18,6 +21,9 @@ TABLAS = (
     (models.ConductorPoliza, "conductores_poliza"),
     (models.Cuota, "cuotas"),
     (models.Siniestro, "siniestros"),
+    (models.HistorialSiniestro, "siniestro_historial"),
+    (models.DocumentoGeneral, "documentos_generales"),
+    (models.FragmentoDocumento, "documentos_generales_fragmentos"),
     (models.Conversacion, "conversaciones"),
     (models.Mensaje, "mensajes"),
     (models.ConsultaBot, "consultas_bot"),
@@ -59,7 +65,7 @@ CHOICES_BD = (
 class ModelDefinitionTests(SimpleTestCase):
     # AC-T4-05
     def test_modelos_de_tabla_mapean_las_tablas_no_administradas(self):
-        self.assertEqual(len(TABLAS), 15)
+        self.assertEqual(len(TABLAS), 21)
         for model, table in TABLAS:
             with self.subTest(model=model.__name__):
                 self.assertEqual(model._meta.db_table, table)
@@ -76,6 +82,12 @@ class ModelDefinitionTests(SimpleTestCase):
             (models.ConductorPoliza, "poliza", "conductores"),
             (models.Cuota, "poliza", "cuotas"),
             (models.Siniestro, "poliza", "siniestros"),
+            (models.HistorialSiniestro, "siniestro", "historial"),
+            (models.HistorialSiniestro, "responsable", "decisiones_siniestros"),
+            (models.DocumentoGeneral, "creado_por", "+"),
+            (models.DocumentoGeneral, "aprobado_por", "+"),
+            (models.DocumentoGeneral, "retirado_por", "+"),
+            (models.FragmentoDocumento, "documento", "fragmentos"),
             (models.Conversacion, "contacto", "conversaciones"),
             (models.Conversacion, "funcionario", "+"),
             (models.Mensaje, "conversacion", "mensajes"),
@@ -208,6 +220,15 @@ class DatabaseModelTests(TestCase):
     # AC-T4-09
     def test_defaults_modelo_coinciden_con_los_defaults_de_la_base(self):
         esperados = {
+            ("acciones_finalizaciones", "fecha"): timezone.now,
+            ("siniestro_adjuntos", "creado_en"): timezone.now,
+            ("siniestro_historial", "fecha"): timezone.now,
+            ("documentos_generales", "estado"): models.EstadoDocumento.BORRADOR,
+            ("documentos_generales", "creado_en"): timezone.now,
+            ("mensajes", "intentos_envio"): 0,
+            ("trabajos_whatsapp", "estado"): models.EstadoTrabajoWhatsApp.PENDIENTE,
+            ("trabajos_whatsapp", "intentos"): 0,
+            ("trabajos_whatsapp", "disponible_en"): timezone.now,
             ("funcionarios", "puede_aprobar"): False,
             ("funcionarios", "activo"): True,
             ("funcionarios", "creado_en"): timezone.now,

@@ -1,17 +1,22 @@
-import { api } from "../api.js";
-import { inicializarNav } from "../nav.js";
-import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js";
-import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js";
+import { api } from "../api.js?v=20261026fix2";
+import { inicializarNav } from "../nav.js?v=20261026fix2";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261026fix2";
+import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261026fix2";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261026fix2";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261026fix2";
 
 const idConversacion = new URLSearchParams(globalThis.location.search).get("id");
 const tituloChat = document.getElementById("titulo-chat");
 const estadoChat = document.getElementById("estado-chat");
 const contactoChat = document.getElementById("contacto-chat");
 const mensajePagina = document.getElementById("mensaje-pagina");
+const panelCasos = document.getElementById("panel-casos");
 const panelCliente = document.getElementById("panel-cliente");
 const panelAlertas = document.getElementById("panel-alertas");
 const mensajesChat = document.getElementById("mensajes-chat");
 const botonModo = document.getElementById("boton-modo");
+const botonCerrarCasos = document.getElementById("boton-cerrar-casos");
+const botonVaciar = document.getElementById("boton-vaciar");
 const formularioRespuesta = document.getElementById("formulario-respuesta");
 const textoRespuesta = document.getElementById("texto-respuesta");
 const botonResponder = document.getElementById("boton-responder");
@@ -21,6 +26,9 @@ const dialogoTitulo = document.getElementById("dialog-titulo");
 const dialogoDescripcion = document.getElementById("dialog-descripcion");
 const dialogoLabel = document.getElementById("dialog-label");
 const dialogoTexto = document.getElementById("dialog-texto");
+const camposPago = document.getElementById("campos-pago");
+const referenciaPago = document.getElementById("referencia-pago");
+const importePago = document.getElementById("importe-pago");
 const dialogoError = document.getElementById("dialog-error");
 const dialogoCancelar = document.getElementById("dialog-cancelar");
 const dialogoConfirmar = document.getElementById("dialog-confirmar");
@@ -152,16 +160,30 @@ function renderizarCliente(detalle) {
         return;
     }
 
-    const lista = crearElemento("ul", "list-group list-group-flush");
+    const grilla = crearElemento("div", "grilla-tarjetas grilla-angosta");
     for (const poliza of polizas) {
-        const item = crearElemento("li", "list-group-item px-0");
-        item.append(crearElemento("strong", "", poliza.numero_poliza));
-        item.append(crearElemento("div", "small", `${poliza.tipo_seguro} · ${poliza.estado}`));
-        item.append(crearElemento("div", "small", `Saldo pendiente: ${formatearMonto(poliza.saldo_pendiente)}`));
-        item.append(crearElemento("div", "small", `Próximo vencimiento: ${formatearFecha(poliza.proximo_vencimiento_pago)}`));
-        lista.append(item);
+        // `saldo_pendiente` sale de `v_polizas_resumen`: si es cero no hay
+        // ninguna cuota que cobrar y el botón no tendría qué hacer.
+        const debe = Number(poliza.saldo_pendiente ?? 0) > 0;
+        let pagar = null;
+        if (debe) {
+            pagar = crearElemento("button", "btn btn-sm btn-outline-success", "Póliza pagada");
+            pagar.type = "button";
+            pagar.addEventListener("click", () => confirmarPago(poliza));
+        }
+        grilla.append(crearTarjeta({
+            titulo: poliza.numero_poliza,
+            subtitulo: poliza.tipo_seguro,
+            clase: debe ? "tarjeta-amarillo" : "tarjeta-verde",
+            insignias: [crearInsignia(poliza.estado)],
+            datos: [
+                ["Saldo", debe ? formatearMonto(poliza.saldo_pendiente) : "Sin cuotas pendientes"],
+                ["Vence pago", formatearFecha(poliza.proximo_vencimiento_pago)],
+            ],
+            acciones: [pagar],
+        }));
     }
-    panelCliente.append(lista);
+    panelCliente.append(grilla);
 }
 
 function renderizarAlertas(alertas) {
@@ -171,27 +193,106 @@ function renderizarAlertas(alertas) {
         return;
     }
 
-    const lista = crearElemento("ul", "list-group list-group-flush");
+    const grilla = crearElemento("div", "grilla-tarjetas grilla-angosta");
     for (const alerta of alertas) {
-        const item = crearElemento("li", "list-group-item px-0");
-        item.append(crearElemento("strong", "d-block", `${alerta.severidad}: ${alerta.tipo}`));
-        item.append(crearElemento("span", "small", alerta.descripcion));
+        grilla.append(crearTarjeta({
+            titulo: alerta.tipo,
+            clase: claseTarjetaSeveridad(alerta.severidad),
+            insignias: [crearInsignia(etiquetaSeveridad(alerta.severidad), claseSeveridad(alerta.severidad))],
+            texto: alerta.descripcion,
+        }));
+    }
+    panelAlertas.append(grilla);
+}
+
+function renderizarCasosAbiertos(casos) {
+    panelCasos.replaceChildren();
+    panelCasos.hidden = casos.length === 0;
+    if (casos.length === 0) {
+        return;
+    }
+
+    const titulo = crearElemento("h2", "h6 fw-bold", "Trabajo pendiente de esta conversación");
+    const lista = crearElemento("ul", "mb-0");
+    let accionesPendientes = 0;
+    for (const caso of casos) {
+        const item = crearElemento("li", "mb-2");
+        item.append(crearElemento("strong", "", `${caso.codigo_caso}: `));
+        item.append(document.createTextNode(`Caso ${caso.estado}.`));
+        const acciones = Array.isArray(caso.acciones_pendientes)
+            ? caso.acciones_pendientes
+            : [];
+        accionesPendientes += acciones.length;
+        for (const accion of acciones) {
+            const descripcion = crearElemento(
+                "p",
+                "mb-0 ms-3",
+                `Acción ${accion.id} · ${accion.tipo_accion} · ${
+                    accion.estado === "aprobada"
+                        ? "Aprobada; pendiente de gestión externa"
+                        : "Pendiente de aprobación"
+                }.`,
+            );
+            const enlace = crearElemento(
+                "a",
+                "ms-3",
+                "Ver acciones pendientes",
+            );
+            enlace.href = `/panel/acciones/?estado=${encodeURIComponent(accion.estado)}`;
+            descripcion.append(enlace);
+            item.append(descripcion);
+        }
         lista.append(item);
     }
-    panelAlertas.append(lista);
+    panelCasos.append(titulo, lista);
+    if (accionesPendientes > 0) {
+        panelCasos.append(crearElemento(
+            "p",
+            "small fw-semibold mt-2 mb-0",
+            "No se puede cerrar el caso mientras estas acciones sigan pendientes.",
+        ));
+    }
 }
 
 function renderizarConversacion(detalle) {
     conversacion = detalle;
     tituloChat.textContent = `Conversación ${detalle.id}`;
     contactoChat.textContent = `Chat con: ${detalle.whatsapp}`;
-    estadoChat.textContent = `Estado: ${detalle.estado} · Modo: ${detalle.modo}`;
+    const responsable = detalle.atendida_por?.nombre;
+    estadoChat.textContent = [
+        `Estado: ${detalle.estado}`,
+        `Modo: ${detalle.modo}`,
+        responsable ? `Responsable: ${responsable}` : null,
+    ].filter(Boolean).join(" · ");
 
-    botonModo.hidden = false;
-    botonModo.textContent = detalle.modo === "humano" ? "Devolver al bot" : "Tomar conversación";
+    // Una conversación vaciada ya no recibe mensajes: el cliente sigue en una
+    // nueva. Queda solo para consulta.
+    const cerrada = detalle.estado === "cerrada";
+    botonModo.hidden = cerrada;
+    const esResponsable = detalle.atendida_por?.id === funcionario?.id;
+    botonModo.textContent = detalle.modo !== "humano"
+        ? "Tomar conversación"
+        : esResponsable
+            ? "Devolver al bot"
+            : "Reasignar conversación";
+    botonVaciar.hidden = cerrada;
+
+    const casosAbiertos = Array.isArray(detalle.casos_abiertos) ? detalle.casos_abiertos : [];
+    botonCerrarCasos.hidden = casosAbiertos.length === 0;
+    botonCerrarCasos.textContent = casosAbiertos.length > 1
+        ? `Cerrar ${casosAbiertos.length} casos`
+        : "Cerrar caso";
+    const accionesPendientes = casosAbiertos.some(
+        (caso) => Array.isArray(caso.acciones_pendientes) && caso.acciones_pendientes.length > 0,
+    );
+    botonCerrarCasos.disabled = accionesPendientes;
+    botonCerrarCasos.title = accionesPendientes
+        ? "Resolvé las acciones administrativas pendientes antes de cerrar."
+        : "";
+    renderizarCasosAbiertos(casosAbiertos);
 
     const modoHumano = detalle.modo === "humano";
-    formularioRespuesta.hidden = !modoHumano;
+    formularioRespuesta.hidden = !modoHumano || !esResponsable || cerrada;
     textoRespuesta.disabled = !detalle.ventana_24h_abierta;
     botonResponder.disabled = !detalle.ventana_24h_abierta;
     avisoVentana.hidden = detalle.ventana_24h_abierta;
@@ -203,10 +304,87 @@ function renderizarConversacion(detalle) {
     renderizarAlertas(detalle.alertas);
 }
 
+/**
+ * Abre el mismo diálogo que los mensajes retenidos, para una confirmación
+ * simple sin campos de edición.
+ */
+function abrirConfirmacion(titulo, descripcion, alConfirmar) {
+    accionSeleccionada = { alConfirmar };
+    dialogoError.textContent = "";
+    dialogoTexto.value = "";
+    camposPago.hidden = true;
+    referenciaPago.value = "";
+    importePago.value = "";
+    dialogoLabel.hidden = true;
+    dialogoTexto.hidden = true;
+    dialogoTexto.required = false;
+    dialogoTitulo.textContent = titulo;
+    dialogoDescripcion.textContent = descripcion;
+    dialogo.showModal();
+}
+
+function confirmarPago(poliza) {
+    accionSeleccionada = { tipo: "pago", poliza };
+    dialogoError.textContent = "";
+    dialogoTexto.value = "";
+    dialogoLabel.hidden = true;
+    dialogoTexto.hidden = true;
+    dialogoTexto.required = false;
+    dialogoTitulo.textContent = "Registrar pago";
+    dialogoDescripcion.textContent = [
+        `Cuota de ${poliza.numero_poliza} con vencimiento ${formatearFecha(poliza.proximo_vencimiento_pago)}.`,
+        "Solo se admiten pagos completos: el importe debe coincidir exactamente con el de una cuota.",
+        "La referencia identifica el comprobante y no puede reutilizarse para otro cobro.",
+    ].join(" ");
+    camposPago.hidden = false;
+    referenciaPago.value = "";
+    importePago.value = "";
+    dialogo.showModal();
+}
+
+function cerrarCasos() {
+    const casos = conversacion?.casos_abiertos ?? [];
+    if (casos.length === 0) {
+        return;
+    }
+    const codigos = casos.map((caso) => caso.codigo_caso).join(", ");
+    abrirConfirmacion(
+        casos.length > 1 ? "Cerrar los casos" : "Cerrar el caso",
+        `Se dan por terminados: ${codigos}. El chat queda abierto, así que el cliente`
+        + " puede volver a escribir y el bot va a seguir atendiéndolo.",
+        async () => {
+            conversacion = await api.post(`/api/conversaciones/${idConversacion}/cerrar-casos/`);
+            renderizarConversacion(conversacion);
+            mostrarMensajePagina(casos.length > 1 ? "Casos cerrados." : "Caso cerrado.");
+        },
+    );
+}
+
+function vaciarChat() {
+    abrirConfirmacion(
+        "Vaciar chat",
+        "El bot se olvida de todo lo hablado: el próximo mensaje del cliente abre una"
+        + " conversación nueva, sin historial. Los mensajes, casos y alertas de esta"
+        + " quedan guardados para consulta.",
+        async () => {
+            conversacion = await api.post(`/api/conversaciones/${idConversacion}/vaciar/`);
+            renderizarConversacion(conversacion);
+            mensajes = [];
+            mensajesPorId.clear();
+            nodosPorId.clear();
+            mensajesChat.replaceChildren();
+            mostrarMensajePagina("Chat vaciado. El próximo mensaje del cliente empieza una conversación nueva.");
+        },
+    );
+}
+
 function abrirDialogo(mensaje, accion) {
     accionSeleccionada = { mensaje, accion };
     dialogoError.textContent = "";
     dialogoTexto.value = "";
+    camposPago.hidden = true;
+    referenciaPago.value = "";
+    importePago.value = "";
     dialogoLabel.hidden = accion === "liberar";
     dialogoTexto.hidden = accion === "liberar";
     dialogoTexto.required = accion !== "liberar";
@@ -229,6 +407,47 @@ function abrirDialogo(mensaje, accion) {
 
 async function confirmarAccion() {
     if (!accionSeleccionada) {
+        return;
+    }
+    if (accionSeleccionada.tipo === "pago") {
+        const referencia = referenciaPago.value.trim();
+        const importe = importePago.value.trim();
+        if (!referencia || !importe) {
+            dialogoError.textContent = "Ingresá la referencia del comprobante y el importe completo de la cuota.";
+            return;
+        }
+        dialogoConfirmar.disabled = true;
+        dialogoError.textContent = "";
+        try {
+            const pago = await api.post(
+                `/api/polizas/${accionSeleccionada.poliza.id}/pagos/`,
+                { referencia, importe },
+            );
+            conversacion = await api.get(`/api/conversaciones/${idConversacion}/`);
+            renderizarConversacion(conversacion);
+            mostrarMensajePagina(
+                `Pago ${pago.pago.referencia} registrado para ${accionSeleccionada.poliza.numero_poliza}.`,
+            );
+            dialogo.close();
+        } catch (error) {
+            dialogoError.textContent = error.mensaje ?? error.message ?? "No se pudo registrar el pago.";
+        } finally {
+            dialogoConfirmar.disabled = false;
+        }
+        return;
+    }
+    // Confirmación simple (por ejemplo, cerrar un caso): no hay texto que validar.
+    if (accionSeleccionada.alConfirmar) {
+        dialogoConfirmar.disabled = true;
+        dialogoError.textContent = "";
+        try {
+            await accionSeleccionada.alConfirmar();
+            dialogo.close();
+        } catch (error) {
+            dialogoError.textContent = error.mensaje ?? error.message ?? "No se pudo completar la acción.";
+        } finally {
+            dialogoConfirmar.disabled = false;
+        }
         return;
     }
     const { mensaje, accion } = accionSeleccionada;
@@ -269,7 +488,10 @@ async function cambiarModo() {
     botonModo.disabled = true;
     mostrarMensajePagina("");
     try {
-        const accion = conversacion.modo === "humano" ? "devolver" : "tomar";
+        const esResponsable = conversacion.atendida_por?.id === funcionario?.id;
+        const accion = conversacion.modo === "humano" && esResponsable
+            ? "devolver"
+            : "tomar";
         conversacion = await api.post(`/api/conversaciones/${idConversacion}/${accion}/`);
         renderizarConversacion(conversacion);
     } catch (error) {
@@ -306,13 +528,17 @@ async function cargarNuevosMensajes() {
     sondeoEnCurso = true;
     try {
         const ultimoId = mensajes.length > 0 ? mensajes[mensajes.length - 1].id : 0;
-        const respuesta = await api.get(
-            `/api/conversaciones/${idConversacion}/mensajes/?despues_de=${encodeURIComponent(ultimoId)}`,
-        );
+        const [respuesta, detalle] = await Promise.all([
+            api.get(
+                `/api/conversaciones/${idConversacion}/mensajes/?despues_de=${encodeURIComponent(ultimoId)}`,
+            ),
+            api.get(`/api/conversaciones/${idConversacion}/`),
+        ]);
         if (!Array.isArray(respuesta.mensajes)) {
             throw new Error("La respuesta de mensajes no tiene el formato esperado.");
         }
         mensajes = fusionarMensajes(mensajes, respuesta.mensajes);
+        renderizarConversacion(detalle);
         renderizarMensajes();
     } catch (error) {
         mostrarMensajePagina(error.mensaje ?? error.message ?? "No se pudieron actualizar los mensajes.", true);
@@ -352,6 +578,8 @@ async function iniciar() {
 }
 
 botonModo.addEventListener("click", cambiarModo);
+botonCerrarCasos.addEventListener("click", cerrarCasos);
+botonVaciar.addEventListener("click", vaciarChat);
 formularioRespuesta.addEventListener("submit", responder);
 dialogoCancelar.addEventListener("click", () => dialogo.close());
 dialogoConfirmar.addEventListener("click", confirmarAccion);

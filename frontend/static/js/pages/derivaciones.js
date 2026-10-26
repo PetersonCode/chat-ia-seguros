@@ -1,6 +1,7 @@
-import { api } from "../api.js";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js";
-import { formatearFechaHora } from "../lib/formato.js";
+import { api } from "../api.js?v=20261026fix2";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261026fix2";
+import { formatearFechaHora } from "../lib/formato.js?v=20261026fix2";
+import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261026fix2";
 
 const lista = document.getElementById("lista-derivaciones");
 const estado = document.getElementById("estado-derivaciones");
@@ -30,35 +31,27 @@ function crearElemento(etiqueta, clase, texto) {
     return elemento;
 }
 
-function crearTarjeta(derivacion) {
-    const columna = crearElemento("div", "col-12 col-lg-6 col-xxl-4");
-    const tarjeta = crearElemento(
-        "article",
-        `card shadow-sm h-100 ${derivacion.prioridad === "urgente" ? "derivacion-urgente" : ""}`.trim(),
-    );
-    const cuerpo = crearElemento("div", "card-body");
-    const encabezado = crearElemento("div", "d-flex justify-content-between align-items-start gap-2 mb-2");
-    encabezado.append(crearElemento("h2", "h5 mb-0", `Caso ${derivacion.consulta_id}`));
-    if (derivacion.prioridad === "urgente") {
-        encabezado.append(crearElemento("span", "badge text-bg-danger", "Urgente"));
-    } else {
-        encabezado.append(crearElemento("span", "badge text-bg-secondary", "Normal"));
-    }
-    cuerpo.append(encabezado);
-    cuerpo.append(crearElemento("p", "mb-2", derivacion.motivo));
-    cuerpo.append(crearElemento("p", "small text-muted", `Derivada: ${formatearFechaHora(derivacion.creada_en)}`));
-
-    const acciones = crearElemento("div", "d-flex justify-content-between align-items-center gap-2");
-    const enlace = crearElemento("a", "btn btn-sm btn-outline-primary", "Abrir conversación");
-    enlace.href = `/panel/conversacion/?id=${encodeURIComponent(derivacion.conversacion_id)}`;
+function crearTarjetaDerivacion(derivacion) {
+    const urgente = derivacion.prioridad === "urgente";
+    const enlace = `/panel/conversacion/?id=${encodeURIComponent(derivacion.conversacion_id)}`;
+    const abrir = crearElemento("a", "btn btn-sm btn-outline-primary", "Abrir conversación");
+    abrir.href = enlace;
     const boton = crearElemento("button", "btn btn-sm btn-success", "Marcar atendida");
     boton.type = "button";
     boton.addEventListener("click", () => marcarAtendida(derivacion.id, boton));
-    acciones.append(enlace, boton);
-    cuerpo.append(acciones);
-    tarjeta.append(cuerpo);
-    columna.append(tarjeta);
-    return columna;
+
+    return crearTarjeta({
+        titulo: `Caso ${derivacion.consulta_id}`,
+        enlace,
+        subtitulo: `Derivada ${formatearFechaHora(derivacion.creada_en)}`,
+        clase: urgente ? "tarjeta-rojo" : "tarjeta-azul",
+        insignias: [crearInsignia(
+            urgente ? "Urgente" : "Normal",
+            urgente ? "sev sev-critica" : "pildora",
+        )],
+        texto: derivacion.motivo,
+        acciones: [abrir, boton],
+    });
 }
 
 async function marcarAtendida(id, boton) {
@@ -114,10 +107,10 @@ async function cargarDerivaciones(pagina = paginaSeleccionada) {
                 return bUrgente - aUrgente || a.indice - b.indice;
             });
         for (const { derivacion } of ordenadas) {
-            lista.append(crearTarjeta(derivacion));
+            lista.append(crearTarjetaDerivacion(derivacion));
         }
         if (ordenadas.length === 0) {
-            lista.append(crearElemento("p", "col-12 text-muted", "No hay derivaciones pendientes."));
+            lista.append(crearTarjetaVacia("No hay derivaciones pendientes."));
         }
         mostrarEstado("");
         return true;

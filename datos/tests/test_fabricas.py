@@ -49,11 +49,14 @@ class FabricasTests(TestCase):
             ("siniestro_urgente", "Siniestro urgente", "derivar_humano"),
             ("cotizacion", "Cotización", "derivar_humano"),
             ("consulta_cobertura", "Consulta de cobertura", "derivar_humano"),
-            ("reclamo", "Reclamo", "derivar_humano"),
+            ("reclamo", "Reclamo", "requiere_aprobacion"),
             ("baja", "Baja de póliza", "requiere_aprobacion"),
             ("modificacion", "Modificación de póliza", "requiere_aprobacion"),
             ("prompt_injection", "Intento de manipulación del bot", "seguridad"),
             ("otro", "Otra consulta", "derivar_humano"),
+            ("registro", "Alta de cliente", "requiere_aprobacion"),
+            ("asistencia", "Asistencia en el camino", "bot_responde"),
+            ("pago", "Pagos y cuotas", "derivar_humano"),
         }
 
         fabricas.crear_catalogos()
@@ -70,7 +73,8 @@ class FabricasTests(TestCase):
             consultas_esperadas,
         )
         self.assertEqual(TipoSeguro.objects.count(), 5)
-        self.assertEqual(TipoConsulta.objects.count(), 12)
+        # Los doce del seed original más registro, asistencia y pago.
+        self.assertEqual(TipoConsulta.objects.count(), 15)
 
     # AC-T4-11
     def test_fabricas_crean_registros_validos_con_defaults_unicos(self):

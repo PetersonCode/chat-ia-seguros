@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from itertools import count
 from typing import Any
 
@@ -58,11 +58,14 @@ _TIPOS_CONSULTA = (
     ("siniestro_urgente", "Siniestro urgente", "derivar_humano"),
     ("cotizacion", "Cotización", "derivar_humano"),
     ("consulta_cobertura", "Consulta de cobertura", "derivar_humano"),
-    ("reclamo", "Reclamo", "derivar_humano"),
+    ("reclamo", "Reclamo", "requiere_aprobacion"),
     ("baja", "Baja de póliza", "requiere_aprobacion"),
     ("modificacion", "Modificación de póliza", "requiere_aprobacion"),
     ("prompt_injection", "Intento de manipulación del bot", "seguridad"),
     ("otro", "Otra consulta", "derivar_humano"),
+    ("registro", "Alta de cliente", "requiere_aprobacion"),
+    ("asistencia", "Asistencia en el camino", "bot_responde"),
+    ("pago", "Pagos y cuotas", "derivar_humano"),
 )
 
 
@@ -132,14 +135,15 @@ def crear_poliza(
 ) -> Poliza:
     crear_catalogos()
     numero = next(_polizas)
+    hoy = timezone.localdate()
     valores: dict[str, Any] = {
         "numero_poliza": f"POL-{numero:05d}",
         "cliente": cliente or crear_cliente(),
         "tipo_seguro": TipoSeguro.objects.get(codigo="automotor"),
         "cobertura": "intermedia",
         "estado": EstadoPoliza.VIGENTE,
-        "fecha_inicio": date(2025, 1, 1),
-        "fecha_vencimiento": date(2026, 1, 1),
+        "fecha_inicio": hoy - timedelta(days=1),
+        "fecha_vencimiento": hoy + timedelta(days=365),
         "prima_mensual": "1000.00",
     }
     valores.update(campos)

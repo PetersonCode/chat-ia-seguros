@@ -1,7 +1,7 @@
 """Etapa B: el canal WhatsApp (AC-T3-05 a AC-T3-15).
 
 La red nunca se toca de verdad: `WHATSAPP_MODO=simulado` o un `patch` de
-`urllib.request.urlopen`. El bot tampoco corre: se parchea `en_segundo_plano`.
+`urllib.request.urlopen`. El procesamiento se verifica mediante la cola durable.
 """
 
 from __future__ import annotations
@@ -14,16 +14,20 @@ from datetime import timedelta
 from unittest.mock import patch
 from urllib.error import HTTPError
 
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.utils import timezone
 
 from datos import fabricas
+from datos.tests.transacciones import conservar_conexion_del_test
 from datos.models import (
     ContactoWhatsapp,
     Conversacion,
     EstadoConversacion,
     EstadoEnvio,
+    EstadoTrabajoWhatsApp,
     Mensaje,
+    TipoTrabajoWhatsApp,
+    TrabajoWhatsApp,
 )
 from negocio import whatsapp
 from negocio.bot.plantillas import SOLO_TEXTO
@@ -91,16 +95,30 @@ class VerificacionTests(TestCase):
             self.assertFalse(whatsapp.verificar_firma(cuerpo, "sha256=00deadbeef"))
             self.assertFalse(whatsapp.verificar_firma(b"otro cuerpo", f"sha256={correcta}"))
 
+    def test_verificar_firma_rechaza_secreto_faltante_o_vacio(self):
+        cuerpo = b'{"hola": "mundo"}'
+        firma_sin_secreto = hmac.new(b"", cuerpo, hashlib.sha256).hexdigest()
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertFalse(
+                whatsapp.verificar_firma(cuerpo, f"sha256={firma_sin_secreto}")
+            )
+        with patch.dict("os.environ", {"WHATSAPP_APP_SECRET": ""}):
+            self.assertFalse(
+                whatsapp.verificar_firma(cuerpo, f"sha256={firma_sin_secreto}")
+            )
+
 
 class EntrantesTests(TestCase):
+    def setUp(self):
+        conservar_conexion_del_test(self)
+
     # AC-T3-06
     def test_se_guarda_el_nombre_de_perfil_que_manda_meta(self):
         """Lo único que se sabe de un desconocido: prellena su alta como cliente."""
         payload = _payload_texto(
             "wamid.perfil", "5491155551001", "hola", perfil="Daniel Peterson"
         )
-        with patch.object(whatsapp, "en_segundo_plano"):
-            whatsapp.procesar_webhook(payload)
+        whatsapp.procesar_webhook(payload)
 
         contacto = ContactoWhatsapp.objects.get(numero="+5491155551001")
         self.assertEqual(contacto.nombre_perfil, "Daniel Peterson")
@@ -110,25 +128,23 @@ class EntrantesTests(TestCase):
         sin_perfil = fabricas.crear_contacto(None, numero="+5491155551001")
         self.assertIsNone(sin_perfil.nombre_perfil)
 
-        with patch.object(whatsapp, "en_segundo_plano"):
-            whatsapp.procesar_webhook(
-                _payload_texto("wamid.p1", "5491155551001", "hola", perfil="Daniel")
-            )
-            sin_perfil.refresh_from_db()
-            self.assertEqual(sin_perfil.nombre_perfil, "Daniel")
+        whatsapp.procesar_webhook(
+            _payload_texto("wamid.p1", "5491155551001", "hola", perfil="Daniel")
+        )
+        sin_perfil.refresh_from_db()
+        self.assertEqual(sin_perfil.nombre_perfil, "Daniel")
 
-            # Un segundo mensaje con otro nombre no lo reescribe.
-            whatsapp.procesar_webhook(
-                _payload_texto("wamid.p2", "5491155551001", "hola", perfil="Otro")
-            )
+        # Un segundo mensaje con otro nombre no lo reescribe.
+        whatsapp.procesar_webhook(
+            _payload_texto("wamid.p2", "5491155551001", "hola", perfil="Otro")
+        )
         sin_perfil.refresh_from_db()
         self.assertEqual(sin_perfil.nombre_perfil, "Daniel")
 
     # AC-T3-06
     def test_un_numero_nuevo_crea_contacto_conversacion_y_mensaje(self):
         payload = _payload_texto("wamid.nuevo", "5491155551001", "hola")
-        with patch.object(whatsapp, "en_segundo_plano") as fondo:
-            whatsapp.procesar_webhook(payload)
+        whatsapp.procesar_webhook(payload)
 
         contacto = ContactoWhatsapp.objects.get(numero="+5491155551001")
         self.assertIsNone(contacto.cliente)
@@ -142,18 +158,17 @@ class EntrantesTests(TestCase):
         self.assertEqual(mensaje.payload["id"], "wamid.nuevo")
         self.assertEqual(conversacion.ultimo_mensaje_cliente_en, mensaje.fecha_hora)
 
-        from negocio.bot.orquestador import procesar_mensaje
-
-        fondo.assert_called_once_with(procesar_mensaje, mensaje.id)
+        tarea = TrabajoWhatsApp.objects.get(mensaje=mensaje)
+        self.assertEqual(tarea.tipo, TipoTrabajoWhatsApp.TEXTO)
+        self.assertEqual(tarea.estado, EstadoTrabajoWhatsApp.PENDIENTE)
 
     # AC-T3-07
     def test_reutiliza_contacto_y_conversacion_abierta_en_cualquier_formato(self):
         contacto = fabricas.crear_contacto(None, numero="+5491155551001")
         conversacion = fabricas.crear_conversacion(contacto)
 
-        with patch.object(whatsapp, "en_segundo_plano"):
-            whatsapp.procesar_webhook(_payload_texto("wamid.a", "5411 5555-1001", "uno"))
-            whatsapp.procesar_webhook(_payload_texto("wamid.b", "54911 5555 1001", "dos"))
+        whatsapp.procesar_webhook(_payload_texto("wamid.a", "5411 5555-1001", "uno"))
+        whatsapp.procesar_webhook(_payload_texto("wamid.b", "54911 5555 1001", "dos"))
 
         self.assertEqual(ContactoWhatsapp.objects.count(), 1)
         self.assertEqual(Conversacion.objects.count(), 1)
@@ -169,8 +184,9 @@ class EntrantesTests(TestCase):
             cerrada_en=timezone.now(),
         )
 
-        with patch.object(whatsapp, "en_segundo_plano"):
-            whatsapp.procesar_webhook(_payload_texto("wamid.c", "+5491155551002", "hola"))
+        whatsapp.procesar_webhook(
+            _payload_texto("wamid.c", "+5491155551002", "hola")
+        )
 
         self.assertEqual(Conversacion.objects.filter(contacto=contacto).count(), 2)
         cerrada.refresh_from_db()
@@ -184,8 +200,9 @@ class EntrantesTests(TestCase):
             contacto, modo="humano", funcionario=fabricas.crear_funcionario("Graciela")
         )
 
-        with patch.object(whatsapp, "en_segundo_plano"):
-            whatsapp.procesar_webhook(_payload_texto("wamid.h", "+5491155551005", "hola"))
+        whatsapp.procesar_webhook(
+            _payload_texto("wamid.h", "+5491155551005", "hola")
+        )
 
         conversacion.refresh_from_db()
         self.assertEqual(conversacion.modo, "humano")
@@ -193,15 +210,14 @@ class EntrantesTests(TestCase):
     # AC-T3-08
     def test_el_mismo_wa_message_id_dos_veces_no_duplica_ni_redispara(self):
         payload = _payload_texto("wamid.repetido", "+5491155551001", "hola")
-        with patch.object(whatsapp, "en_segundo_plano") as fondo:
-            whatsapp.procesar_webhook(payload)
-            whatsapp.procesar_webhook(payload)
+        whatsapp.procesar_webhook(payload)
+        whatsapp.procesar_webhook(payload)
 
         self.assertEqual(Mensaje.objects.filter(wa_message_id="wamid.repetido").count(), 1)
-        self.assertEqual(fondo.call_count, 1)
+        self.assertEqual(TrabajoWhatsApp.objects.count(), 1)
 
     # AC-T3-09
-    def test_un_adjunto_se_guarda_no_dispara_el_bot_y_avisa_que_solo_hay_texto(self):
+    def test_un_formato_no_soportado_se_encola_y_avisa_que_solo_hay_texto(self):
         payload = {
             "entry": [
                 {
@@ -210,10 +226,10 @@ class EntrantesTests(TestCase):
                             "value": {
                                 "messages": [
                                     {
-                                        "id": "wamid.img",
+                                        "id": "wamid.doc",
                                         "from": "+5491155551001",
-                                        "type": "image",
-                                        "image": {"id": "media-1"},
+                                        "type": "document",
+                                        "document": {"id": "media-1"},
                                     }
                                 ]
                             }
@@ -222,29 +238,83 @@ class EntrantesTests(TestCase):
                 }
             ]
         }
-        with patch.object(whatsapp, "en_segundo_plano") as fondo:
-            whatsapp.procesar_webhook(payload)
+        whatsapp.procesar_webhook(payload)
 
-        entrante = Mensaje.objects.get(wa_message_id="wamid.img")
-        self.assertEqual(entrante.texto, "[mensaje de tipo image no soportado]")
-        fondo.assert_not_called()
+        entrante = Mensaje.objects.get(wa_message_id="wamid.doc")
+        self.assertEqual(entrante.texto, "[mensaje de tipo document no soportado]")
+        tarea = TrabajoWhatsApp.objects.get(mensaje=entrante)
+        self.assertEqual(tarea.tipo, TipoTrabajoWhatsApp.AVISO_FORMATO)
+        self.assertEqual(tarea.estado, EstadoTrabajoWhatsApp.PENDIENTE)
 
+        from django.core.management import call_command
+
+        call_command("reprocesar_pendientes")
         aviso = Mensaje.objects.get(direccion="saliente", texto=SOLO_TEXTO)
         self.assertEqual(aviso.conversacion_id, entrante.conversacion_id)
         self.assertEqual(aviso.estado_envio, EstadoEnvio.ENVIADO)
 
+    def test_un_adjunto_durante_atencion_humana_no_genera_respuesta_del_bot(self):
+        funcionario = fabricas.crear_funcionario("Graciela")
+        conversacion = fabricas.crear_conversacion(
+            modo="humano", funcionario=funcionario
+        )
+        payload = {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "messages": [
+                                    {
+                                        "id": "wamid.img.humano",
+                                        "from": conversacion.contacto.numero,
+                                        "type": "image",
+                                        "image": {"id": "media-humano"},
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+
+        whatsapp.procesar_webhook(payload)
+
+        entrante = Mensaje.objects.get(wa_message_id="wamid.img.humano")
+        self.assertEqual(entrante.conversacion_id, conversacion.id)
+        tarea = TrabajoWhatsApp.objects.get(mensaje=entrante)
+        self.assertEqual(tarea.tipo, TipoTrabajoWhatsApp.IMAGEN)
+        self.assertFalse(
+            Mensaje.objects.filter(
+                conversacion=conversacion, direccion="saliente", emisor="bot"
+            ).exists()
+        )
+
     # AC-T3-10
-    def test_una_excepcion_en_segundo_plano_se_loguea_y_no_se_propaga(self):
-        def explotar():
+    def test_un_error_de_procesamiento_se_guarda_para_reintento(self):
+        def explotar(_mensaje_id):
             raise RuntimeError("boom")
 
-        with self.assertLogs("negocio.whatsapp", level="ERROR") as registro:
-            whatsapp.en_segundo_plano(explotar)
-            # El hilo es daemon; esperamos a que termine para leer el log.
-            for hilo in __import__("threading").enumerate():
-                if hilo is not __import__("threading").current_thread():
-                    hilo.join(timeout=5)
-        self.assertTrue(any("segundo plano" in linea for linea in registro.output))
+        from django.core.management import call_command
+
+        whatsapp.procesar_webhook(
+            _payload_texto("wamid.reintento", "+5491155551001", "hola")
+        )
+        tarea = TrabajoWhatsApp.objects.get(mensaje__wa_message_id="wamid.reintento")
+        with patch(
+            "negocio.bot.orquestador.procesar_tras_ventana", side_effect=explotar
+        ):
+            with self.assertLogs(
+                "negocio.management.commands.reprocesar_pendientes", level="ERROR"
+            ):
+                call_command("reprocesar_pendientes")
+
+        tarea.refresh_from_db()
+        self.assertEqual(tarea.estado, EstadoTrabajoWhatsApp.PENDIENTE)
+        self.assertEqual(tarea.intentos, 1)
+        self.assertIn("boom", tarea.ultimo_error)
+        self.assertGreater(tarea.disponible_en, timezone.now())
 
     # AC-T3-10
     def test_un_payload_con_forma_inesperada_se_loguea_y_no_lanza(self):
@@ -327,6 +397,19 @@ class EnvioTests(TestCase):
         self.assertEqual(mensaje.estado_envio, EstadoEnvio.ENVIADO)
         self.assertIsNotNone(mensaje.enviado_en)
 
+    def test_en_atencion_humana_descarta_la_respuesta_automatica_pendiente(self):
+        mensaje = self._saliente()
+        self.conversacion.modo = "humano"
+        self.conversacion.funcionario = fabricas.crear_funcionario("Graciela")
+        self.conversacion.save(update_fields=["modo", "funcionario"])
+
+        with patch.dict("os.environ", {"WHATSAPP_MODO": "simulado"}):
+            self.assertEqual(whatsapp.enviar_pendientes(self.conversacion.id), 0)
+
+        mensaje.refresh_from_db()
+        self.assertEqual(mensaje.estado_envio, EstadoEnvio.DESCARTADO)
+        self.assertEqual(mensaje.error, "atencion_humana")
+
     # AC-T3-13
     def test_en_modo_real_guarda_el_wa_message_id_que_devuelve_la_api(self):
         mensaje = self._saliente()
@@ -377,6 +460,29 @@ class EnvioTests(TestCase):
         mensaje.refresh_from_db()
         self.assertEqual(mensaje.estado_envio, EstadoEnvio.FALLIDO)
         self.assertIn("sin red", mensaje.error)
+        self.assertEqual(mensaje.intentos_envio, 1)
+        self.assertIsNotNone(mensaje.proximo_intento_envio)
+
+    def test_un_envio_fallido_se_reintenta_cuando_llega_su_fecha(self):
+        mensaje = self._saliente()
+        entorno = {"WHATSAPP_MODO": "real", "WHATSAPP_PHONE_NUMBER_ID": "123"}
+        with patch.dict("os.environ", entorno):
+            with patch(
+                "negocio.whatsapp.request.urlopen", side_effect=OSError("sin red")
+            ):
+                whatsapp.enviar_pendientes(self.conversacion.id)
+
+        mensaje.refresh_from_db()
+        mensaje.proximo_intento_envio = timezone.now() - timedelta(seconds=1)
+        mensaje.save(update_fields=["proximo_intento_envio"])
+
+        with patch.dict("os.environ", {"WHATSAPP_MODO": "simulado"}):
+            self.assertEqual(whatsapp.enviar_pendientes(self.conversacion.id), 1)
+
+        mensaje.refresh_from_db()
+        self.assertEqual(mensaje.estado_envio, EstadoEnvio.ENVIADO)
+        self.assertEqual(mensaje.intentos_envio, 2)
+        self.assertIsNone(mensaje.proximo_intento_envio)
 
     # AC-T3-13
     def test_a_un_movil_argentino_se_le_envia_sin_el_9(self):

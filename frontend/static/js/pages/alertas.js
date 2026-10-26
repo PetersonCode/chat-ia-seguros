@@ -1,7 +1,9 @@
-import { api } from "../api.js";
-import { inicializarNav } from "../nav.js";
-import { armarQuery } from "../lib/consulta.js";
-import { formatearFechaHora } from "../lib/formato.js";
+import { api } from "../api.js?v=20261026fix2";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261026fix2";
+import { inicializarNav } from "../nav.js?v=20261026fix2";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261026fix2";
+import { armarQuery } from "../lib/consulta.js?v=20261026fix2";
+import { formatearFechaHora } from "../lib/formato.js?v=20261026fix2";
 
 const formulario = document.getElementById("filtros-alertas");
 const campoTipo = document.getElementById("filtro-tipo");
@@ -25,26 +27,21 @@ let paginaSeleccionada = 1;
 let paginasTotales = 1;
 let solicitudActual = 0;
 
-function crearCelda(texto) {
-    const celda = document.createElement("td");
-    celda.textContent = texto ?? "—";
-    return celda;
-}
-
-function crearFila(alerta) {
-    const fila = document.createElement("tr");
-    fila.append(crearCelda(formatearFechaHora(alerta.creada_en)));
-    fila.append(crearCelda(alerta.tipo));
-    fila.append(crearCelda(alerta.severidad));
-    fila.append(crearCelda(alerta.descripcion));
-
-    const enlace = document.createElement("a");
-    enlace.href = `/panel/conversacion/?id=${encodeURIComponent(alerta.conversacion_id)}`;
-    enlace.textContent = `Abrir conversación ${alerta.conversacion_id}`;
-    const celdaEnlace = document.createElement("td");
-    celdaEnlace.append(enlace);
-    fila.append(celdaEnlace);
-    return fila;
+function crearTarjetaAlerta(alerta) {
+    const enlace = `/panel/conversacion/?id=${encodeURIComponent(alerta.conversacion_id)}`;
+    const abrir = document.createElement("a");
+    abrir.href = enlace;
+    abrir.className = "btn btn-sm btn-outline-primary";
+    abrir.textContent = "Abrir conversación";
+    return crearTarjeta({
+        titulo: alerta.tipo,
+        enlace,
+        subtitulo: `${formatearFechaHora(alerta.creada_en)} · Conversación ${alerta.conversacion_id}`,
+        clase: claseTarjetaSeveridad(alerta.severidad),
+        insignias: [crearInsignia(etiquetaSeveridad(alerta.severidad), claseSeveridad(alerta.severidad))],
+        texto: alerta.descripcion,
+        acciones: [abrir],
+    });
 }
 
 function actualizarPaginacion(datos) {
@@ -84,14 +81,9 @@ async function cargarAlertas(pagina = paginaSeleccionada) {
         }
 
         if (datos.resultados.length === 0) {
-            const filaVacia = document.createElement("tr");
-            const celda = crearCelda("No se encontraron alertas abiertas.");
-            celda.colSpan = 5;
-            celda.className = "text-center text-muted py-4";
-            filaVacia.append(celda);
-            filas.append(filaVacia);
+            filas.append(crearTarjetaVacia("No se encontraron alertas abiertas."));
         } else {
-            filas.append(...datos.resultados.map(crearFila));
+            filas.append(...datos.resultados.map(crearTarjetaAlerta));
         }
         actualizarPaginacion(datos);
         estado.textContent = "";

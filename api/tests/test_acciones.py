@@ -17,7 +17,8 @@ class AccionesTests(ApiTestCase):
         self.poliza = fabricas.crear_poliza(self.cliente)
 
     def _accion(self, **campos):
-        return fabricas.crear_accion(self.consulta, poliza=self.poliza, **campos)
+        campos.setdefault("poliza", self.poliza)
+        return fabricas.crear_accion(self.consulta, **campos)
 
     # AC-T2-15
     def test_el_listado_trae_el_objeto_accion_completo(self):
@@ -42,6 +43,14 @@ class AccionesTests(ApiTestCase):
     def test_el_listado_filtra_por_estado_y_por_defecto_trae_pendientes(self):
         self.entrar()
         pendiente = self._accion()
+        aprobada = self._accion(
+            tipo_accion=TipoAccion.REEMBOLSO,
+            parametros={"importe": "3200.00"},
+        )
+        self.cliente_api.post(
+            f"/api/acciones/{aprobada.id}/aprobar/", {}, format="json"
+        )
+        aprobada.refresh_from_db()
         self.cliente_api.post(
             f"/api/acciones/{self._accion(tipo_accion=TipoAccion.MODIFICAR_POLIZA).id}/rechazar/",
             {"motivo": "No corresponde."},
@@ -51,11 +60,28 @@ class AccionesTests(ApiTestCase):
         por_defecto = self.cliente_api.get("/api/acciones/").json()
         self.assertEqual([a["id"] for a in por_defecto["resultados"]], [pendiente.id])
 
+        aprobadas = self.cliente_api.get("/api/acciones/?estado=aprobada").json()
+        self.assertEqual([a["id"] for a in aprobadas["resultados"]], [aprobada.id])
+        self.assertEqual(aprobadas["resultados"][0]["estado"], EstadoAccion.APROBADA)
+
         rechazadas = self.cliente_api.get("/api/acciones/?estado=rechazada").json()
         self.assertEqual(len(rechazadas["resultados"]), 1)
 
         todas = self.cliente_api.get("/api/acciones/?estado=").json()
-        self.assertEqual(todas["total"], 2)
+        self.assertEqual(todas["total"], 3)
+
+    def test_aprobar_reembolso_devuelve_estado_aprobado_sin_ejecutar(self):
+        self.entrar()
+        accion = self._accion(
+            tipo_accion=TipoAccion.REEMBOLSO,
+            parametros={"importe": "3200.00"},
+        )
+
+        payload = self.cliente_api.post(
+            f"/api/acciones/{accion.id}/aprobar/", {}, format="json"
+        ).json()
+
+        self.assertEqual(payload["estado"], EstadoAccion.APROBADA)
 
     # AC-T2-15
     def test_el_detalle_de_una_accion_y_el_404(self):
@@ -66,6 +92,67 @@ class AccionesTests(ApiTestCase):
         )
         self.assertError(
             self.cliente_api.get("/api/acciones/999999/"), 404, "no_encontrado"
+        )
+
+    def test_baja_permite_seleccionar_una_poliza_y_aprobarla(self):
+        self.entrar()
+        otra_poliza = fabricas.crear_poliza(self.cliente)
+        accion = self._accion(tipo_accion=TipoAccion.BAJA_POLIZA, poliza=None)
+
+        detalle = self.cliente_api.get(f"/api/acciones/{accion.id}/").json()
+        opciones = detalle["polizas_disponibles"]
+        self.assertEqual(
+            {opcion["id"] for opcion in opciones},
+            {self.poliza.id, otra_poliza.id},
+        )
+
+        actualizado = self.cliente_api.patch(
+            f"/api/acciones/{accion.id}/parametros/",
+            {"parametros": {"poliza": otra_poliza.id}},
+            format="json",
+        ).json()
+        self.assertEqual(actualizado["poliza"]["id"], otra_poliza.id)
+        self.assertNotIn("poliza", actualizado["parametros"])
+
+        aprobado = self.cliente_api.post(
+            f"/api/acciones/{accion.id}/aprobar/", {}, format="json"
+        ).json()
+        self.assertEqual(aprobado["estado"], EstadoAccion.EJECUTADA)
+        self.poliza.refresh_from_db()
+        otra_poliza.refresh_from_db()
+        self.assertEqual(self.poliza.estado, "vigente")
+        self.assertEqual(otra_poliza.estado, "dada_de_baja")
+
+    def test_baja_rechaza_poliza_ajena_y_contacto_sin_vinculacion(self):
+        self.entrar()
+        accion = self._accion(tipo_accion=TipoAccion.BAJA_POLIZA, poliza=None)
+        poliza_ajena = fabricas.crear_poliza(fabricas.crear_cliente())
+
+        self.assertError(
+            self.cliente_api.patch(
+                f"/api/acciones/{accion.id}/parametros/",
+                {"parametros": {"poliza": poliza_ajena.id}},
+                format="json",
+            ),
+            400,
+            "datos_invalidos",
+        )
+        accion.refresh_from_db()
+        self.assertIsNone(accion.poliza_id)
+
+        self.contacto.cliente = None
+        self.contacto.save(update_fields=["cliente"])
+        detalle = self.cliente_api.get(f"/api/acciones/{accion.id}/").json()
+        self.assertEqual(detalle["polizas_disponibles"], [])
+        self.assertIn("contacto vinculado", detalle["poliza_no_disponible"])
+        self.assertError(
+            self.cliente_api.patch(
+                f"/api/acciones/{accion.id}/parametros/",
+                {"parametros": {"poliza": self.poliza.id}},
+                format="json",
+            ),
+            400,
+            "datos_invalidos",
         )
 
     # AC-T2-16

@@ -32,7 +32,7 @@ Todo dentro de `api/`. En `config/settings.py`, **solo** agregar: el bloque `RES
 ### Etapa C · Supervisión
 | ID | Criterio |
 |---|---|
-| AC-T2-10 | Dado `GET /api/conversaciones/`, entonces usa `selectors.bandeja(...)` con los filtros de la query y devuelve `conversacion_resumen`, con `severidad_maxima = severidad_por_rango(...)`, `color = color_por_severidad(...)`, `sin_respuesta` y `ventana_24h_abierta` calculados con `negocio.reglas` (con `ahora = timezone.now()`). |
+| AC-T2-10 | Dado `GET /api/conversaciones/`, entonces usa `selectors.bandeja(...)` con los filtros de la query y devuelve `conversacion_resumen`, con `severidad_maxima = severidad_por_rango(...)`, `derivacion_urgente`, `color = rojo` ante una derivación urgente sin atender (sin alterar la severidad ni el conteo de alertas), `sin_respuesta` y `ventana_24h_abierta` calculados con `negocio.reglas` (con `ahora = timezone.now()`). |
 | AC-T2-11 | Dado `GET /api/conversaciones/{id}/`, entonces devuelve `conversacion_detalle`: `cliente_info` con las pólizas de `resumen_polizas` (o `null` si el contacto no tiene cliente) y las alertas abiertas de la conversación. Inexistente → 404. |
 | AC-T2-12 | Dado `GET /api/conversaciones/{id}/mensajes/?despues_de=N`, entonces devuelve `{"mensajes": [...]}` de `mensajes_de(id, N)`, cada uno con los ids de sus alertas. |
 | AC-T2-13 | Dados `POST …/tomar/`, `…/devolver/`, `…/responder/`, `/api/mensajes/{id}/liberar/`, `/api/mensajes/{id}/descartar/` y `/api/consultas/{id}/reabrir/`, entonces cada uno llama a la función de `negocio.supervision` correspondiente con `request.funcionario.id` y devuelve el objeto del contrato (`responder` → 201). Los marcados "aprobador" en el contrato exigen `EsAprobador`. |
@@ -41,8 +41,8 @@ Todo dentro de `api/`. En `config/settings.py`, **solo** agregar: el bloque `RES
 ### Etapa D · Acciones y derivaciones
 | ID | Criterio |
 |---|---|
-| AC-T2-15 | Dados `GET /api/acciones/` y `GET /api/acciones/{id}/`, entonces devuelven `accion` desde `listar_acciones` (filtro `estado`). |
-| AC-T2-16 | Dados `POST …/aprobar/`, `POST …/rechazar/` y `PATCH …/parametros/`, entonces exigen aprobador y llaman a `aprobar_accion`, `rechazar_accion` y `completar_parametros`; los errores se traducen según AC-T2-03 (p. ej. faltan parámetros → 400 `parametros_incompletos`, ya resuelta → 409). |
+| AC-T2-15 | Dados `GET /api/acciones/` y `GET /api/acciones/{id}/`, entonces devuelven `accion` desde `listar_acciones` (filtro `estado`); permite consultar `aprobada` pendiente de gestión externa y por defecto muestra `pendiente`. El detalle de una baja sin póliza agrega las opciones de póliza del cliente vinculado validado o un motivo por el que no se puede seleccionar. |
+| AC-T2-16 | Dados `POST …/aprobar/`, `POST …/rechazar/` y `PATCH …/parametros/`, entonces exigen aprobador y llaman a `aprobar_accion`, `rechazar_accion` y `completar_parametros`; para una baja, `parametros.poliza` identifica una póliza existente del cliente vinculado y queda asociada a la acción; se rechaza titularidad ajena o contacto no vinculado. Aprobar devuelve `ejecutada` solo si el efecto ocurrió, o `aprobada` si queda pendiente de gestión externa; los errores se traducen según AC-T2-03 (p. ej. faltan parámetros → 400 `parametros_incompletos`, ya resuelta → 409). |
 | AC-T2-17 | Dados `GET /api/derivaciones/` (`?atendidas=1`) y `POST /api/derivaciones/{id}/atender/`, entonces usan `derivaciones_de(request.funcionario.id, …)` y `atender_derivacion`; atender una ajena → 403. |
 
 ### Etapa E · Clientes y pólizas (solo lectura)
@@ -55,16 +55,17 @@ Todo dentro de `api/`. En `config/settings.py`, **solo** agregar: el bloque `RES
 |---|---|
 | AC-T2-19 | Dado `GET /webhook/whatsapp/` con `hub.mode`, `hub.verify_token` y `hub.challenge`, entonces responde 200 con el challenge como `text/plain` si `verificar_suscripcion` lo devuelve; si no, 403. |
 | AC-T2-20 | Dado `POST /webhook/whatsapp/`, entonces (sin CSRF, sin sesión) verifica la firma con `verificar_firma(request.body, header)` **antes** de parsear: inválida → 403 y no se llama a nada; JSON inválido → 400; válido → llama `procesar_webhook(payload)` y responde 200 aunque el payload no tenga mensajes. |
-| AC-T2-21 | Dadas las rutas `/` (login), `/panel/` (bandeja), `/panel/conversacion/`, `/panel/alertas/`, `/panel/cerrados/`, `/panel/acciones/`, `/panel/derivaciones/`, `/panel/clientes/`, `/panel/cliente/`, entonces Django devuelve el archivo correspondiente de `frontend/pages/` (`login.html`, `bandeja.html`, `conversacion.html`, `alertas.html`, `cerrados.html`, `acciones.html`, `derivaciones.html`, `clientes.html`, `cliente.html`) con una lista blanca fija; otra ruta → 404; si el archivo todavía no existe (T1 no lo hizo), 404. Los JS/CSS se sirven en `/static/`. Las páginas no necesitan sesión (no contienen datos). |
+| AC-T2-21 | Dadas las rutas `/` (login), `/panel/` (bandeja), `/panel/conversacion/`, `/panel/alertas/`, `/panel/cerrados/`, `/panel/acciones/`, `/panel/derivaciones/`, `/panel/clientes/`, `/panel/cliente/` y `/panel/siniestros/`, entonces Django devuelve el archivo correspondiente de `frontend/pages/` (incluido `siniestros.html`) con una lista blanca fija; otra ruta → 404; si el archivo todavía no existe, 404. Los JS/CSS se sirven en `/static/`. Las páginas no necesitan sesión (no contienen datos). |
 | AC-T2-22 | Dado `POST /api/clientes/` con `{dni, nombre, apellido, telefono, email?}`, entonces responde **201** con `cliente_detalle`; los datos sucios o repetidos son 400 `datos_invalidos` y falta de un campo obligatorio también; un funcionario sin `puede_aprobar` recibe 403 `permiso_denegado` y sin sesión 401, mientras que los `GET` de clientes siguen abiertos a cualquier funcionario. |
 | AC-T2-23 | Dados `PATCH /api/clientes/{id}/`, `POST /api/clientes/{id}/baja/` y `POST /api/clientes/{id}/reactivar/`, entonces responden 200 con `cliente_detalle`; el PATCH actualiza solo lo recibido y con datos inválidos es 400 sin cambiar nada; la baja con pólizas vigentes y la reactivación de un cliente activo son 409 `estado_invalido`; un id inexistente es 404; las tres exigen `puede_aprobar`. |
+| AC-T2-25 | Dadas las rutas `/api/siniestros/`, `/api/siniestros/{id}/` y `/api/siniestros/{id}/transiciones/`, entonces un funcionario activo puede listar, consultar y registrar denuncias; el registro valida cliente, titularidad de póliza y cobertura. Solo un aprobador puede avanzar estados válidos con motivo; cada evento devuelve responsable y fecha. |
 
 ## 4. Diseño (guía para la IA)
 - `api/permisos.py`, `api/errores.py` (manejador), `api/serializers.py` (solo traducen; nada de reglas), `api/views.py` (`APIView` o vistas de función con `@api_view`), `api/webhook.py`, `api/paginas.py` (`FileResponse` de `BASE_DIR / "frontend" / "pages" / <archivo>`), `api/paginacion.py`, `api/urls.py`.
 - Para `conversacion_resumen` el `ultimo_mensaje` sale de las anotaciones de `bandeja` (`ultimo_texto`, `ultimo_emisor`, `ultimo_fecha_hora`); si no hay mensajes, `null`.
 - Login: `django.contrib.auth.authenticate(username=email, password=…)` + `login()`; vista con `@ensure_csrf_cookie` en `csrf`.
 - El webhook es una vista de Django común (`@csrf_exempt`), no de DRF.
-- Tests con `rest_framework.test.APIClient` y las fábricas de T4; `APIClient(enforce_csrf_checks=True)` en el test de CSRF. Para `procesar_webhook` y el envío por WhatsApp, `WHATSAPP_MODO=simulado` y `unittest.mock.patch` de `en_segundo_plano`.
+- Tests con `rest_framework.test.APIClient` y las fábricas de T4; `APIClient(enforce_csrf_checks=True)` en el test de CSRF. Los mensajes entrantes se verifican por su registro durable en PostgreSQL; el comando consumidor y el envío se prueban con `WHATSAPP_MODO=simulado`.
 
 ## 5. Cómo comprobar
 ```bash

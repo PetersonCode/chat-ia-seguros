@@ -1,4 +1,6 @@
 .env
 __pycache__/
 .venv/
+.verify-venv/
 node_modules/
+private_media/

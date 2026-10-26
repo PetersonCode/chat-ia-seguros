@@ -26,7 +26,7 @@ test("AC-T1-17: describirAccion presenta acciones y pólizas en texto legible", 
         }),
         "Reembolso de $3.200",
     );
-    assert.equal(describirAccion({ tipo_accion: "baja_poliza", poliza: null }), "Sin póliza asociada");
+    assert.equal(describirAccion({ tipo_accion: "baja_poliza", poliza: null }), "Baja de póliza · sin póliza asociada");
 });
 
 test("AC-T1-17: faltantes informa los parámetros necesarios para cada acción", () => {
@@ -52,6 +52,37 @@ test("AC-T1-17: faltantes informa los parámetros necesarios para cada acción",
     assert.deepEqual(faltantes({ tipo_accion: "baja_poliza", poliza: null, parametros: {} }), ["poliza"]);
     assert.deepEqual(
         faltantes({ tipo_accion: "baja_poliza", poliza: null, parametros: { poliza: "POL-00107" } }),
-        [],
+        ["poliza"],
     );
+    assert.equal(
+        describirAccion({
+            tipo_accion: "baja_poliza",
+            poliza: null,
+            parametros: { poliza: "POL-00107" },
+        }),
+        "Baja de póliza · sin póliza asociada",
+    );
+});
+
+test("describirAccion y faltantes conocen el alta de cliente que arma el bot", () => {
+    const completa = {
+        tipo_accion: "alta_cliente",
+        parametros: {
+            nombre: "Juan",
+            apellido: "Pérez",
+            dni: "30111222",
+            telefono: "+5491126914442",
+        },
+    };
+    assert.equal(describirAccion(completa), "Alta de Juan Pérez (DNI 30111222)");
+    assert.deepEqual(faltantes(completa), []);
+
+    // El cliente escribió una sola palabra: el panel tiene que pedir el
+    // apellido antes de dejar aprobar.
+    const sinApellido = {
+        tipo_accion: "alta_cliente",
+        parametros: { nombre: "Dani", dni: "30111222", telefono: "+5491126914442" },
+    };
+    assert.deepEqual(faltantes(sinApellido), ["apellido"]);
+    assert.equal(describirAccion(sinApellido), "Alta de Dani (DNI 30111222)");
 });

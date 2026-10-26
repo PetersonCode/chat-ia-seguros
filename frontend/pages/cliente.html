@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ficha de cliente | Seguros Castaño</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/app.css">
+    <link rel="stylesheet" href="/static/css/app.css?v=20261026fix2">
 </head>
 <body>
     <nav id="nav" aria-label="Navegación principal"></nav>
@@ -71,6 +71,64 @@
         <section class="mb-4" aria-labelledby="titulo-polizas">
             <h2 id="titulo-polizas" class="h4 mb-3">Pólizas</h2>
             <div id="polizas-cliente" class="row g-3"></div>
+            <!-- Vive acá afuera y `cliente.js` lo mete dentro de la grilla en
+                 cada render: si estuviera adentro, el `replaceChildren` que
+                 repinta las pólizas se lo llevaría puesto. -->
+            <div id="columna-nueva-poliza" class="col-12 col-xl-6 d-none">
+                <!-- `details` otra vez, como en "Editar datos": la página solo
+                     carga el CSS de Bootstrap, no su JS. -->
+                <details id="panel-nueva-poliza" class="h-100">
+                    <summary class="caja-nueva-poliza">
+                        <span class="caja-nueva-poliza-mas" aria-hidden="true">+</span>
+                        <span class="h5 mb-0">Agregar póliza</span>
+                    </summary>
+                    <form id="formulario-nueva-poliza" class="card shadow-sm border-0 mt-2 card-body" novalidate>
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label class="form-label" for="poliza-numero">Número</label>
+                                <input id="poliza-numero" name="numero_poliza" class="form-control" autocomplete="off" placeholder="POL-00109">
+                                <p class="form-text mb-0">Se propone el próximo libre; podés cambiarlo.</p>
+                                <p class="invalid-feedback mb-0" data-error="numero_poliza"></p>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label" for="poliza-tipo">Tipo de seguro</label>
+                                <select id="poliza-tipo" name="tipo_seguro" class="form-select"></select>
+                                <p class="invalid-feedback mb-0" data-error="tipo_seguro"></p>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label" for="poliza-cobertura">Cobertura</label>
+                                <select id="poliza-cobertura" name="cobertura" class="form-select"></select>
+                                <p class="invalid-feedback mb-0" data-error="cobertura"></p>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label" for="poliza-prima">Prima mensual</label>
+                                <input id="poliza-prima" name="prima_mensual" class="form-control" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off">
+                                <p class="invalid-feedback mb-0" data-error="prima_mensual"></p>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label" for="poliza-inicio">Inicio</label>
+                                <input id="poliza-inicio" name="fecha_inicio" class="form-control" type="date">
+                                <p class="invalid-feedback mb-0" data-error="fecha_inicio"></p>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label" for="poliza-vencimiento">Vencimiento</label>
+                                <input id="poliza-vencimiento" name="fecha_vencimiento" class="form-control" type="date">
+                                <p class="invalid-feedback mb-0" data-error="fecha_vencimiento"></p>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="poliza-bien">Bien asegurado <span class="text-muted">(opcional)</span></label>
+                                <input id="poliza-bien" name="bien_asegurado" class="form-control" autocomplete="off" placeholder="Ford Fiesta 2019 AB123CD">
+                                <p class="invalid-feedback mb-0" data-error="bien_asegurado"></p>
+                            </div>
+                        </div>
+                        <p id="previo-cuotas-poliza" class="form-text mt-3 mb-0"></p>
+                        <p id="estado-nueva-poliza" class="alert d-none mt-3 mb-0" role="status" aria-live="polite"></p>
+                        <div class="d-flex justify-content-end gap-2 mt-3">
+                            <button id="poliza-crear" class="btn btn-primary" type="submit">Crear póliza</button>
+                        </div>
+                    </form>
+                </details>
+            </div>
         </section>
         <section class="card shadow-sm border-0" aria-labelledby="titulo-siniestros">
             <div class="card-header bg-white">
@@ -79,6 +137,6 @@
             <div id="siniestros-cliente" class="card-body"></div>
         </section>
     </main>
-    <script type="module" src="/static/js/pages/cliente.js?v=2"></script>
+    <script type="module" src="/static/js/pages/cliente.js?v=20261026fix2"></script>
 </body>
 </html>

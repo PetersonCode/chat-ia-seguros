@@ -9,8 +9,9 @@
 --   alertas.mensaje_id apunta a la respuesta del bot que disparó la alerta.
 --
 -- Flujo esperado del backend (webhook de WhatsApp Cloud API):
---   1. Llega mensaje -> INSERT mensajes (entrante, estado_envio='recibido', wa_message_id UNIQUE evita duplicados
---      cuando Meta reintenta el webhook).
+--   1. Llega mensaje -> INSERT mensajes + trabajos_whatsapp en la misma transacción
+--      (el esquema de la cola se agrega en 10_trabajos_whatsapp.sql).
+--      wa_message_id UNIQUE evita duplicados cuando Meta reintenta el webhook.
 --   2. El bot genera respuesta -> INSERT mensajes (saliente, emisor='bot'):
 --        'pendiente_envio' si pasa los controles, 'retenido' si dispara una alerta
 --        (el cliente NO la recibe hasta que Graciela/Roberto la aprueben o la corrijan).

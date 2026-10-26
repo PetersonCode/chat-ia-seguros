@@ -13,11 +13,11 @@ import hmac
 import json
 import logging
 import os
-import threading
+from datetime import timedelta
 from urllib import request
 from urllib.error import HTTPError
 
-from django.db import close_old_connections
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from datos.limpieza import normalizar_telefono
@@ -30,6 +30,8 @@ from datos.models import (
     EstadoEnvio,
     Mensaje,
     ModoConversacion,
+    TipoTrabajoWhatsApp,
+    TrabajoWhatsApp,
 )
 from datos.selectors import contacto_por_numero, conversacion_abierta
 from negocio.reglas import ventana_24h_abierta
@@ -37,6 +39,13 @@ from negocio.reglas import ventana_24h_abierta
 logger = logging.getLogger(__name__)
 
 TIMEOUT_SEGUNDOS = 10
+MAX_INTENTOS_ENVIO = 8
+
+# Con qué arranca el texto que se guarda cuando llega algo que no es texto.
+# Es un marcador nuestro, no palabras del cliente: `orquestador` lo usa para
+# dejar esos mensajes afuera de la agrupación, aunque durante la atención
+# humana no se genere la respuesta automática.
+PREFIJO_NO_SOPORTADO = "[mensaje de tipo "
 
 # Orden de avance de la entrega: un estado nunca vuelve para atrás (AC-T3-11).
 ORDEN_ENTREGA = {
@@ -85,22 +94,10 @@ def verificar_firma(cuerpo: bytes, firma: str | None) -> bool:
     if not firma or not firma.startswith("sha256="):
         return False
     secreto = os.getenv("WHATSAPP_APP_SECRET", "")
+    if not secreto:
+        return False
     digest = hmac.new(secreto.encode("utf-8"), cuerpo or b"", hashlib.sha256).hexdigest()
     return hmac.compare_digest(f"sha256={digest}", firma)
-
-
-def en_segundo_plano(funcion, *args) -> None:
-    """Corre `funcion` en un hilo. Una excepción adentro se loguea y muere ahí."""
-
-    def _correr():
-        try:
-            funcion(*args)
-        except Exception:
-            logger.exception("Falló una tarea en segundo plano: %s", funcion)
-        finally:
-            close_old_connections()
-
-    threading.Thread(target=_correr, daemon=True).start()
 
 
 def _conversacion_para(contacto: ContactoWhatsapp) -> Conversacion:
@@ -125,101 +122,257 @@ def registrar_entrante(
     """Guarda un mensaje del cliente. `None` si el `wa_message_id` ya estaba."""
     if not wa_message_id:
         return None
-    if Mensaje.objects.filter(wa_message_id=wa_message_id).exists():
-        return None
+    try:
+        with transaction.atomic():
+            if Mensaje.objects.filter(wa_message_id=wa_message_id).exists():
+                return None
 
-    numero = _normalizar_numero(numero_raw)
-    contacto = contacto_por_numero(numero)
-    if contacto is None:
-        contacto = ContactoWhatsapp.objects.create(
-            numero=numero, cliente=None, nombre_perfil=nombre_perfil
-        )
-    elif nombre_perfil and not contacto.nombre_perfil:
-        # Se completa una sola vez: los contactos que ya existían no lo tienen,
-        # y no se pisa un nombre ya guardado en cada mensaje.
-        contacto.nombre_perfil = nombre_perfil
-        contacto.save(update_fields=["nombre_perfil"])
-    conversacion = _conversacion_para(contacto)
+            numero = _normalizar_numero(numero_raw)
+            contacto = contacto_por_numero(numero)
+            if contacto is None:
+                contacto = ContactoWhatsapp.objects.create(
+                    numero=numero, cliente=None, nombre_perfil=nombre_perfil
+                )
+            elif nombre_perfil and not contacto.nombre_perfil:
+                contacto.nombre_perfil = nombre_perfil
+                contacto.save(update_fields=["nombre_perfil"])
+            conversacion = _conversacion_para(contacto)
 
-    mensaje = Mensaje.objects.create(
-        conversacion=conversacion,
-        direccion=Direccion.ENTRANTE,
-        emisor=Emisor.CLIENTE,
-        texto=texto,
-        estado_envio=EstadoEnvio.RECIBIDO,
-        wa_message_id=wa_message_id,
-        payload=payload,
-        fecha_hora=timezone.now(),
-    )
-    conversacion.ultimo_mensaje_cliente_en = mensaje.fecha_hora
-    conversacion.save(update_fields=["ultimo_mensaje_cliente_en"])
-    return mensaje
+            mensaje = Mensaje.objects.create(
+                conversacion=conversacion,
+                direccion=Direccion.ENTRANTE,
+                emisor=Emisor.CLIENTE,
+                texto=texto,
+                estado_envio=EstadoEnvio.RECIBIDO,
+                wa_message_id=wa_message_id,
+                payload=payload,
+                fecha_hora=timezone.now(),
+            )
+            conversacion.ultimo_mensaje_cliente_en = mensaje.fecha_hora
+            conversacion.save(update_fields=["ultimo_mensaje_cliente_en"])
+            return mensaje
+    except IntegrityError:
+        # Meta puede reenviar en paralelo el mismo evento. La restricción única
+        # sobre wa_message_id decide cuál petición lo registra.
+        if Mensaje.objects.filter(wa_message_id=wa_message_id).exists():
+            return None
+        raise
 
 
-def _avisar_solo_texto(conversacion: Conversacion) -> None:
-    """AC-T3-09: a un adjunto se le contesta que solo leemos texto."""
+def _avisar_solo_texto(mensaje: Mensaje) -> None:
+    """Explica qué formatos se pueden recibir por este canal."""
     from negocio.bot.plantillas import SOLO_TEXTO
 
-    Mensaje.objects.create(
-        conversacion=conversacion,
-        direccion=Direccion.SALIENTE,
-        emisor=Emisor.BOT,
-        texto=SOLO_TEXTO,
-        estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
-        fecha_hora=timezone.now(),
+    conversacion_id = mensaje.conversacion_id
+    with transaction.atomic():
+        conversacion = Conversacion.objects.select_for_update().get(
+            pk=conversacion_id
+        )
+        if conversacion.modo == ModoConversacion.HUMANO:
+            return
+        Mensaje.objects.get_or_create(
+            respuesta_a=mensaje,
+            defaults={
+                "conversacion": conversacion,
+                "direccion": Direccion.SALIENTE,
+                "emisor": Emisor.BOT,
+                "texto": SOLO_TEXTO,
+                "estado_envio": EstadoEnvio.PENDIENTE_ENVIO,
+                "fecha_hora": timezone.now(),
+            },
+        )
+    enviar_pendientes(conversacion_id)
+
+
+def _procesar_imagen_siniestro(mensaje_id: int) -> None:
+    from negocio.adjuntos_siniestros import procesar_media_entrante
+    from negocio.bot.orquestador import ignorar_si_bloqueado
+    from negocio.bot.plantillas import (
+        FOTO_SINIESTRO_ERROR,
+        FOTO_SINIESTRO_EXPEDIENTE,
+        FOTO_SINIESTRO_INCORPORADA,
+        FOTO_SINIESTRO_INVALIDA,
     )
-    enviar_pendientes(conversacion.id)
+
+    mensaje = Mensaje.objects.select_related("conversacion").filter(
+        pk=mensaje_id
+    ).first()
+    if mensaje is None or ignorar_si_bloqueado(mensaje):
+        return
+    resultado = procesar_media_entrante(mensaje_id)
+    respuestas = {
+        "falta_expediente": FOTO_SINIESTRO_EXPEDIENTE,
+        "sin_vinculacion": FOTO_SINIESTRO_ERROR,
+        "expediente_no_verificado": FOTO_SINIESTRO_ERROR,
+        "error_descarga": FOTO_SINIESTRO_ERROR,
+        "invalido": FOTO_SINIESTRO_INVALIDA,
+    }
+    if resultado.estado == "incorporado":
+        texto = FOTO_SINIESTRO_INCORPORADA.format(
+            numero_siniestro=resultado.numero_siniestro
+        )
+    elif resultado.estado == "ya_procesado":
+        texto = FOTO_SINIESTRO_INCORPORADA.format(
+            numero_siniestro=resultado.numero_siniestro
+        )
+    elif resultado.estado in respuestas:
+        texto = respuestas[resultado.estado]
+    else:
+        return
+
+    with transaction.atomic():
+        conversacion = Conversacion.objects.select_for_update().filter(
+            pk=mensaje.conversacion_id
+        ).first()
+        if (
+            conversacion is None
+            or conversacion.modo == ModoConversacion.HUMANO
+            or ignorar_si_bloqueado(mensaje)
+        ):
+            return
+        Mensaje.objects.get_or_create(
+            respuesta_a=mensaje,
+            defaults={
+                "conversacion": conversacion,
+                "direccion": Direccion.SALIENTE,
+                "emisor": Emisor.BOT,
+                "texto": texto,
+                "estado_envio": EstadoEnvio.PENDIENTE_ENVIO,
+                "fecha_hora": timezone.now(),
+            },
+        )
+    enviar_pendientes(mensaje.conversacion_id)
 
 
 def procesar_webhook(payload: dict) -> None:
-    """Recorre el payload de Meta. Nunca lanza: lo raro va al log (AC-T3-10)."""
-    from negocio.bot.orquestador import procesar_mensaje
+    """Persiste mensajes y tareas antes de permitir que el webhook responda 200."""
+    if not isinstance(payload, dict):
+        logger.warning("Payload de WhatsApp con forma inesperada.")
+        return
 
-    try:
-        for entry in (payload or {}).get("entry", []) or []:
-            for cambio in entry.get("changes", []) or []:
-                valor = cambio.get("value", {}) or {}
-                # Meta manda el nombre de perfil aparte de los mensajes, en
-                # `contacts`. Es lo único que sabemos de un desconocido, y sirve
-                # para prellenar su alta como cliente desde el panel.
-                perfiles = {
-                    str(contacto.get("wa_id")): (contacto.get("profile") or {}).get("name")
-                    for contacto in (valor.get("contacts") or [])
-                    if contacto.get("wa_id")
-                }
-                for entrante in valor.get("messages", []) or []:
+    entries = payload.get("entry", []) or []
+    if not isinstance(entries, list):
+        logger.warning("Payload de WhatsApp con entry no válido.")
+        return
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            logger.warning("Entrada de WhatsApp con forma inesperada.")
+            continue
+        cambios = entry.get("changes", []) or []
+        if not isinstance(cambios, list):
+            logger.warning("Cambios de WhatsApp con forma inesperada.")
+            continue
+        for cambio in cambios:
+            if not isinstance(cambio, dict):
+                logger.warning("Cambio de WhatsApp con forma inesperada.")
+                continue
+            valor = cambio.get("value", {}) or {}
+            if not isinstance(valor, dict):
+                logger.warning("Valor de cambio de WhatsApp con forma inesperada.")
+                continue
+
+            perfiles = {}
+            contactos = valor.get("contacts", []) or []
+            if isinstance(contactos, list):
+                for contacto in contactos:
+                    if not isinstance(contacto, dict) or not contacto.get("wa_id"):
+                        continue
+                    perfil = contacto.get("profile") or {}
+                    if isinstance(perfil, dict):
+                        perfiles[str(contacto["wa_id"])] = perfil.get("name")
+
+            mensajes = valor.get("messages", []) or []
+            if isinstance(mensajes, list):
+                for entrante in mensajes:
+                    if not isinstance(entrante, dict):
+                        logger.warning("Mensaje de WhatsApp con forma inesperada.")
+                        continue
                     wa_message_id = entrante.get("id")
                     numero = entrante.get("from")
                     if not wa_message_id or not numero:
-                        logger.warning("Mensaje de WhatsApp sin id o sin número: %s", entrante)
+                        logger.warning("Mensaje de WhatsApp sin id o sin número.")
                         continue
+
                     tipo = entrante.get("type")
                     es_texto = tipo == "text"
+                    es_imagen = tipo == "image" and isinstance(
+                        entrante.get("image"), dict
+                    )
+                    cuerpo_texto = entrante.get("text") or {}
+                    if not isinstance(cuerpo_texto, dict):
+                        cuerpo_texto = {}
                     texto = (
-                        (entrante.get("text", {}) or {}).get("body", "")
+                        cuerpo_texto.get("body", "")
                         if es_texto
-                        else f"[mensaje de tipo {tipo or 'desconocido'} no soportado]"
+                        else f"{PREFIJO_NO_SOPORTADO}{tipo or 'desconocido'} no soportado]"
                     )
-                    mensaje = registrar_entrante(
-                        wa_message_id,
-                        numero,
-                        texto,
-                        payload=entrante,
-                        nombre_perfil=perfiles.get(str(numero)),
+                    payload_entrante = entrante
+                    if es_imagen:
+                        payload_entrante = dict(entrante)
+                        payload_entrante["image"] = {
+                            clave: dato
+                            for clave, dato in entrante["image"].items()
+                            if clave != "url"
+                        }
+                    tipo_trabajo = (
+                        TipoTrabajoWhatsApp.TEXTO
+                        if es_texto
+                        else (
+                            TipoTrabajoWhatsApp.IMAGEN
+                            if es_imagen
+                            else TipoTrabajoWhatsApp.AVISO_FORMATO
+                        )
                     )
-                    if mensaje is None:
+                    with transaction.atomic():
+                        mensaje = registrar_entrante(
+                            wa_message_id,
+                            numero,
+                            texto,
+                            payload=payload_entrante,
+                            nombre_perfil=perfiles.get(str(numero)),
+                        )
+                        if mensaje is None:
+                            mensaje = Mensaje.objects.filter(
+                                wa_message_id=wa_message_id,
+                                direccion=Direccion.ENTRANTE,
+                            ).first()
+                        if mensaje is not None:
+                            TrabajoWhatsApp.objects.get_or_create(
+                                mensaje=mensaje,
+                                defaults={"tipo": tipo_trabajo},
+                            )
+
+            estados = valor.get("statuses", []) or []
+            if isinstance(estados, list):
+                for estado in estados:
+                    if not isinstance(estado, dict):
+                        logger.warning("Estado de entrega de WhatsApp no válido.")
                         continue
-                    if es_texto:
-                        en_segundo_plano(procesar_mensaje, mensaje.id)
-                    else:
-                        _avisar_solo_texto(mensaje.conversacion)
-                for estado in valor.get("statuses", []) or []:
                     wa_message_id = estado.get("id")
                     nombre = estado.get("status")
                     if wa_message_id and nombre:
                         actualizar_estado_entrega(wa_message_id, nombre)
-    except Exception:
-        logger.exception("Payload de WhatsApp con forma inesperada: %s", payload)
+
+
+def ejecutar_trabajo_whatsapp(trabajo_id: int) -> None:
+    """Ejecuta el trabajo ya reclamado por el comando persistente."""
+    trabajo = TrabajoWhatsApp.objects.select_related(
+        "mensaje__conversacion"
+    ).get(pk=trabajo_id)
+    from negocio.bot.orquestador import ignorar_si_bloqueado, procesar_tras_ventana
+
+    mensaje = trabajo.mensaje
+    if ignorar_si_bloqueado(mensaje):
+        return
+    if trabajo.tipo == TipoTrabajoWhatsApp.TEXTO:
+        procesar_tras_ventana(mensaje.id)
+    elif trabajo.tipo == TipoTrabajoWhatsApp.IMAGEN:
+        _procesar_imagen_siniestro(mensaje.id)
+    elif trabajo.tipo == TipoTrabajoWhatsApp.AVISO_FORMATO:
+        _avisar_solo_texto(mensaje)
+    else:
+        raise ValueError(f"Tipo de trabajo WhatsApp desconocido: {trabajo.tipo}")
 
 
 def actualizar_estado_entrega(wa_message_id: str, estado: str) -> None:
@@ -308,53 +461,170 @@ def _enviar_por_api(mensaje: Mensaje) -> None:
     mensaje.wa_message_id = mensajes[0].get("id")
 
 
-def enviar_pendientes(conversacion_id: int) -> int:
-    """Envía los salientes `pendiente_envio` de la conversación. Devuelve cuántos."""
-    conversacion = Conversacion.objects.filter(pk=conversacion_id).first()
-    if conversacion is None:
-        return 0
+def mensaje_permitido_durante_atencion(mensaje: Mensaje) -> bool:
+    """Avisos de derivación, respuestas liberadas explícitamente y texto humano."""
+    from negocio.bot.plantillas import DERIVACION, DERIVACION_URGENTE, AVISO_NEUTRO, DATOS_REGISTRADOS
+    from datos.models import Derivacion
 
-    pendientes = Mensaje.objects.filter(
-        conversacion_id=conversacion_id,
-        direccion=Direccion.SALIENTE,
-        estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
-    ).order_by("fecha_hora", "id")
+    if mensaje.emisor == Emisor.FUNCIONARIO:
+        return True
+    if mensaje.emisor != Emisor.BOT:
+        return False
+    if mensaje.texto in (DERIVACION, DERIVACION_URGENTE):
+        return True
+    consulta = mensaje.consulta
+    if (
+        consulta
+        and mensaje.texto in (AVISO_NEUTRO, DATOS_REGISTRADOS)
+        and (mensaje.payload or {}).get("aviso_derivacion") is True
+        and Derivacion.objects.filter(consulta_id=consulta.id).exists()
+    ):
+        return True
+    return bool(
+        consulta
+        and consulta.revisado_por_id
+        and consulta.revisado_en
+        and (
+            consulta.respuesta_corregida == mensaje.texto
+            or (
+                consulta.respuesta_corregida is None
+                and consulta.respuesta_bot == mensaje.texto
+            )
+        )
+    )
 
-    # AC-T3-15: fuera de la ventana de 24 h WhatsApp no deja escribir libre.
-    if not ventana_24h_abierta(conversacion.ultimo_mensaje_cliente_en, timezone.now()):
-        for mensaje in pendientes:
-            mensaje.estado_envio = EstadoEnvio.FALLIDO
-            mensaje.error = "ventana_24h_cerrada"
-            mensaje.save(update_fields=["estado_envio", "error"])
-        return 0
 
-    simulado = os.getenv("WHATSAPP_MODO", "simulado").strip().lower() != "real"
-    enviados = 0
+def descartar_automaticos_pendientes(conversacion_id: int) -> None:
+    """Cancela respuestas comunes que no deben salir durante una toma humana."""
+    pendientes = (
+        Mensaje.objects.select_related("consulta")
+        .filter(
+            conversacion_id=conversacion_id,
+            direccion=Direccion.SALIENTE,
+            estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
+            emisor=Emisor.BOT,
+        )
+        .order_by("fecha_hora", "id")
+    )
     for mensaje in pendientes:
-        if mensaje.estado_envio in NO_SE_ENVIAN:
+        if mensaje_permitido_durante_atencion(mensaje):
             continue
-        if simulado:
+        mensaje.estado_envio = EstadoEnvio.DESCARTADO
+        mensaje.error = "atencion_humana"
+        mensaje.save(update_fields=["estado_envio", "error"])
+
+
+def enviar_pendientes(conversacion_id: int) -> int:
+    """Envía salientes pendientes permitidos para el modo de atención actual."""
+    with transaction.atomic():
+        conversacion = (
+            Conversacion.objects.select_for_update().filter(pk=conversacion_id).first()
+        )
+        if conversacion is None:
+            return 0
+
+        ahora = timezone.now()
+        Mensaje.objects.filter(
+            conversacion_id=conversacion_id,
+            direccion=Direccion.SALIENTE,
+            estado_envio=EstadoEnvio.FALLIDO,
+            proximo_intento_envio__lte=ahora,
+            intentos_envio__lt=MAX_INTENTOS_ENVIO,
+        ).exclude(error="ventana_24h_cerrada").update(
+            estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
+            error=None,
+            proximo_intento_envio=None,
+        )
+        pendientes = list(
+            Mensaje.objects.select_related("consulta")
+            .filter(
+                conversacion_id=conversacion_id,
+                direccion=Direccion.SALIENTE,
+                estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
+            )
+            .order_by("fecha_hora", "id")
+        )
+        if conversacion.modo == ModoConversacion.HUMANO:
+            descartar_automaticos_pendientes(conversacion_id)
+            pendientes = [
+                mensaje
+                for mensaje in pendientes
+                if mensaje.estado_envio == EstadoEnvio.PENDIENTE_ENVIO
+                and mensaje_permitido_durante_atencion(mensaje)
+            ]
+
+        # Mantener el lock de conversación hasta registrar cada intento hace que
+        # una toma y un envío concurrentes tengan un orden definido.
+        if not ventana_24h_abierta(
+            conversacion.ultimo_mensaje_cliente_en, timezone.now()
+        ):
+            for mensaje in pendientes:
+                mensaje.estado_envio = EstadoEnvio.FALLIDO
+                mensaje.error = "ventana_24h_cerrada"
+                mensaje.save(update_fields=["estado_envio", "error"])
+            return 0
+
+        simulado = os.getenv("WHATSAPP_MODO", "simulado").strip().lower() != "real"
+        enviados = 0
+        for mensaje in pendientes:
+            if mensaje.estado_envio in NO_SE_ENVIAN:
+                continue
+            mensaje.intentos_envio += 1
+            if simulado:
+                mensaje.estado_envio = EstadoEnvio.ENVIADO
+                mensaje.enviado_en = timezone.now()
+                mensaje.proximo_intento_envio = None
+                mensaje.save(
+                    update_fields=[
+                        "intentos_envio",
+                        "estado_envio",
+                        "enviado_en",
+                        "proximo_intento_envio",
+                    ]
+                )
+                logger.info(
+                    "WhatsApp simulado | conversación %s | mensaje %s | %s",
+                    conversacion_id,
+                    mensaje.id,
+                    mensaje.texto,
+                )
+                enviados += 1
+                continue
+            try:
+                _enviar_por_api(mensaje)
+            except Exception as error:
+                mensaje.estado_envio = EstadoEnvio.FALLIDO
+                mensaje.error = str(error)
+                if mensaje.intentos_envio < MAX_INTENTOS_ENVIO:
+                    espera = min(2 ** (mensaje.intentos_envio - 1), 60)
+                    mensaje.proximo_intento_envio = timezone.now() + timedelta(
+                        minutes=espera
+                    )
+                else:
+                    mensaje.proximo_intento_envio = None
+                mensaje.save(
+                    update_fields=[
+                        "intentos_envio",
+                        "estado_envio",
+                        "error",
+                        "proximo_intento_envio",
+                    ]
+                )
+                logger.warning("Falló el envío del mensaje %s: %s", mensaje.id, error)
+                continue
             mensaje.estado_envio = EstadoEnvio.ENVIADO
             mensaje.enviado_en = timezone.now()
-            mensaje.save(update_fields=["estado_envio", "enviado_en"])
-            logger.info(
-                "WhatsApp simulado | conversación %s | mensaje %s | %s",
-                conversacion_id,
-                mensaje.id,
-                mensaje.texto,
+            mensaje.error = None
+            mensaje.proximo_intento_envio = None
+            mensaje.save(
+                update_fields=[
+                    "wa_message_id",
+                    "intentos_envio",
+                    "estado_envio",
+                    "enviado_en",
+                    "error",
+                    "proximo_intento_envio",
+                ]
             )
             enviados += 1
-            continue
-        try:
-            _enviar_por_api(mensaje)
-        except Exception as error:
-            mensaje.estado_envio = EstadoEnvio.FALLIDO
-            mensaje.error = str(error)
-            mensaje.save(update_fields=["estado_envio", "error"])
-            logger.warning("Falló el envío del mensaje %s: %s", mensaje.id, error)
-            continue
-        mensaje.estado_envio = EstadoEnvio.ENVIADO
-        mensaje.enviado_en = timezone.now()
-        mensaje.save(update_fields=["wa_message_id", "estado_envio", "enviado_en"])
-        enviados += 1
-    return enviados
+        return enviados

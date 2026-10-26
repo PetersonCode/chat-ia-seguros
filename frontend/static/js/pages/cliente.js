@@ -1,8 +1,13 @@
-import { api } from "../api.js";
-import { inicializarNav } from "../nav.js";
-import { formatearFecha, formatearMonto } from "../lib/formato.js";
-import { etiquetaEstadoPoliza, ordenarPolizas } from "../lib/polizas.js";
-import { limpiarDni, validarCliente } from "../lib/clientes.js";
+import { api } from "../api.js?v=20261026fix2";
+import { inicializarNav } from "../nav.js?v=20261026fix2";
+import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261026fix2";
+import {
+    etiquetaEstadoPoliza,
+    mesesDeCobertura,
+    ordenarPolizas,
+    validarPoliza,
+} from "../lib/polizas.js?v=20261026fix2";
+import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261026fix2";
 
 const idCliente = new URLSearchParams(globalThis.location.search).get("id");
 const nombreCliente = document.getElementById("nombre-cliente");
@@ -19,7 +24,23 @@ const formularioEdicion = document.getElementById("formulario-edicion-cliente");
 const estadoEdicion = document.getElementById("estado-edicion-cliente");
 const botonGuardar = document.getElementById("edicion-guardar");
 
+const columnaNuevaPoliza = document.getElementById("columna-nueva-poliza");
+const panelNuevaPoliza = document.getElementById("panel-nueva-poliza");
+const formularioPoliza = document.getElementById("formulario-nueva-poliza");
+const estadoNuevaPoliza = document.getElementById("estado-nueva-poliza");
+const previoCuotas = document.getElementById("previo-cuotas-poliza");
+const botonCrearPoliza = document.getElementById("poliza-crear");
+
 const CAMPOS_EDICION = ["dni", "nombre", "apellido", "telefono", "email"];
+const CAMPOS_POLIZA = [
+    "numero_poliza",
+    "tipo_seguro",
+    "cobertura",
+    "prima_mensual",
+    "fecha_inicio",
+    "fecha_vencimiento",
+    "bien_asegurado",
+];
 
 function crearElemento(etiqueta, clase, texto) {
     const elemento = document.createElement(etiqueta);
@@ -248,6 +269,12 @@ async function cargarFicha() {
         } else {
             polizasCliente.append(...polizasDetalladas.map(renderizarPoliza));
         }
+        // La tarjeta de alta es una más de la grilla: se mueve acá en cada
+        // render, porque el `replaceChildren` de arriba vacía el contenedor.
+        // A un cliente dado de baja no se le agregan pólizas (el alta lo
+        // rechaza con un 409), así que ahí ni se ofrece.
+        polizasCliente.append(columnaNuevaPoliza);
+        columnaNuevaPoliza.classList.toggle("d-none", cliente.activo === false);
 
         const siniestros = Array.isArray(cliente.siniestros) && cliente.siniestros.length > 0
             ? cliente.siniestros
@@ -261,5 +288,136 @@ async function cargarFicha() {
         mostrarEstado(error.mensaje ?? error.message ?? "No se pudo cargar la ficha del cliente.", true);
     }
 }
+
+// --- Alta de póliza -------------------------------------------------------
+
+let opcionesPoliza = null;
+
+function mostrarEstadoNuevaPoliza(mensaje, error = false) {
+    estadoNuevaPoliza.textContent = mensaje;
+    estadoNuevaPoliza.classList.toggle("d-none", !mensaje);
+    estadoNuevaPoliza.classList.toggle("alert-danger", error);
+    estadoNuevaPoliza.classList.toggle("alert-success", Boolean(mensaje) && !error);
+}
+
+function llenarSelect(select, opciones) {
+    select.replaceChildren();
+    for (const [valor, texto] of opciones) {
+        const opcion = document.createElement("option");
+        opcion.value = valor;
+        opcion.textContent = texto;
+        select.append(opcion);
+    }
+}
+
+function conMayuscula(texto) {
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+/** Tipos, coberturas y número sugerido. Se pide al abrir, no al cargar la ficha. */
+async function cargarOpcionesPoliza() {
+    if (opcionesPoliza) {
+        return;
+    }
+    try {
+        opcionesPoliza = await api.get("/api/polizas/opciones/");
+    } catch (error) {
+        mostrarEstadoNuevaPoliza(
+            error.mensaje ?? error.message ?? "No se pudieron cargar los tipos de seguro.",
+            true,
+        );
+        return;
+    }
+    llenarSelect(
+        formularioPoliza.elements.tipo_seguro,
+        (opcionesPoliza.tipos_seguro ?? []).map((tipo) => [tipo.codigo, tipo.nombre]),
+    );
+    llenarSelect(
+        formularioPoliza.elements.cobertura,
+        (opcionesPoliza.coberturas ?? []).map((cobertura) => [cobertura, conMayuscula(cobertura)]),
+    );
+    if (!formularioPoliza.elements.numero_poliza.value) {
+        formularioPoliza.elements.numero_poliza.value = opcionesPoliza.numero_sugerido ?? "";
+    }
+}
+
+panelNuevaPoliza.addEventListener("toggle", () => {
+    if (panelNuevaPoliza.open) {
+        cargarOpcionesPoliza();
+    }
+});
+
+/** Cuántas cuotas va a generar el alta, para que no sea una sorpresa. */
+function actualizarPrevioCuotas() {
+    const inicio = formularioPoliza.elements.fecha_inicio.value;
+    const vencimiento = formularioPoliza.elements.fecha_vencimiento.value;
+    const prima = formularioPoliza.elements.prima_mensual.value;
+    if (!inicio || !vencimiento || vencimiento <= inicio || !prima.trim()) {
+        previoCuotas.textContent = "";
+        return;
+    }
+    const meses = mesesDeCobertura(inicio, vencimiento);
+    if (Number(prima.replace(",", ".")) === 0) {
+        previoCuotas.textContent = "Prima cero: no se generarán cuotas ni se registrará un pago ficticio.";
+        return;
+    }
+    const plural = meses === 1 ? "cuota" : "cuotas";
+    previoCuotas.textContent = `Se van a generar ${meses} ${plural} de ${formatearMonto(prima)}, `
+        + "con vencimiento al inicio de cada ciclo mensual.";
+}
+
+formularioPoliza.addEventListener("input", actualizarPrevioCuotas);
+
+function pintarErroresPoliza(errores) {
+    for (const campo of CAMPOS_POLIZA) {
+        const entrada = formularioPoliza.elements[campo];
+        const aviso = formularioPoliza.querySelector(`[data-error="${campo}"]`);
+        const mensaje = errores[campo];
+        entrada.classList.toggle("is-invalid", Boolean(mensaje));
+        if (aviso) {
+            aviso.textContent = mensaje ?? "";
+        }
+    }
+}
+
+function datosDelFormularioPoliza() {
+    const cuerpo = {};
+    for (const campo of CAMPOS_POLIZA) {
+        cuerpo[campo] = formularioPoliza.elements[campo].value.trim();
+    }
+    return cuerpo;
+}
+
+formularioPoliza.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const cuerpo = datosDelFormularioPoliza();
+    const errores = validarPoliza(cuerpo);
+    pintarErroresPoliza(errores);
+    if (Object.keys(errores).length > 0) {
+        mostrarEstadoNuevaPoliza("Revisá los campos marcados.", true);
+        return;
+    }
+
+    botonCrearPoliza.disabled = true;
+    mostrarEstadoNuevaPoliza("Creando la póliza…");
+    try {
+        const poliza = await api.post(`/api/clientes/${idCliente}/polizas/`, cuerpo);
+        formularioPoliza.reset();
+        pintarErroresPoliza({});
+        previoCuotas.textContent = "";
+        // El próximo número libre ya cambió: que se vuelva a pedir al abrir.
+        opcionesPoliza = null;
+        panelNuevaPoliza.open = false;
+        mostrarEstadoNuevaPoliza(`Póliza ${poliza.numero_poliza} creada.`);
+        await cargarFicha();
+    } catch (error) {
+        mostrarEstadoNuevaPoliza(
+            error.mensaje ?? error.message ?? "No se pudo crear la póliza.",
+            true,
+        );
+    } finally {
+        botonCrearPoliza.disabled = false;
+    }
+});
 
 cargarFicha();

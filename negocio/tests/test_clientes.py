@@ -6,7 +6,10 @@ alcanzaría con un `save()`. Por eso los casos de error pesan más que los felic
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.test import TestCase
+from django.utils import timezone
 
 from datos import fabricas
 from datos.models import Cliente, ContactoWhatsapp, EstadoPoliza
@@ -226,13 +229,33 @@ class BajaClienteTests(TestCase):
 
     # AC-T3-49
     def test_no_se_da_de_baja_a_un_cliente_con_polizas_vigentes(self):
-        fabricas.crear_poliza(self.cliente, estado=EstadoPoliza.VIGENTE)
+        hoy = timezone.localdate()
+        fabricas.crear_poliza(
+            self.cliente,
+            estado=EstadoPoliza.VIGENTE,
+            fecha_inicio=hoy,
+            fecha_vencimiento=hoy + timedelta(days=365),
+        )
 
         with self.assertRaises(EstadoInvalido):
             dar_de_baja_cliente(self.cliente.id)
 
         self.cliente.refresh_from_db()
         self.assertTrue(self.cliente.activo)
+
+    def test_no_bloquea_la_baja_por_poliza_marcada_vigente_fuera_de_fechas(self):
+        hoy = timezone.localdate()
+        fabricas.crear_poliza(
+            self.cliente,
+            estado=EstadoPoliza.VIGENTE,
+            fecha_inicio=hoy + timedelta(days=1),
+            fecha_vencimiento=hoy + timedelta(days=365),
+        )
+
+        dar_de_baja_cliente(self.cliente.id)
+
+        self.cliente.refresh_from_db()
+        self.assertFalse(self.cliente.activo)
 
     # AC-T3-49
     def test_con_las_polizas_dadas_de_baja_si_se_puede(self):

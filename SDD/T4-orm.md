@@ -18,13 +18,13 @@ Dejar el proyecto Django funcionando contra la base PostgreSQL **existente**, co
 |---|---|
 | AC-T4-01 | Dado un `.env` válido, cuando se corre `python manage.py check`, entonces no hay errores y en `INSTALLED_APPS` están `rest_framework`, `datos`, `negocio` y `api`. |
 | AC-T4-02 | Dado que falta una variable obligatoria (`DJANGO_SECRET_KEY` o alguna `DB_*`), cuando se cargan los settings, entonces falla con `ImproperlyConfigured` y un mensaje en español que nombra la variable. |
-| AC-T4-03 | Dados los settings, entonces la base usa `ENGINE` postgresql, los valores de `DB_*`, `OPTIONS={"sslmode": "require"}`; `TIME_ZONE="America/Argentina/Buenos_Aires"`, `USE_TZ=True`, `LANGUAGE_CODE="es-ar"`. |
+| AC-T4-03 | Dados los settings, entonces la base usa `ENGINE` postgresql, los valores de `DB_*` y `OPTIONS={"sslmode": DB_SSLMODE}` (por defecto `require`, configurable como `disable` para PostgreSQL local); `TIME_ZONE="America/Argentina/Buenos_Aires"`, `USE_TZ=True`, `LANGUAGE_CODE="es-ar"`. |
 | AC-T4-04 | Dado el repositorio, entonces `.env.example` es copia de `SDD/plantillas/env.example`, `.gitignore` excluye `.env`, `__pycache__/`, `.venv/`, `node_modules/`, y `requirements.txt` fija versión exacta (`==`) de **solo** `Django`, `djangorestframework`, `psycopg[binary]` y `python-dotenv`. |
 
 ### Etapa B · Modelos
 | ID | Criterio |
 |---|---|
-| AC-T4-05 | Dado `datos/models.py`, entonces existen los 15 modelos de tabla del contrato con su `db_table`, `managed = False`, los campos, FK y `related_name` indicados. |
+| AC-T4-05 | Dado `datos/models.py`, entonces existen los 16 modelos de tabla del contrato con su `db_table`, `managed = False`, los campos, FK y `related_name` indicados. |
 | AC-T4-06 | Dados los 3 modelos de vista, entonces son `managed = False`, tienen la PK indicada y `save()`/`delete()` lanzan `TypeError("Es una vista de solo lectura")`. |
 | AC-T4-07 | Dadas las clases `TextChoices` del contrato, cuando un test lee las restricciones `CHECK` de la base (`pg_constraint` / `pg_get_constraintdef`), entonces cada clase tiene **exactamente** los mismos valores que su columna. |
 | AC-T4-08 | Dado cada modelo de tabla, cuando un test compara con `information_schema.columns`, entonces toda columna del modelo existe en la tabla y la nulabilidad coincide (`null=True` ⇔ columna `NULL`). |
@@ -41,9 +41,9 @@ Dejar el proyecto Django funcionando contra la base PostgreSQL **existente**, co
 |---|---|
 | AC-T4-12 | Dadas las consultas de identidad (`funcionario_por_email`, `funcionario_por_nombre`, `cliente_por_dni`, `contacto_por_numero`, `conversacion_abierta`, `poliza_por_numero`, `siniestro_por_numero`, `tipo_consulta`), entonces devuelven el objeto o `None` (o `DoesNotExist` en `tipo_consulta`); las de funcionario ignoran mayúsculas y excluyen inactivos. |
 | AC-T4-13 | Dados `mensajes_de` e `historial_reciente`, entonces devuelven en orden cronológico; con `despues_de=N` solo ids mayores a N; `historial_reciente` devuelve como máximo `limite` mensajes, los más recientes. |
-| AC-T4-14 | Dados `polizas_vigentes` y `resumen_polizas`, entonces la primera excluye vencidas y dadas de baja; la segunda devuelve el saldo pendiente igual a la suma de cuotas `pendiente`+`vencida` y el próximo vencimiento de pago correcto. |
+| AC-T4-14 | Dados `polizas_vigentes` y `resumen_polizas`, entonces la primera requiere estado `vigente` y fecha actual entre inicio y vencimiento (ambos inclusive), y excluye vencidas, futuras y dadas de baja; la segunda devuelve el saldo pendiente igual a la suma de cuotas `pendiente`+`vencida` y el próximo vencimiento de pago correcto. |
 | AC-T4-15 | Dado `alertas_abiertas`, entonces devuelve solo estado `abierta` o `en_revision`, filtrando por consulta, conversación o mensaje. |
-| AC-T4-16 | Dado `bandeja`, entonces cada conversación trae `alertas_abiertas`, `severidad_rango`, `retenidas`, `ultimo_texto`, `ultimo_emisor`, `ultimo_fecha_hora`; respeta los filtros `estado`, `con_alertas`, `esperando_humano`, `q`; y el orden pone primero las que tienen retenidas o alertas críticas y después por último mensaje descendente. |
+| AC-T4-16 | Dado `bandeja`, entonces cada conversación trae `alertas_abiertas`, `severidad_rango`, `derivacion_urgente`, `retenidas`, `ultimo_texto`, `ultimo_emisor`, `ultimo_fecha_hora`; respeta los filtros `estado`, `con_alertas`, `esperando_humano`, `q`; y el orden pone primero las derivaciones urgentes sin atender, luego las que tienen retenidas o alertas críticas y después por último mensaje descendente. |
 | AC-T4-17 | Dados `listar_alertas` y `consultas_cerradas_con_alertas`, entonces filtran por tipo, severidad y estado, y la segunda devuelve solo consultas `cerrado` con alertas abiertas. |
 | AC-T4-18 | Dados `listar_acciones` y `derivaciones_de`, entonces la primera filtra por estado (por defecto `pendiente`) con las más antiguas primero; la segunda trae solo las del funcionario, sin atender salvo `incluir_atendidas`, urgentes primero. |
 | AC-T4-19 | Dados `buscar_clientes`, `detalle_cliente` y `detalle_poliza`, entonces `buscar_clientes("28.111.222")` encuentra al DNI `28111222`, `buscar_clientes("fernández")` encuentra a Fernández, cada resultado trae `polizas_vigentes`; `detalle_cliente` y `detalle_poliza` hacen como máximo 5 consultas SQL al recorrer todos sus datos relacionados (`assertNumQueries`). |

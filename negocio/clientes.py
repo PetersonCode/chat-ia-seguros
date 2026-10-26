@@ -21,7 +21,8 @@ from django.core.validators import validate_email
 from django.db import transaction
 
 from datos.limpieza import normalizar_dni, normalizar_telefono
-from datos.models import Cliente, ContactoWhatsapp, EstadoPoliza, Poliza
+from datos.models import Cliente, ContactoWhatsapp
+from datos.selectors import polizas_vigentes
 from negocio.errores import DatosInvalidos, EstadoInvalido, NoEncontrado
 
 # Un nombre con dígitos es casi siempre un error de carga (un DNI pegado en el
@@ -186,9 +187,7 @@ def dar_de_baja_cliente(cliente_id: int) -> Cliente:
     if not cliente.activo:
         raise EstadoInvalido("El cliente ya está dado de baja.")
 
-    vigentes = Poliza.objects.filter(
-        cliente=cliente, estado=EstadoPoliza.VIGENTE
-    ).count()
+    vigentes = polizas_vigentes(cliente.id).count()
     if vigentes:
         raise EstadoInvalido(
             f"El cliente tiene {vigentes} póliza(s) vigente(s). "

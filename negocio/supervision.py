@@ -14,12 +14,15 @@ from django.db import transaction
 from django.utils import timezone
 
 from datos.models import (
+    AccionPendiente,
     Conversacion,
     ConsultaBot,
     Direccion,
     Emisor,
     EstadoAlerta,
+    EstadoAccion,
     EstadoConsulta,
+    EstadoConversacion,
     EstadoEnvio,
     Funcionario,
     Mensaje,
@@ -33,7 +36,18 @@ from negocio.errores import (
     PermisoDenegado,
 )
 from negocio.reglas import ventana_24h_abierta
-from negocio.whatsapp import enviar_pendientes
+from negocio.whatsapp import descartar_automaticos_pendientes, enviar_pendientes
+
+# Un caso sigue "vivo" mientras esté en alguno de estos estados.
+ESTADOS_CASO_ABIERTO = (
+    EstadoConsulta.ABIERTO,
+    EstadoConsulta.PENDIENTE_REVISION,
+    EstadoConsulta.DERIVADO,
+)
+ESTADOS_ACCION_PENDIENTE = (
+    EstadoAccion.PENDIENTE,
+    EstadoAccion.APROBADA,
+)
 
 MOTIVO_MINIMO = 5
 RESOLUCION_LIBERADA = "Liberada sin cambios"
@@ -99,10 +113,15 @@ def liberar_respuesta(
     """Libera la respuesta retenida, tal cual o reemplazada por otra."""
     funcionario = _funcionario(funcionario_id, aprobador=True)
     mensaje = _mensaje_retenido(mensaje_id)
-    conversacion = mensaje.conversacion
     corregido = (texto_corregido or "").strip()
 
     with transaction.atomic():
+        conversacion = Conversacion.objects.select_for_update().get(
+            pk=mensaje.conversacion_id
+        )
+        mensaje = Mensaje.objects.select_for_update().get(pk=mensaje_id)
+        if mensaje.estado_envio != EstadoEnvio.RETENIDO:
+            raise EstadoInvalido("El mensaje ya no está retenido.")
         if corregido:
             # AC-T3-25: lo del bot se descarta y sale el texto del funcionario.
             mensaje.estado_envio = EstadoEnvio.DESCARTADO
@@ -126,6 +145,13 @@ def liberar_respuesta(
             mensaje.estado_envio = EstadoEnvio.PENDIENTE_ENVIO
             mensaje.save(update_fields=["estado_envio"])
             sale = mensaje
+            if mensaje.consulta is not None:
+                mensaje.consulta.revisado_por = funcionario
+                mensaje.consulta.revisado_en = timezone.now()
+                mensaje.consulta.nota_revision = RESOLUCION_LIBERADA
+                mensaje.consulta.save(
+                    update_fields=["revisado_por", "revisado_en", "nota_revision"]
+                )
             _cerrar_alertas(
                 mensaje, funcionario, EstadoAlerta.DESCARTADA, RESOLUCION_LIBERADA
             )
@@ -154,22 +180,48 @@ def descartar_respuesta(mensaje_id: int, funcionario_id: int, motivo: str) -> Me
 
 
 def tomar_conversacion(conversacion_id: int, funcionario_id: int) -> Conversacion:
-    """El funcionario se queda con la conversación y el bot deja de responder."""
+    """Toma o reasigna el chat; cualquier funcionario activo puede hacerlo."""
     funcionario = _funcionario(funcionario_id, aprobador=False)
-    conversacion = _conversacion(conversacion_id)
-    conversacion.modo = ModoConversacion.HUMANO
-    conversacion.funcionario = funcionario
-    conversacion.save(update_fields=["modo", "funcionario"])
+    with transaction.atomic():
+        conversacion = (
+            Conversacion.objects.select_for_update()
+            .filter(pk=conversacion_id)
+            .first()
+        )
+        if conversacion is None:
+            raise NoEncontrado("La conversación no existe.")
+        if conversacion.estado == EstadoConversacion.CERRADA:
+            raise EstadoInvalido("No se puede tomar una conversación cerrada.")
+        conversacion.modo = ModoConversacion.HUMANO
+        conversacion.funcionario = funcionario
+        conversacion.save(update_fields=["modo", "funcionario"])
+        descartar_automaticos_pendientes(conversacion.id)
+    # Las derivaciones y las respuestas ya liberadas siguen saliendo; la pausa
+    # cancela solo las respuestas automáticas comunes que estaban en cola.
+    enviar_pendientes(conversacion.id)
     return conversacion
 
 
 def devolver_al_bot(conversacion_id: int, funcionario_id: int) -> Conversacion:
-    """Devuelve la conversación al bot y la deja sin responsable."""
-    _funcionario(funcionario_id, aprobador=False)
-    conversacion = _conversacion(conversacion_id)
-    conversacion.modo = ModoConversacion.BOT
-    conversacion.funcionario = None
-    conversacion.save(update_fields=["modo", "funcionario"])
+    """Solo el funcionario asignado puede devolver el chat al bot."""
+    funcionario = _funcionario(funcionario_id, aprobador=False)
+    with transaction.atomic():
+        conversacion = (
+            Conversacion.objects.select_for_update()
+            .filter(pk=conversacion_id)
+            .first()
+        )
+        if conversacion is None:
+            raise NoEncontrado("La conversación no existe.")
+        if conversacion.modo != ModoConversacion.HUMANO:
+            raise EstadoInvalido("La conversación no está en atención humana.")
+        if conversacion.funcionario_id != funcionario.id:
+            raise PermisoDenegado(
+                "Solo el funcionario asignado puede devolverla al bot."
+            )
+        conversacion.modo = ModoConversacion.BOT
+        conversacion.funcionario = None
+        conversacion.save(update_fields=["modo", "funcionario"])
     return conversacion
 
 
@@ -180,24 +232,35 @@ def responder_como_humano(
     if not texto or not texto.strip():
         raise DatosInvalidos("El mensaje no puede estar vacío.")
     funcionario = _funcionario(funcionario_id, aprobador=False)
-    conversacion = _conversacion(conversacion_id)
-    if not ventana_24h_abierta(
-        conversacion.ultimo_mensaje_cliente_en, timezone.now()
-    ):
-        raise EstadoInvalido(
-            "Pasaron más de 24 h desde el último mensaje del cliente.",
-            codigo="ventana_24h_cerrada",
+    with transaction.atomic():
+        conversacion = (
+            Conversacion.objects.select_for_update()
+            .filter(pk=conversacion_id)
+            .first()
         )
+        if conversacion is None:
+            raise NoEncontrado("La conversación no existe.")
+        if conversacion.modo != ModoConversacion.HUMANO:
+            raise EstadoInvalido("La conversación no está en atención humana.")
+        if conversacion.funcionario_id != funcionario.id:
+            raise PermisoDenegado("Solo el funcionario asignado puede responder.")
+        if not ventana_24h_abierta(
+            conversacion.ultimo_mensaje_cliente_en, timezone.now()
+        ):
+            raise EstadoInvalido(
+                "Pasaron más de 24 h desde el último mensaje del cliente.",
+                codigo="ventana_24h_cerrada",
+            )
 
-    mensaje = Mensaje.objects.create(
-        conversacion=conversacion,
-        direccion=Direccion.SALIENTE,
-        emisor=Emisor.FUNCIONARIO,
-        funcionario=funcionario,
-        texto=texto.strip(),
-        estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
-        fecha_hora=timezone.now(),
-    )
+        mensaje = Mensaje.objects.create(
+            conversacion=conversacion,
+            direccion=Direccion.SALIENTE,
+            emisor=Emisor.FUNCIONARIO,
+            funcionario=funcionario,
+            texto=texto.strip(),
+            estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
+            fecha_hora=timezone.now(),
+        )
     enviar_pendientes(conversacion.id)
     mensaje.refresh_from_db()
     return mensaje
@@ -214,3 +277,111 @@ def reabrir_consulta(consulta_id: int, funcionario_id: int) -> ConsultaBot:
     consulta.estado = EstadoConsulta.PENDIENTE_REVISION
     consulta.save(update_fields=["estado"])
     return consulta
+
+
+def cerrar_casos(conversacion_id: int, funcionario_id: int) -> list[ConsultaBot]:
+    """Da por terminados los casos de la conversación. El chat queda abierto.
+
+    Cerrar el chat sería otra cosa: lo sacaría de la bandeja y el cliente puede
+    volver a escribir sobre lo mismo en cualquier momento. Acá se cierra el
+    trabajo —los `CASO-###`—, no el canal.
+
+    Un caso con una respuesta del bot todavía retenida no se cierra: esa
+    retención es una decisión pendiente (liberarla, corregirla o descartarla) y
+    cerrar el caso la enterraría sin que nadie la haya tomado.
+    """
+    _funcionario(funcionario_id, aprobador=False)
+    _conversacion(conversacion_id)
+
+    abiertos = ConsultaBot.objects.filter(
+        conversacion_id=conversacion_id, estado__in=ESTADOS_CASO_ABIERTO
+    ).order_by("id")
+    casos = list(abiertos)
+    if not casos:
+        raise EstadoInvalido("La conversación no tiene casos abiertos.")
+
+    retenidas = Mensaje.objects.filter(
+        conversacion_id=conversacion_id, estado_envio=EstadoEnvio.RETENIDO
+    ).count()
+    if retenidas:
+        raise EstadoInvalido(
+            f"Hay {retenidas} respuesta(s) retenida(s) sin resolver. "
+            "Liberalas o descartalas antes de cerrar el caso."
+        )
+
+    with transaction.atomic():
+        acciones_pendientes = list(
+            AccionPendiente.objects.select_for_update()
+            .filter(
+                consulta_id__in=[caso.pk for caso in casos],
+                estado__in=ESTADOS_ACCION_PENDIENTE,
+            )
+            .order_by("id")
+        )
+        if acciones_pendientes:
+            por_aprobar = sum(
+                accion.estado == EstadoAccion.PENDIENTE
+                for accion in acciones_pendientes
+            )
+            gestion_externa = sum(
+                accion.estado == EstadoAccion.APROBADA
+                for accion in acciones_pendientes
+            )
+            detalles = []
+            if por_aprobar:
+                detalles.append(f"{por_aprobar} pendiente(s) de aprobación")
+            if gestion_externa:
+                detalles.append(
+                    f"{gestion_externa} aprobada(s), pendiente(s) de gestión externa"
+                )
+            raise EstadoInvalido(
+                "No se pueden cerrar los casos: quedan acciones administrativas "
+                "sin resolver (" + "; ".join(detalles) + "). "
+                "Resolvelas o completá su gestión antes de cerrar."
+            )
+        ConsultaBot.objects.filter(pk__in=[caso.pk for caso in casos]).update(
+            estado=EstadoConsulta.CERRADO,
+            fecha_resolucion=timezone.localdate(),
+        )
+    for caso in casos:
+        caso.refresh_from_db()
+    return casos
+
+
+def vaciar_chat(conversacion_id: int, funcionario_id: int) -> Conversacion:
+    """Borra el contexto del bot: el próximo mensaje arranca de cero.
+
+    Todo lo que el bot recuerda —el historial que le pasa al LLM, el alta de
+    datos a medio pedir, cuántas veces preguntó "¿qué necesitás?", los intentos
+    de manipulación— se lee de los mensajes **de la conversación**. Así que no
+    hace falta borrar nada: se cierra esta y el siguiente mensaje del cliente
+    abre una nueva (`whatsapp._conversacion_para`), sin pasado.
+
+    Los mensajes, casos y alertas no se tocan. Son el registro de auditoría, y
+    un caso derivado o una alerta abierta siguen pendientes aunque el chat se
+    haya vaciado.
+
+    Igual que `cerrar_casos`, no se vacía con una respuesta retenida: es una
+    decisión pendiente que quedaría enterrada en una conversación cerrada.
+    """
+    _funcionario(funcionario_id, aprobador=False)
+    conversacion = _conversacion(conversacion_id)
+    if conversacion.estado == EstadoConversacion.CERRADA:
+        raise EstadoInvalido("La conversación ya está cerrada.")
+
+    retenidas = Mensaje.objects.filter(
+        conversacion_id=conversacion_id, estado_envio=EstadoEnvio.RETENIDO
+    ).count()
+    if retenidas:
+        raise EstadoInvalido(
+            f"Hay {retenidas} respuesta(s) retenida(s) sin resolver. "
+            "Liberalas o descartalas antes de vaciar el chat."
+        )
+
+    conversacion.estado = EstadoConversacion.CERRADA
+    conversacion.cerrada_en = timezone.now()
+    # La próxima la atiende el bot, como cualquier conversación nueva.
+    conversacion.modo = ModoConversacion.BOT
+    conversacion.funcionario = None
+    conversacion.save(update_fields=["estado", "cerrada_en", "modo", "funcionario"])
+    return conversacion

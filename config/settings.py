@@ -23,6 +23,7 @@ DB_PORT = requerida("DB_PORT")
 DB_NAME = requerida("DB_NAME")
 DB_USER = requerida("DB_USER")
 DB_PASSWORD = requerida("DB_PASSWORD")
+DB_SSLMODE = os.getenv("DB_SSLMODE", "require").strip().lower()
 
 SECRET_KEY = DJANGO_SECRET_KEY
 DEBUG = os.getenv("DJANGO_DEBUG", "false").strip().lower() in {
@@ -89,7 +90,7 @@ DATABASES = {
         "HOST": DB_HOST,
         "PORT": DB_PORT,
         "TEST": {"NAME": "test_proyecto"},
-        "OPTIONS": {"sslmode": "require"},
+        "OPTIONS": {"sslmode": DB_SSLMODE},
     }
 }
 TEST_RUNNER = "config.test_runner.RunnerConEsquema"
@@ -129,6 +130,12 @@ REST_FRAMEWORK = {
 
 STATICFILES_DIRS = [BASE_DIR / "frontend" / "static"]
 STATIC_URL = "/static/"
+PRIVATE_MEDIA_ROOT = Path(
+    os.getenv("PRIVATE_MEDIA_ROOT") or str(BASE_DIR / "private_media")
+).resolve()
+DATA_UPLOAD_MAX_MEMORY_SIZE = 11 * 1024 * 1024
+FILE_UPLOAD_PERMISSIONS = 0o600
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o700
 CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_HTTPONLY = True
 

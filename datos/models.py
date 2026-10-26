@@ -48,6 +48,17 @@ class EstadoSiniestro(models.TextChoices):
     CERRADO = "cerrado", "Cerrado"
 
 
+class OrigenAdjuntoSiniestro(models.TextChoices):
+    PANEL = "panel", "Panel"
+    WHATSAPP = "whatsapp", "WhatsApp"
+
+
+class EstadoDocumento(models.TextChoices):
+    BORRADOR = "borrador", "Borrador"
+    APROBADO = "aprobado", "Aprobado"
+    RETIRADO = "retirado", "Retirado"
+
+
 class EstadoConversacion(models.TextChoices):
     ABIERTA = "abierta", "Abierta"
     CERRADA = "cerrada", "Cerrada"
@@ -78,6 +89,19 @@ class EstadoEnvio(models.TextChoices):
     ENTREGADO = "entregado", "Entregado"
     LEIDO = "leido", "Leído"
     FALLIDO = "fallido", "Fallido"
+
+
+class EstadoTrabajoWhatsApp(models.TextChoices):
+    PENDIENTE = "pendiente", "Pendiente"
+    PROCESANDO = "procesando", "Procesando"
+    COMPLETADO = "completado", "Completado"
+    FALLIDO = "fallido", "Fallido"
+
+
+class TipoTrabajoWhatsApp(models.TextChoices):
+    TEXTO = "texto", "Procesar texto"
+    IMAGEN = "imagen", "Procesar imagen"
+    AVISO_FORMATO = "aviso_formato", "Avisar formato no soportado"
 
 
 class EstadoConsulta(models.TextChoices):
@@ -126,6 +150,7 @@ class TipoAccion(models.TextChoices):
     MODIFICAR_POLIZA = "modificar_poliza", "Modificar póliza"
     REEMBOLSO = "reembolso", "Reembolso"
     APERTURA_SINIESTRO = "apertura_siniestro", "Apertura de siniestro"
+    ALTA_CLIENTE = "alta_cliente", "Alta de cliente"
 
 
 class EstadoAccion(models.TextChoices):
@@ -259,6 +284,23 @@ class Cuota(models.Model):
         db_table = "cuotas"
 
 
+class Pago(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    referencia = models.TextField(unique=True)
+    cuota = models.OneToOneField(
+        Cuota, on_delete=models.DO_NOTHING, related_name="pago"
+    )
+    importe = models.DecimalField(max_digits=12, decimal_places=2)
+    fecha_pago = models.DateField()
+    responsable = models.ForeignKey(
+        Funcionario, on_delete=models.DO_NOTHING, related_name="pagos_registrados"
+    )
+
+    class Meta:
+        managed = False
+        db_table = "pagos"
+
+
 class Siniestro(models.Model):
     id = models.BigAutoField(primary_key=True)
     numero_siniestro = models.TextField()
@@ -278,6 +320,103 @@ class Siniestro(models.Model):
     class Meta:
         managed = False
         db_table = "siniestros"
+
+
+class HistorialSiniestro(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    siniestro = models.ForeignKey(
+        Siniestro, on_delete=models.DO_NOTHING, related_name="historial"
+    )
+    estado_anterior = models.TextField(null=True)
+    estado_nuevo = models.TextField(choices=EstadoSiniestro.choices)
+    motivo = models.TextField()
+    responsable = models.ForeignKey(
+        Funcionario, on_delete=models.DO_NOTHING, related_name="decisiones_siniestros"
+    )
+    fecha = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "siniestro_historial"
+
+
+class AdjuntoSiniestro(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    siniestro = models.ForeignKey(
+        Siniestro, on_delete=models.DO_NOTHING, related_name="adjuntos"
+    )
+    clave_almacenamiento = models.TextField(unique=True)
+    content_type = models.TextField()
+    tamano = models.PositiveIntegerField()
+    sha256 = models.TextField()
+    origen = models.TextField(choices=OrigenAdjuntoSiniestro.choices)
+    mensaje_origen = models.OneToOneField(
+        "Mensaje",
+        on_delete=models.DO_NOTHING,
+        related_name="adjunto_siniestro",
+        null=True,
+    )
+    creado_por = models.ForeignKey(
+        Funcionario,
+        on_delete=models.DO_NOTHING,
+        related_name="adjuntos_siniestros",
+        null=True,
+    )
+    creado_en = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "siniestro_adjuntos"
+
+
+class DocumentoGeneral(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    titulo = models.TextField()
+    version = models.TextField()
+    referencia = models.TextField()
+    estado = models.TextField(
+        choices=EstadoDocumento.choices,
+        default=EstadoDocumento.BORRADOR,
+    )
+    creado_por = models.ForeignKey(
+        Funcionario,
+        on_delete=models.DO_NOTHING,
+        related_name="+",
+    )
+    creado_en = models.DateTimeField(default=timezone.now)
+    aprobado_por = models.ForeignKey(
+        Funcionario,
+        on_delete=models.DO_NOTHING,
+        related_name="+",
+        null=True,
+    )
+    aprobado_en = models.DateTimeField(null=True)
+    retirado_por = models.ForeignKey(
+        Funcionario,
+        on_delete=models.DO_NOTHING,
+        related_name="+",
+        null=True,
+    )
+    retirado_en = models.DateTimeField(null=True)
+
+    class Meta:
+        managed = False
+        db_table = "documentos_generales"
+
+
+class FragmentoDocumento(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    documento = models.ForeignKey(
+        DocumentoGeneral,
+        on_delete=models.DO_NOTHING,
+        related_name="fragmentos",
+    )
+    orden = models.PositiveIntegerField()
+    texto = models.TextField()
+
+    class Meta:
+        managed = False
+        db_table = "documentos_generales_fragmentos"
 
 
 class Conversacion(models.Model):
@@ -326,10 +465,39 @@ class Mensaje(models.Model):
     payload = models.JSONField(null=True)
     fecha_hora = models.DateTimeField(default=timezone.now)
     enviado_en = models.DateTimeField(null=True)
+    intentos_envio = models.PositiveSmallIntegerField(default=0)
+    proximo_intento_envio = models.DateTimeField(null=True)
+    respuesta_a = models.OneToOneField(
+        "self",
+        on_delete=models.DO_NOTHING,
+        null=True,
+        related_name="respuesta_automatica",
+    )
 
     class Meta:
         managed = False
         db_table = "mensajes"
+
+
+class TrabajoWhatsApp(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    mensaje = models.OneToOneField(
+        Mensaje, on_delete=models.DO_NOTHING, related_name="trabajo_whatsapp"
+    )
+    tipo = models.TextField(choices=TipoTrabajoWhatsApp.choices)
+    estado = models.TextField(
+        choices=EstadoTrabajoWhatsApp.choices,
+        default=EstadoTrabajoWhatsApp.PENDIENTE,
+    )
+    intentos = models.PositiveSmallIntegerField(default=0)
+    disponible_en = models.DateTimeField(default=timezone.now)
+    tomado_en = models.DateTimeField(null=True)
+    completado_en = models.DateTimeField(null=True)
+    ultimo_error = models.TextField(null=True)
+
+    class Meta:
+        managed = False
+        db_table = "trabajos_whatsapp"
 
 
 class ConsultaBot(models.Model):
@@ -443,6 +611,21 @@ class AccionPendiente(models.Model):
     class Meta:
         managed = False
         db_table = "acciones_pendientes"
+
+
+class FinalizacionAccion(models.Model):
+    accion = models.OneToOneField(
+        AccionPendiente, on_delete=models.DO_NOTHING,
+        primary_key=True, related_name="finalizacion",
+    )
+    funcionario = models.ForeignKey(Funcionario, on_delete=models.DO_NOTHING)
+    fecha = models.DateTimeField(default=timezone.now)
+    referencia = models.CharField(max_length=100)
+    motivo = models.TextField()
+
+    class Meta:
+        managed = False
+        db_table = "acciones_finalizaciones"
 
 
 class VPolizaResumen(models.Model):

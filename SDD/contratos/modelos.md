@@ -7,7 +7,7 @@ Cambiar algo de acá requiere acuerdo de las 4 personas.
 Todos con `class Meta: managed = False` y `db_table` explícito. **Django no crea ni migra estas tablas.**
 PK: `models.BigAutoField(primary_key=True)` (los catálogos: `SmallAutoField`). FK con `on_delete=models.DO_NOTHING`; el nombre del campo es el de la columna sin `_id` (`cliente_id` → `cliente`).
 Los campos que en la base tienen `DEFAULT` llevan el mismo default en Django (`timezone.now`, `True`, `"pendiente"`, `dict`…), porque Django envía todas las columnas en el `INSERT`.
-**Todas** las FK a `Funcionario` usan `related_name="+"`, salvo `Derivacion.derivado_a` (`related_name="derivaciones"`).
+**Todas** las FK a `Funcionario` usan `related_name="+"`, salvo `Derivacion.derivado_a` (`related_name="derivaciones"`) y `HistorialSiniestro.responsable` (`related_name="decisiones_siniestros"`).
 
 | Modelo | Tabla | Campos (FK → modelo) | `related_name` |
 |---|---|---|---|
@@ -19,7 +19,12 @@ Los campos que en la base tienen `DEFAULT` llevan el mismo default en Django (`t
 | `Poliza` | `polizas` | numero_poliza, cliente→Cliente, tipo_seguro→TipoSeguro, cobertura, estado, fecha_inicio, fecha_vencimiento, prima_mensual, bien_asegurado, creado_en | `cliente.polizas` |
 | `ConductorPoliza` | `conductores_poliza` | poliza→Poliza, nombre, dni, relacion, activo | `poliza.conductores` |
 | `Cuota` | `cuotas` | poliza→Poliza, periodo, importe, vencimiento, estado, fecha_pago, importe_pagado | `poliza.cuotas` |
+| `Pago` | `pagos` | referencia única, cuota→Cuota (OneToOne), importe, fecha_pago, responsable→Funcionario | `cuota.pago`, `responsable.pagos_registrados` |
 | `Siniestro` | `siniestros` | numero_siniestro, poliza→Poliza, consulta→ConsultaBot (null), fecha_ocurrencia, descripcion, estado, creado_en | `poliza.siniestros` |
+| `HistorialSiniestro` | `siniestro_historial` | siniestro→Siniestro, estado_anterior (null para denuncia), estado_nuevo, motivo, responsable→Funcionario, fecha | `siniestro.historial`, `responsable.decisiones_siniestros` |
+| `AdjuntoSiniestro` | `siniestro_adjuntos` | siniestro→Siniestro, clave_almacenamiento, content_type, tamano, sha256, origen, mensaje_origen→Mensaje (OneToOne, null), creado_por→Funcionario (null), creado_en | `siniestro.adjuntos`, `mensaje.adjunto_siniestro`, `responsable.adjuntos_siniestros` |
+| `DocumentoGeneral` | `documentos_generales` | titulo, version, referencia, estado, creado_por→Funcionario, creado_en, aprobado_por→Funcionario (null), aprobado_en, retirado_por→Funcionario (null), retirado_en | |
+| `FragmentoDocumento` | `documentos_generales_fragmentos` | documento→DocumentoGeneral, orden, texto | `documento.fragmentos` |
 | `Conversacion` | `conversaciones` | contacto→ContactoWhatsapp, estado, modo, funcionario→Funcionario (null), ultimo_mensaje_cliente_en, creada_en, cerrada_en | `contacto.conversaciones` |
 | `Mensaje` | `mensajes` | conversacion→Conversacion, consulta→ConsultaBot (null), direccion, emisor, funcionario→Funcionario (null), texto, estado_envio, wa_message_id, error, payload (JSON), fecha_hora, enviado_en | `conversacion.mensajes`, `consulta.mensajes` |
 | `ConsultaBot` | `consultas_bot` | codigo_caso, fecha_hora, contacto→ContactoWhatsapp (null), conversacion→Conversacion (null), mensaje_usuario, respuesta_bot, tipo_consulta→TipoConsulta, estado, funcionario_asignado→Funcionario (null), fecha_resolucion, revisado_por→Funcionario (null), revisado_en, respuesta_corregida, nota_revision, notas_importacion, datos_origen (JSON), creado_en | `conversacion.consultas` |
@@ -56,6 +61,7 @@ Mismos valores que las restricciones `CHECK` de la base (T4 lo verifica con un t
 | `OrigenAlerta` | automatica, manual |
 | `EstadoAlerta` | abierta, en_revision, resuelta, descartada |
 | `Prioridad` | normal, urgente |
+| `EstadoDocumento` | borrador, aprobado, retirado |
 | `TipoAccion` | baja_poliza, agregar_conductor, modificar_poliza, reembolso, apertura_siniestro |
 | `EstadoAccion` | pendiente, aprobada, rechazada, ejecutada |
 
@@ -75,7 +81,7 @@ def historial_reciente(conversacion_id: int, limite: int = 6) -> list[Mensaje]  
 def tipo_consulta(codigo: str) -> TipoConsulta                       # TipoConsulta.DoesNotExist si no existe
 def poliza_por_numero(numero: str) -> Poliza | None
 def siniestro_por_numero(numero: str) -> Siniestro | None
-def polizas_vigentes(cliente_id: int) -> QuerySet[Poliza]
+def polizas_vigentes(cliente_id: int) -> QuerySet[Poliza]     # estado vigente y fecha local dentro del intervalo inclusivo
 def resumen_polizas(cliente_id: int) -> QuerySet[VPolizaResumen]     # orden por fecha_vencimiento
 def alertas_abiertas(*, consulta_id: int | None = None, conversacion_id: int | None = None,
                      mensaje_id: int | None = None) -> QuerySet[Alerta]   # estado abierta o en_revision

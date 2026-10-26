@@ -143,23 +143,42 @@ class WebhookEntranteTests(TestCase):
 
     # AC-T2-20
     def test_el_webhook_de_punta_a_punta_registra_el_mensaje(self):
-        from datos.models import ContactoWhatsapp, Mensaje
+        from datos.models import ContactoWhatsapp, Mensaje, TrabajoWhatsApp
 
         cuerpo = json.dumps(PAYLOAD).encode()
         entorno = {"WHATSAPP_APP_SECRET": SECRETO, "WHATSAPP_MODO": "simulado"}
         with patch.dict("os.environ", entorno):
-            with patch("negocio.whatsapp.en_segundo_plano") as fondo:
-                respuesta = self.anonimo.post(
+            respuesta = self.anonimo.post(
+                "/webhook/whatsapp/",
+                data=cuerpo,
+                content_type="application/json",
+                HTTP_X_HUB_SIGNATURE_256=_firma(cuerpo),
+            )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertTrue(ContactoWhatsapp.objects.filter(numero="+5491155551001").exists())
+        self.assertTrue(Mensaje.objects.filter(wa_message_id="wamid.test").exists())
+        self.assertTrue(
+            TrabajoWhatsApp.objects.filter(
+                mensaje__wa_message_id="wamid.test", estado="pendiente"
+            ).exists()
+        )
+
+    def test_si_falla_la_persistencia_no_confirma_recepcion_a_meta(self):
+        cuerpo = json.dumps(PAYLOAD).encode()
+        cliente = Client(enforce_csrf_checks=True, raise_request_exception=False)
+        with patch.dict("os.environ", {"WHATSAPP_APP_SECRET": SECRETO}):
+            with patch(
+                "api.webhook.procesar_webhook",
+                side_effect=RuntimeError("fallo de base de datos"),
+            ):
+                respuesta = cliente.post(
                     "/webhook/whatsapp/",
                     data=cuerpo,
                     content_type="application/json",
                     HTTP_X_HUB_SIGNATURE_256=_firma(cuerpo),
                 )
-
-        self.assertEqual(respuesta.status_code, 200)
-        self.assertTrue(ContactoWhatsapp.objects.filter(numero="+5491155551001").exists())
-        self.assertTrue(Mensaje.objects.filter(wa_message_id="wamid.test").exists())
-        fondo.assert_called_once()
+        self.assertEqual(respuesta.status_code, 500)
 
 
 class PaginasTests(TestCase):
@@ -173,6 +192,9 @@ class PaginasTests(TestCase):
         "/panel/derivaciones/": "derivaciones.html",
         "/panel/clientes/": "clientes.html",
         "/panel/cliente/": "cliente.html",
+        "/panel/siniestros/": "siniestros.html",
+        "/panel/reportes/": "reportes.html",
+        "/panel/documentos/": "documentos.html",
     }
 
     # AC-T2-21

@@ -1,0 +1,37 @@
+{
+  "fecha": "2026-10-26",
+  "fuente": "chat-ia-seguros  f.zip",
+  "entorno": {
+    "Python": "3.12.14",
+    "Django": "5.2.4",
+    "psycopg": "3.2.10",
+    "Pillow": "12.0.0",
+    "PostgreSQL": "17.11"
+  },
+  "django": {
+    "ejecutadas": 536,
+    "fallos": 0,
+    "errores": 0,
+    "segundos": 32.44
+  },
+  "javascript": {
+    "ejecutadas": 48,
+    "fallos": 0
+  },
+  "base": {
+    "scripts": "01 a 11 en base nueva, sin ejecutar 00",
+    "migrate": "OK",
+    "check": "OK"
+  },
+  "navegador": {
+    "login_aprobador_y_operador": "OK, contraseñas PBKDF2 normales",
+    "biblioteca": "Crear, revisar, aprobar, buscar y retirar: OK",
+    "gestion_externa": "Completar referencia y motivo, consultar historial: OK",
+    "operador": "Formulario de carga oculto; cero botones de aprobar/retirar"
+  },
+  "integraciones": {
+    "WhatsApp": "simulado, descarga Meta con dobles de prueba",
+    "LLM": "none y modelos falsos en tests específicos"
+  },
+  "alcance": "No certifica credenciales reales de Meta/LLM, despliegue productivo ni prueba humana del equipo"
+}

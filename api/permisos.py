@@ -3,6 +3,7 @@ from __future__ import annotations
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 
+from datos.models import Rol
 from negocio.errores import PermisoDenegado as ErrorPermisoDenegado
 from negocio.sesion import funcionario_de
 
@@ -44,4 +45,16 @@ class EsAprobadorParaEscribir(EsFuncionario):
         super().has_permission(request, view)
         if request.method not in SAFE_METHODS and not request.funcionario.puede_aprobar:
             raise PermissionDenied("No tiene permisos de aprobación.")
+        return True
+
+
+class EsPropietario(EsFuncionario):
+    """Solo el propietario de la empresa (Roberto): administración de usuarios."""
+
+    message = "Solo el propietario puede administrar usuarios."
+
+    def has_permission(self, request, view):
+        super().has_permission(request, view)
+        if request.funcionario.rol != Rol.PROPIETARIO:
+            raise PermissionDenied(self.message)
         return True

@@ -122,6 +122,7 @@ class ErroresTests(ApiTestCase):
         from datetime import timedelta
 
         self.entrar()
+        self.cliente_api.post(f"/api/conversaciones/{self.conversacion.id}/tomar/")
         self.conversacion.ultimo_mensaje_cliente_en = timezone.now() - timedelta(hours=25)
         self.conversacion.save(update_fields=["ultimo_mensaje_cliente_en"])
 
@@ -199,6 +200,11 @@ class CsrfTests(ApiTestCase):
         self.assertError(sin_header, 403, "permiso_denegado")
 
         token = estricto.get("/api/auth/csrf/").cookies["csrftoken"].value
+        tomada = estricto.post(
+            f"/api/conversaciones/{self.conversacion.id}/tomar/",
+            HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(tomada.status_code, 200, tomada.content)
         con_header = estricto.post(
             f"/api/conversaciones/{self.conversacion.id}/responder/",
             {"texto": "hola"},
@@ -241,8 +247,8 @@ class PaginacionTests(ApiTestCase):
         payload = self.cliente_api.get(f"/api/polizas/{poliza.id}/").json()
         self.assertEqual(payload["prima_mensual"], "8000.00")
         self.assertEqual(payload["cuotas"][0]["importe"], "4500.50")
-        self.assertEqual(payload["fecha_vencimiento"], "2026-01-01")
-        self.assertEqual(payload["fecha_inicio"], "2025-01-01")
+        self.assertEqual(payload["fecha_vencimiento"], poliza.fecha_vencimiento.isoformat())
+        self.assertEqual(payload["fecha_inicio"], poliza.fecha_inicio.isoformat())
 
     # AC-T2-05
     def test_las_horas_son_iso_en_utc_con_z(self):

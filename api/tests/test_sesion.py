@@ -7,9 +7,11 @@ from io import StringIO
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from rest_framework.test import APIClient
 
 from api.tests.base import CLAVE, ApiTestCase
 from datos import fabricas
+from negocio.acciones import aprobar_accion, solicitar_accion
 
 
 class LoginTests(ApiTestCase):
@@ -33,6 +35,41 @@ class LoginTests(ApiTestCase):
         )
         # La sesión quedó abierta: `me` ya responde sin volver a autenticarse.
         self.assertEqual(self.cliente_api.get("/api/auth/me/").status_code, 200)
+
+    def test_login_anonimo_sin_token_csrf_es_rechazado(self):
+        estricto = APIClient(enforce_csrf_checks=True)
+        respuesta = estricto.post(
+            "/api/auth/login/",
+            {"email": self.aprobadora.email, "password": CLAVE},
+            format="json",
+        )
+        self.assertEqual(respuesta.status_code, 403, respuesta.content)
+
+    def test_login_anonimo_con_token_csrf_invalido_es_rechazado(self):
+        estricto = APIClient(enforce_csrf_checks=True)
+        estricto.get("/api/auth/csrf/")
+        token = estricto.cookies["csrftoken"].value
+        respuesta = estricto.post(
+            "/api/auth/login/",
+            {"email": self.aprobadora.email, "password": CLAVE},
+            format="json",
+            HTTP_X_CSRFTOKEN=f"{token}invalido",
+        )
+        self.assertEqual(respuesta.status_code, 403, respuesta.content)
+
+    def test_login_anonimo_con_token_csrf_valido_abre_sesion(self):
+        estricto = APIClient(enforce_csrf_checks=True)
+        csrf = estricto.get("/api/auth/csrf/")
+        self.assertEqual(csrf.status_code, 204)
+        token = estricto.cookies["csrftoken"].value
+        respuesta = estricto.post(
+            "/api/auth/login/",
+            {"email": self.aprobadora.email, "password": CLAVE},
+            format="json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(respuesta.status_code, 200, respuesta.content)
+        self.assertEqual(estricto.get("/api/auth/me/").status_code, 200)
 
     # AC-T2-06
     def test_una_clave_incorrecta_es_401(self):
@@ -98,13 +135,17 @@ class PendientesTests(ApiTestCase):
         consulta = fabricas.crear_consulta(self.conversacion)
         fabricas.crear_accion(consulta)
         fabricas.crear_accion(consulta, tipo_accion="modificar_poliza")
+        aprobada = solicitar_accion(
+            consulta.id, "reembolso", parametros={"importe": "3200.00"}
+        )
+        aprobar_accion(aprobada.id, self.aprobadora.id)
         fabricas.crear_derivacion(consulta, self.aprobadora)
         fabricas.crear_derivacion(consulta, self.operador)
         fabricas.crear_alerta(consulta, severidad="critica")
 
         self.assertEqual(
             self.cliente_api.get("/api/pendientes/").json(),
-            {"acciones": 2, "derivaciones": 1, "alertas_criticas": 1},
+            {"acciones": 3, "derivaciones": 1, "alertas_criticas": 1},
         )
 
     # AC-T2-08

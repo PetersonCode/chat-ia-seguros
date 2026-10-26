@@ -39,14 +39,13 @@ def verificar_suscripcion(mode: str | None, token: str | None, challenge: str | 
 def verificar_firma(cuerpo: bytes, firma: str | None) -> bool
     # firma = header X-Hub-Signature-256 ("sha256=<hex>"); HMAC-SHA256 de cuerpo con WHATSAPP_APP_SECRET; compare_digest
 def procesar_webhook(payload: dict) -> None
-    # Recorre entry[].changes[].value: messages[] -> registrar_entrante (+ bot en segundo plano);
-    # statuses[] -> actualizar_estado_entrega. Nunca lanza por datos raros: los registra en el log.
+    # Persiste entry[].changes[].value: messages[] -> mensaje + trabajo durable;
+    # statuses[] -> actualizar_estado_entrega. Error de persistencia se propaga.
 def registrar_entrante(wa_message_id: str, numero_raw: str, texto: str,
                        payload: dict | None = None, nombre_perfil: str | None = None) -> Mensaje | None
     # None si el wa_message_id ya existía
 def enviar_pendientes(conversacion_id: int) -> int            # cuántos envió
 def actualizar_estado_entrega(wa_message_id: str, estado: str) -> None   # 'sent'|'delivered'|'read'|'failed'
-def en_segundo_plano(funcion, *args) -> None                  # hilo; los tests lo reemplazan con mock
 ```
 
 ## 5. Bot (`negocio/bot/`)
@@ -79,11 +78,21 @@ def liberar_respuesta(mensaje_id: int, funcionario_id: int, texto_corregido: str
     # Devuelve el mensaje que sale al cliente (el mismo, o el nuevo del funcionario si se corrigió).
 def descartar_respuesta(mensaje_id: int, funcionario_id: int, motivo: str) -> Mensaje
 def tomar_conversacion(conversacion_id: int, funcionario_id: int) -> Conversacion
+    # Cualquier funcionario activo puede tomar o reasignar; cancela las respuestas bot comunes en cola.
 def devolver_al_bot(conversacion_id: int, funcionario_id: int) -> Conversacion
+    # Solo el funcionario actualmente asignado puede devolver.
 def responder_como_humano(conversacion_id: int, funcionario_id: int, texto: str) -> Mensaje
+    # Requiere modo humano y que funcionario_id sea el responsable actual.
 def reabrir_consulta(consulta_id: int, funcionario_id: int) -> ConsultaBot
 ```
 Aprobador requerido en: `liberar_respuesta`, `descartar_respuesta`, `reabrir_consulta`.
+
+La toma y la reasignación se serializan bloqueando la fila de la conversación.
+Solo salen durante la atención humana mensajes del funcionario, avisos de
+derivación y respuestas del bot liberadas expresamente por un aprobador. Las
+respuestas automáticas comunes que estaban pendientes se descartan; no se
+reactivan al devolver el chat al bot. El envío retiene el mismo bloqueo mientras
+registra el intento, con un timeout de red de 10 segundos para WhatsApp real.
 
 ## 7. Acciones y derivaciones (`negocio/acciones.py`)
 ```python
@@ -98,11 +107,64 @@ def atender_derivacion(derivacion_id: int, funcionario_id: int) -> Derivacion
 ```
 Aprobador requerido en: `completar_parametros`, `aprobar_accion`, `rechazar_accion`.
 
-## 8. Qué excepción lanza cada caso (para que T2 la traduzca)
+## 8. Expediente operativo (`negocio/siniestros.py`)
+```python
+def registrar_denuncia(*, cliente_id: int, poliza_id: int, fecha_ocurrencia,
+                       descripcion: str, funcionario_id: int) -> Siniestro
+def transicionar_siniestro(siniestro_id: int, *, estado: str, motivo: str,
+                           funcionario_id: int) -> Siniestro
+```
+La denuncia requiere un funcionario activo, póliza del cliente indicado,
+descripción y fecha no futura dentro de la cobertura de la póliza. Su número se
+asigna secuencialmente por año bajo `pg_advisory_xact_lock(4243)`. La denuncia
+inicial y cada cambio guardan responsable, motivo y fecha en el historial.
+Solo un aprobador activo puede cambiar el estado; se permiten únicamente
+`denunciado → en_evaluacion → aprobado|rechazado → cerrado`. El motivo de cada
+cambio requiere al menos tres caracteres. El historial es inmutable en SQL.
+`aprobado` es una decisión operativa interna: no significa ni genera una
+indemnización de la aseguradora. La apertura desde una acción del bot usa el
+mismo servicio y conserva la consulta de origen.
+
+## 9. Pólizas (`negocio/polizas.py`)
+```python
+def registrar_pago(poliza_id: int, *, referencia: str, importe,
+                   funcionario_id: int) -> Pago
+```
+Registra una sola cuota completa, con referencia única, importe, fecha local,
+responsable y relación uno-a-uno con la cuota. Repetir referencia con la misma
+póliza e importe devuelve el movimiento existente sin volver a bajar el saldo;
+reutilizarla con otros datos da `EstadoInvalido`. Solo un aprobador activo
+registra el pago. Un importe distinto al total de la cuota da `DatosInvalidos`.
+`06_pagos_con_referencia.sql` asegura la unicidad y actualiza la cuota dentro de
+la misma transacción.
+
+El selector de cobertura actual exige estado `vigente` y fecha local dentro del
+intervalo inclusivo `[fecha_inicio, fecha_vencimiento]`. Para el MVP académico,
+las cuotas se generan en ciclos mensuales desde `fecha_inicio`: el último ciclo
+parcial se cobra completo, una fecha exacta de aniversario no agrega otro ciclo,
+y los días 29, 30 o 31 se acotan al último día de un mes corto y recuperan el
+día original en los ciclos siguientes. Cada cuota vence al inicio de su ciclo;
+`periodo` conserva el primer día de ese mes por la restricción SQL existente.
+No se aplican automáticamente prorrateos, descuentos, devoluciones ni recargos.
+Esta simplificación queda pendiente de validación con la agencia.
+
+El alta no comprueba duplicados por bien asegurado y período:
+`bien_asegurado` es texto libre y no hay una regla acordada de identidad o
+solapamiento.
+
+## 10. Consulta documental (`negocio/documentos.py`)
+`buscar_fragmentos(consulta)` solo devuelve pasajes de documentos en estado
+`aprobado`. La recuperación es lexical, local y no llama al LLM. El bot de
+`consulta_cobertura` cita el pasaje y su referencia como información general;
+si no hay respaldo suficiente, mantiene la derivación normal. La cita no
+confirma que una condición aplique a una póliza particular. Los documentos
+retirados dejan de ser candidatos a búsquedas nuevas.
+
+## 11. Qué excepción lanza cada caso (para que T2 la traduzca)
 | Situación | Excepción |
 |---|---|
 | Funcionario sin `puede_aprobar` en una operación de aprobador, o que no es el asignado | `PermisoDenegado` |
 | Id inexistente | `NoEncontrado` |
 | Mensaje que ya no está `retenido`; acción ya resuelta; derivación ya atendida; ventana de 24 h cerrada (`codigo="ventana_24h_cerrada"`) | `EstadoInvalido` |
-| Motivo vacío o corto, tipo de acción inválido, texto vacío | `DatosInvalidos` |
+| Motivo vacío o corto, tipo de acción inválido, texto vacío, fecha de siniestro futura o fuera de cobertura, póliza que no pertenece al cliente | `DatosInvalidos` |
 | Faltan parámetros para ejecutar una acción | `ParametrosIncompletos` |

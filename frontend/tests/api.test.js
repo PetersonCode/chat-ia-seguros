@@ -55,6 +55,26 @@ test("AC-T1-02: post y patch serializan sus cuerpos", async () => {
     assert.equal(llamadas[1][1].body, JSON.stringify({ parametros: { detalle: "Dato" } }));
 });
 
+test("las cargas multipart conservan CSRF y dejan elegir el boundary al navegador", async () => {
+    let llamada;
+    const formulario = new FormData();
+    formulario.append("archivo", new Blob(["imagen"]), "foto.png");
+    configurarApi({
+        fetch: async (...argumentos) => {
+            llamada = argumentos;
+            return respuesta(201, { ok: true });
+        },
+        leerCookie: () => "csrf",
+    });
+
+    await api.upload("/api/siniestros/1/adjuntos/", formulario);
+
+    assert.equal(llamada[1].method, "POST");
+    assert.equal(llamada[1].body, formulario);
+    assert.equal(llamada[1].headers["X-CSRFToken"], "csrf");
+    assert.equal("Content-Type" in llamada[1].headers, false);
+});
+
 test("AC-T1-02: errores de API conservan status, codigo y mensaje", async () => {
     configurarApi({
         fetch: async () => respuesta(409, {

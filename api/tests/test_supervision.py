@@ -8,7 +8,13 @@ from django.utils import timezone
 
 from api.tests.base import ApiTestCase
 from datos import fabricas
-from datos.models import EstadoAlerta, EstadoConsulta, EstadoEnvio
+from datos.models import (
+    EstadoAccion,
+    EstadoAlerta,
+    EstadoConsulta,
+    EstadoEnvio,
+    TipoAccion,
+)
 
 
 class BandejaTests(ApiTestCase):
@@ -56,6 +62,26 @@ class BandejaTests(ApiTestCase):
         fila = next(f for f in resultados if f["id"] == self.conversacion.id)
         self.assertIsNone(fila["severidad_maxima"])
         self.assertEqual(fila["color"], "verde")
+
+    def test_la_derivacion_urgente_pinta_y_ordena_sin_fingir_una_alerta(self):
+        fabricas.crear_derivacion(
+            self.consulta,
+            self.aprobadora,
+            prioridad="urgente",
+        )
+        critica = fabricas.crear_conversacion()
+        consulta_critica = fabricas.crear_consulta(critica)
+        fabricas.crear_alerta(consulta_critica, severidad="critica")
+        fabricas.crear_mensaje(critica, fecha_hora=timezone.now())
+
+        filas = self.cliente_api.get("/api/conversaciones/").json()["resultados"]
+        fila = next(f for f in filas if f["id"] == self.conversacion.id)
+
+        self.assertEqual(filas[0]["id"], self.conversacion.id)
+        self.assertTrue(fila["derivacion_urgente"])
+        self.assertEqual(fila["color"], "rojo")
+        self.assertEqual(fila["alertas_abiertas"], 0)
+        self.assertIsNone(fila["severidad_maxima"])
 
     # AC-T2-10
     def test_sin_respuesta_marca_las_que_el_bot_dejo_colgadas(self):
@@ -207,6 +233,7 @@ class AccionesDeSupervisionTests(ApiTestCase):
     # AC-T2-13
     def test_responder_devuelve_201_con_el_mensaje(self):
         self.entrar()
+        self.cliente_api.post(f"/api/conversaciones/{self.conversacion.id}/tomar/")
         respuesta = self.cliente_api.post(
             f"/api/conversaciones/{self.conversacion.id}/responder/",
             {"texto": "Te llamo en 5 minutos."},
@@ -342,3 +369,176 @@ class ListadosTests(ApiTestCase):
         self.assertEqual(fila["alertas_abiertas"], 1)
         self.assertEqual(fila["severidad_maxima"], "alta")
         self.assertEqual(fila["cliente"]["apellido"], "Fernández")
+
+
+class CerrarCasosTests(ApiTestCase):
+    """`POST /api/conversaciones/<id>/cerrar-casos/`: cierra el trabajo, no el chat."""
+
+    def setUp(self):
+        super().setUp()
+        self.consulta = fabricas.crear_consulta(
+            self.conversacion, estado=EstadoConsulta.ABIERTO
+        )
+
+    @property
+    def ruta(self) -> str:
+        return f"/api/conversaciones/{self.conversacion.id}/cerrar-casos/"
+
+    def test_el_detalle_avisa_que_casos_quedan_abiertos(self):
+        self.entrar()
+
+        cuerpo = self.cliente_api.get(
+            f"/api/conversaciones/{self.conversacion.id}/"
+        ).json()
+
+        self.assertEqual(
+            [caso["codigo_caso"] for caso in cuerpo["casos_abiertos"]],
+            [self.consulta.codigo_caso],
+        )
+
+    def test_cerrar_devuelve_el_detalle_sin_casos_abiertos_y_el_chat_abierto(self):
+        self.entrar()
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 200, respuesta.content)
+        cuerpo = respuesta.json()
+        self.assertEqual(cuerpo["casos_abiertos"], [])
+        self.assertEqual(cuerpo["estado"], "abierta")
+        self.consulta.refresh_from_db()
+        self.assertEqual(self.consulta.estado, EstadoConsulta.CERRADO)
+
+    def test_el_detalle_muestra_acciones_administrativas_sin_resolver(self):
+        pendiente = fabricas.crear_accion(
+            self.consulta, tipo_accion=TipoAccion.BAJA_POLIZA
+        )
+        externa = fabricas.crear_accion(
+            self.consulta,
+            tipo_accion=TipoAccion.REEMBOLSO,
+        )
+        externa.estado = EstadoAccion.APROBADA
+        externa.resuelta_por = self.aprobadora
+        externa.resuelta_en = timezone.now()
+        externa.save(update_fields=["estado", "resuelta_por", "resuelta_en"])
+        self.entrar()
+
+        cuerpo = self.cliente_api.get(
+            f"/api/conversaciones/{self.conversacion.id}/"
+        ).json()
+
+        self.assertEqual(
+            cuerpo["casos_abiertos"][0]["acciones_pendientes"],
+            [
+                {
+                    "id": pendiente.id,
+                    "tipo_accion": "Baja de póliza",
+                    "estado": EstadoAccion.PENDIENTE,
+                },
+                {
+                    "id": externa.id,
+                    "tipo_accion": "Reembolso",
+                    "estado": EstadoAccion.APROBADA,
+                },
+            ],
+        )
+
+    def test_no_cierra_un_caso_con_accion_pendiente_o_gestion_externa(self):
+        fabricas.crear_accion(
+            self.consulta, tipo_accion=TipoAccion.BAJA_POLIZA
+        )
+        externa = fabricas.crear_accion(
+            self.consulta,
+            tipo_accion=TipoAccion.REEMBOLSO,
+        )
+        externa.estado = EstadoAccion.APROBADA
+        externa.resuelta_por = self.aprobadora
+        externa.resuelta_en = timezone.now()
+        externa.save(update_fields=["estado", "resuelta_por", "resuelta_en"])
+        self.entrar()
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertError(respuesta, 409, "estado_invalido")
+        self.assertIn("1 pendiente(s) de aprobación", respuesta.json()["error"]["mensaje"])
+        self.assertIn(
+            "1 aprobada(s), pendiente(s) de gestión externa",
+            respuesta.json()["error"]["mensaje"],
+        )
+        self.consulta.refresh_from_db()
+        self.assertEqual(self.consulta.estado, EstadoConsulta.ABIERTO)
+
+    def test_un_operador_sin_aprobacion_tambien_puede_cerrar(self):
+        # Es el mismo criterio que tomar o devolver la conversación: quien
+        # atiende, cierra.
+        self.entrar(self.operador)
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 200, respuesta.content)
+
+    def test_con_una_respuesta_retenida_es_409_y_no_cierra_nada(self):
+        self.entrar()
+        fabricas.crear_mensaje(
+            self.conversacion,
+            consulta=self.consulta,
+            direccion="saliente",
+            emisor="bot",
+            texto="Tu póliza POL-99999 fue dada de baja.",
+            estado_envio=EstadoEnvio.RETENIDO,
+            wa_message_id=None,
+        )
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertError(respuesta, 409, "estado_invalido")
+        self.consulta.refresh_from_db()
+        self.assertEqual(self.consulta.estado, EstadoConsulta.ABIERTO)
+
+    def test_sin_casos_abiertos_es_409(self):
+        self.entrar()
+        self.cliente_api.post(self.ruta, {}, format="json")
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertError(respuesta, 409, "estado_invalido")
+
+    def test_sin_sesion_es_401(self):
+        self.assertError(self.cliente_api.post(self.ruta, {}, format="json"), 401, "no_autenticado")
+
+    def test_una_conversacion_inexistente_es_404(self):
+        self.entrar()
+
+        respuesta = self.cliente_api.post(
+            "/api/conversaciones/999999/cerrar-casos/", {}, format="json"
+        )
+
+        self.assertError(respuesta, 404, "no_encontrado")
+
+
+class VaciarChatTests(ApiTestCase):
+    """`POST /api/conversaciones/<id>/vaciar/`: el bot arranca sin contexto."""
+
+    @property
+    def ruta(self) -> str:
+        return f"/api/conversaciones/{self.conversacion.id}/vaciar/"
+
+    def test_vaciar_devuelve_el_detalle_con_la_conversacion_cerrada(self):
+        self.entrar(self.operador)
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 200, respuesta.content)
+        self.assertEqual(respuesta.json()["estado"], "cerrada")
+
+    def test_vaciar_dos_veces_es_409(self):
+        self.entrar()
+        self.cliente_api.post(self.ruta, {}, format="json")
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 409, respuesta.content)
+
+    def test_sin_sesion_no_se_puede_vaciar(self):
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertIn(respuesta.status_code, (401, 403))
