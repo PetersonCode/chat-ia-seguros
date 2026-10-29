@@ -4,8 +4,8 @@ Un mensaje `retenido` nunca sale solo: alguien lo libera tal cual, lo corrige o
 lo descarta. Las tres cosas cierran las alertas que lo retuvieron, y las dos
 primeras disparan el envío.
 
-Aprobador obligatorio en `liberar_respuesta`, `descartar_respuesta` y
-`reabrir_consulta` (contrato, sección 6).
+Aprobador obligatorio en `liberar_respuesta`, `descartar_respuesta`,
+`reabrir_consulta` (contrato, sección 6) y `desbloquear_numero`.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from datos.models import (
     ModoConversacion,
 )
 from datos.selectors import alertas_abiertas
+from negocio.bot.orquestador import RESOLUCION_DESBLOQUEO, bloqueo_vigente
 from negocio.errores import (
     DatosInvalidos,
     EstadoInvalido,
@@ -178,6 +179,34 @@ def devolver_al_bot(conversacion_id: int, funcionario_id: int) -> Conversacion:
     conversacion.modo = ModoConversacion.BOT
     conversacion.funcionario = None
     conversacion.save(update_fields=["modo", "funcionario"])
+    return conversacion
+
+
+def desbloquear_numero(conversacion_id: int, funcionario_id: int) -> Conversacion:
+    """Levanta antes de tiempo el bloqueo de 48 horas por insistencia.
+
+    El bloqueo es del número, no de la conversación, así que vale desde
+    cualquiera de sus chats. Se resuelve la alerta de insistencia con una
+    resolución fija: queda registrado quién y cuándo, y como sigue siendo la
+    última insistencia, la cuenta de intentos arranca de cero igual que cuando
+    vencen las 48 horas.
+    """
+    funcionario = _funcionario(funcionario_id, aprobador=True)
+    conversacion = _conversacion(conversacion_id)
+    insistencia = (
+        bloqueo_vigente(conversacion.contacto_id)
+        if conversacion.contacto_id is not None
+        else None
+    )
+    if insistencia is None:
+        raise EstadoInvalido("El número no está bloqueado.")
+    insistencia.estado = EstadoAlerta.RESUELTA
+    insistencia.resuelta_por = funcionario
+    insistencia.resuelta_en = timezone.now()
+    insistencia.resolucion = RESOLUCION_DESBLOQUEO
+    insistencia.save(
+        update_fields=["estado", "resuelta_por", "resuelta_en", "resolucion"]
+    )
     return conversacion
 
 

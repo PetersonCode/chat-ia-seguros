@@ -173,6 +173,7 @@ class PaginasTests(TestCase):
         "/panel/derivaciones/": "derivaciones.html",
         "/panel/clientes/": "clientes.html",
         "/panel/cliente/": "cliente.html",
+        "/panel/metricas/": "panel.html",
     }
 
     # AC-T2-21

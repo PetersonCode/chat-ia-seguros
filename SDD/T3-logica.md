@@ -120,21 +120,23 @@ Todo dentro de `negocio/` (incluido `negocio/tests/` y `negocio/management/comma
 ## 5. Plantillas fijas (`negocio/bot/plantillas.py` y `negocio/acciones.py`) — copiar tal cual
 | Nombre | Texto |
 |---|---|
-| `SALUDO` | ¡Hola! Soy el asistente de Seguros Castaño. Puedo informarte tu saldo, el vencimiento de tus pólizas o cómo denunciar un siniestro. ¿En qué te ayudo? |
-| `SALDO` | Tu saldo pendiente es de {monto}. Próximo vencimiento de pago: {fecha}. |
-| `SIN_SALDO` | No tenés saldo pendiente. ¡Gracias por estar al día! |
-| `VENCIMIENTO` | Estas son tus pólizas:\n{lineas}  — cada línea: `• {numero_poliza} ({tipo_seguro}): vence el {fecha}{marca}` con `marca` = ` — VENCIDA` si está vencida |
-| `SIN_POLIZAS` | No encontramos pólizas vigentes a tu nombre. Te derivamos con un asesor. |
-| `SIN_CLIENTE` | Para darte esa información necesitamos validar tu identidad. Te derivamos con un asesor. |
-| `SINIESTRO_INSTRUCCIONES` | Para denunciar un siniestro necesitamos: fotos del daño, tu DNI, el número de póliza y una breve descripción de lo ocurrido. Un asesor va a registrar la denuncia y te va a confirmar el número. |
-| `SOLICITUD_REGISTRADA` | Registramos tu solicitud. Un asesor la va a revisar y te va a confirmar por este medio. |
-| `DERIVACION` | Te derivamos con un asesor, que te va a responder a la brevedad. |
-| `DERIVACION_URGENTE` | Entendemos que es urgente. Ya avisamos a un asesor para que se comunique con vos cuanto antes. |
-| `AVISO_NEUTRO` | Gracias por tu consulta, un asesor te responderá a la brevedad. |
-| `RECHAZO_SEGURIDAD` | No puedo ayudarte con ese pedido. Si tenés una consulta sobre tu seguro, escribime y te ayudo. |
-| `SOLO_TEXTO` | Por ahora solo puedo leer mensajes de texto. |
-| `ACCION_APROBADA` | Tu solicitud de {descripcion} fue aprobada y procesada. — `descripcion`: baja → "baja de la póliza {numero}"; agregar_conductor → "alta de conductor en la póliza {numero}"; modificar_poliza → "modificación de la póliza {numero}"; reembolso → "reembolso de {monto}"; apertura_siniestro → "denuncia de siniestro (número {numero_siniestro})" |
-| `ACCION_RECHAZADA` | No pudimos procesar tu solicitud. Un asesor se va a comunicar con vos. |
+| `SALUDO` | ¡Hola! ¿Cómo estás? Soy el asistente virtual de Seguros Castaño. Te puedo ayudar con tu saldo, el vencimiento de tus pólizas o cómo denunciar un siniestro. ¿Qué necesitás? |
+| `SALDO` | Te cuento: tu saldo pendiente es de {monto} y el próximo vencimiento de pago es el {fecha}. |
+| `SIN_SALDO` | ¡Buenas noticias! No tenés saldo pendiente. Gracias por estar al día. |
+| `VENCIMIENTO` | Acá tenés tus pólizas:\n{lineas}  — cada línea: `• {numero_poliza} ({tipo_seguro}): vence el {fecha}{marca}` con `marca` = ` — VENCIDA` si está vencida |
+| `SIN_POLIZAS` | No encontré pólizas vigentes a tu nombre. Te paso con un asesor para que lo revise con vos. |
+| `SIN_CLIENTE` | Para darte esa información primero tenemos que validar tu identidad, así que te paso con un asesor que te va a ayudar. |
+| `SINIESTRO_INSTRUCCIONES` | Lamento lo que pasó. Para hacer la denuncia del siniestro necesitamos: fotos del daño, tu DNI, el número de póliza y una breve descripción de lo ocurrido. Un asesor va a registrar la denuncia y te confirma el número por acá. |
+| `SOLICITUD_REGISTRADA` | Listo, ya tomé tu solicitud. Un asesor la va a revisar y te confirma por este mismo chat. |
+| `DERIVACION` | Te paso con un asesor, que te va a responder a la brevedad. ¡Gracias por la paciencia! |
+| `DERIVACION_URGENTE` | Entiendo que es urgente. Ya le avisé a un asesor para que se comunique con vos cuanto antes. |
+| `AVISO_NEUTRO` | ¡Gracias por escribirnos! Un asesor va a revisar tu consulta y te responde a la brevedad. |
+| `RECHAZO_SEGURIDAD` | Perdón, con eso no te puedo ayudar. Si tenés alguna consulta sobre tu seguro, contame y lo vemos. |
+| `SOLO_TEXTO` | Perdón, por ahora solo puedo leer mensajes de texto. ¿Me lo escribís? |
+| `ACCION_APROBADA` | ¡Buenas noticias! Tu solicitud de {descripcion} fue aprobada y procesada. — `descripcion`: baja → "baja de la póliza {numero}"; agregar_conductor → "alta de conductor en la póliza {numero}"; modificar_poliza → "modificación de la póliza {numero}"; reembolso → "reembolso de {monto}"; apertura_siniestro → "denuncia de siniestro (número {numero_siniestro})" |
+| `ACCION_RECHAZADA` | No pudimos avanzar con tu solicitud. Un asesor se va a comunicar con vos para contarte los detalles. |
+
+Sin repetirse: si una respuesta es idéntica (salvo espacios y mayúsculas) al último mensaje que el cliente vio, se usa una de sus `VARIANTES`; los textos con datos no tienen variantes y se repiten con `REPETICION` ("Te lo repito por las dudas:"), sin reescribir los datos. Una respuesta retenida o descartada no cuenta como vista.
 
 Formatos: dinero `$12.500` / `$12.500,50` (separador de miles `.`, decimales `,` solo si no es entero); fecha `dd/mm/aaaa`.
 

@@ -311,7 +311,11 @@ class RechazarAccionTests(BaseAccionesTests):
         rechazar_accion(accion.id, self.aprobador.id, "No corresponde.")
 
         aviso = Mensaje.objects.get(emisor="funcionario")
-        self.assertEqual(aviso.texto, "No pudimos procesar tu solicitud. Un asesor se va a comunicar con vos.")
+        self.assertEqual(
+            aviso.texto,
+            "No pudimos avanzar con tu solicitud. Un asesor se va a comunicar con vos"
+            " para contarte los detalles.",
+        )
         self.assertEqual(aviso.estado_envio, "enviado")
 
 

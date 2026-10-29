@@ -100,6 +100,20 @@ def historial_reciente(
     return list(reversed(recientes))
 
 
+def ultimo_saliente_visible(conversacion_id: int) -> str | None:
+    """El texto del último mensaje que le mandamos al cliente y que llegó a ver.
+
+    Una respuesta retenida o descartada nunca salió: no cuenta.
+    """
+    return (
+        Mensaje.objects.filter(conversacion_id=conversacion_id, direccion="saliente")
+        .exclude(estado_envio__in=(EstadoEnvio.RETENIDO, EstadoEnvio.DESCARTADO))
+        .order_by("-fecha_hora", "-id")
+        .values_list("texto", flat=True)
+        .first()
+    )
+
+
 def tipo_consulta(codigo: str) -> TipoConsulta:
     return TipoConsulta.objects.get(codigo=codigo)
 

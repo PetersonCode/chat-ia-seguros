@@ -35,6 +35,7 @@ Cambiar un endpoint o una forma de respuesta requiere acuerdo de las 4 personas.
 | `GET /api/conversaciones/{id}/mensajes/` | sesión | `?despues_de={mensaje_id}` → `{"mensajes": [mensaje…]}` (cronológico) |
 | `POST /api/conversaciones/{id}/tomar/` | sesión | → `200 conversacion_detalle` |
 | `POST /api/conversaciones/{id}/devolver/` | sesión | → `200 conversacion_detalle` |
+| `POST /api/conversaciones/{id}/desbloquear/` | aprobador | Levanta el bloqueo de 48 h por insistencia del número; resuelve su alerta → `200 conversacion_detalle`. `409` si no está bloqueado |
 | `POST /api/conversaciones/{id}/responder/` | sesión | `{texto}` → `201 mensaje` |
 | `POST /api/mensajes/{id}/liberar/` | aprobador | `{texto_corregido?}` → `200 mensaje` (el que sale al cliente) |
 | `POST /api/mensajes/{id}/descartar/` | aprobador | `{motivo}` → `200 mensaje` |
@@ -75,6 +76,7 @@ Cambiar un endpoint o una forma de respuesta requiere acuerdo de las 4 personas.
 
 // conversacion_detalle = conversacion_resumen + 
 {"nombre_perfil": "Daniel",   // nombre del perfil de WhatsApp, para prellenar el alta; null si no hay
+ "bloqueado_hasta": "2024-04-07T03:00:05Z",   // hasta cuándo el bot ignora al número por insistir; null si no está bloqueado
  "cliente_info": {"id": 1, "dni": "27345678", "nombre": "Laura", "apellido": "Fernández",
                   "polizas": [poliza_resumen…]},                       // null si es desconocido
  "alertas": [alerta…]}

@@ -31,7 +31,11 @@ from datos.models import (
     Mensaje,
     ModoConversacion,
 )
-from datos.selectors import contacto_por_numero, conversacion_abierta
+from datos.selectors import (
+    contacto_por_numero,
+    conversacion_abierta,
+    ultimo_saliente_visible,
+)
 from negocio.reglas import ventana_24h_abierta
 
 logger = logging.getLogger(__name__)
@@ -164,13 +168,13 @@ def registrar_entrante(
 
 def _avisar_solo_texto(conversacion: Conversacion) -> None:
     """AC-T3-09: a un adjunto se le contesta que solo leemos texto."""
-    from negocio.bot.plantillas import SOLO_TEXTO
+    from negocio.bot.plantillas import SOLO_TEXTO, sin_repetir
 
     Mensaje.objects.create(
         conversacion=conversacion,
         direccion=Direccion.SALIENTE,
         emisor=Emisor.BOT,
-        texto=SOLO_TEXTO,
+        texto=sin_repetir(SOLO_TEXTO, ultimo_saliente_visible(conversacion.id)),
         estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
         fecha_hora=timezone.now(),
     )

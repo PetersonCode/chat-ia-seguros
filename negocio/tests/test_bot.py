@@ -32,10 +32,13 @@ from negocio.bot.guardrails import evaluar_entrada, evaluar_salida
 from negocio.bot.llm import FakeLLM
 from negocio.bot.orquestador import (
     VENTANA_AGRUPACION_POR_DEFECTO,
+    bloqueado_hasta,
     procesar_mensaje,
     procesar_tras_ventana,
     ventana_agrupacion,
 )
+from negocio.errores import EstadoInvalido, PermisoDenegado
+from negocio.supervision import desbloquear_numero
 from negocio.whatsapp import PREFIJO_NO_SOPORTADO
 from negocio.tests.datos_prueba import (
     POLIZA_INEXISTENTE,
@@ -295,12 +298,18 @@ class InsistenciaTests(BaseBotTests):
 
     def test_los_dos_primeros_intentos_alertan_pero_no_derivan(self):
         conversacion = self._conversacion("1001")
+        rechazos = (
+            plantillas.RECHAZO_SEGURIDAD,
+            *plantillas.VARIANTES[plantillas.RECHAZO_SEGURIDAD],
+        )
+        textos = []
         for texto in self.INTENTOS[:2]:
             resultado = self._turno(conversacion, texto)
             self.assertEqual(resultado.tipo_consulta, "prompt_injection")
-            self.assertEqual(
-                self._respuesta(resultado).texto, plantillas.RECHAZO_SEGURIDAD
-            )
+            textos.append(self._respuesta(resultado).texto)
+            self.assertIn(textos[-1], rechazos)
+        # El segundo rechazo no repite el primero palabra por palabra.
+        self.assertNotEqual(textos[0], textos[1])
 
         self.assertEqual(Alerta.objects.count(), 2)
         self.assertFalse(
@@ -396,6 +405,83 @@ class InsistenciaTests(BaseBotTests):
         self.assertEqual(
             Alerta.objects.filter(descripcion__startswith="Insistió").count(), 1
         )
+
+    def test_bloqueado_hasta_es_la_insistencia_mas_48_horas(self):
+        conversacion = self._conversacion("1001")
+        contacto_id = conversacion.contacto_id
+        self.assertIsNone(bloqueado_hasta(contacto_id))
+
+        self._bloquear(conversacion)
+
+        insistencia = Alerta.objects.get(descripcion__startswith="Insistió")
+        self.assertEqual(
+            bloqueado_hasta(contacto_id), insistencia.creada_en + timedelta(hours=48)
+        )
+
+    def test_desbloqueado_el_bot_vuelve_a_contestar_y_queda_registrado(self):
+        conversacion = self._conversacion("1001")
+        self._bloquear(conversacion)
+
+        desbloquear_numero(conversacion.id, self.escenario.graciela.id)
+
+        self.assertIsNone(bloqueado_hasta(conversacion.contacto_id))
+        insistencia = Alerta.objects.get(descripcion__startswith="Insistió")
+        self.assertEqual(insistencia.estado, "resuelta")
+        self.assertEqual(insistencia.resuelta_por_id, self.escenario.graciela.id)
+        self.assertIsNotNone(insistencia.resuelta_en)
+        resultado = self._turno(conversacion, "cuánto debo?")
+        self.assertFalse(resultado.ignorado)
+        self.assertEqual(resultado.tipo_consulta, "saldo")
+
+    def test_desbloqueado_la_cuenta_de_intentos_arranca_de_cero(self):
+        conversacion = self._conversacion("1001")
+        self._bloquear(conversacion)
+        desbloquear_numero(conversacion.id, self.escenario.graciela.id)
+
+        for texto in self.INTENTOS[:2]:
+            self._turno(conversacion, texto)
+        self.assertEqual(
+            Alerta.objects.filter(descripcion__startswith="Insistió").count(), 1
+        )
+
+        self._turno(conversacion, self.INTENTOS[2])
+        self.assertEqual(
+            Alerta.objects.filter(descripcion__startswith="Insistió").count(), 2
+        )
+        self.assertIsNotNone(bloqueado_hasta(conversacion.contacto_id))
+
+    def test_el_desbloqueo_vale_desde_otra_conversacion_del_numero(self):
+        primera = self._conversacion("1001")
+        self._bloquear(primera)
+        primera.estado = "cerrada"
+        primera.cerrada_en = timezone.now()
+        primera.save(update_fields=["estado", "cerrada_en"])
+        segunda = self._conversacion("1001")
+
+        desbloquear_numero(segunda.id, self.escenario.graciela.id)
+
+        self.assertIsNone(bloqueado_hasta(segunda.contacto_id))
+
+    def test_desbloquear_exige_aprobador_y_un_numero_bloqueado(self):
+        conversacion = self._conversacion("1001")
+        with self.assertRaises(EstadoInvalido):
+            desbloquear_numero(conversacion.id, self.escenario.graciela.id)
+
+        self._bloquear(conversacion)
+        with self.assertRaises(PermisoDenegado):
+            desbloquear_numero(conversacion.id, self.escenario.diego.id)
+        self.assertIsNotNone(bloqueado_hasta(conversacion.contacto_id))
+
+    def test_vencido_el_bloqueo_ya_no_hay_que_desbloquear(self):
+        conversacion = self._conversacion("1001")
+        self._bloquear(conversacion)
+        Alerta.objects.filter(descripcion__startswith="Insistió").update(
+            creada_en=timezone.now() - timedelta(hours=49)
+        )
+
+        self.assertIsNone(bloqueado_hasta(conversacion.contacto_id))
+        with self.assertRaises(EstadoInvalido):
+            desbloquear_numero(conversacion.id, self.escenario.graciela.id)
 
 
 class ModoHumanoTests(BaseBotTests):
@@ -542,7 +628,7 @@ class RespuestasConDatosTests(BaseBotTests):
         self.assertEqual(resultado.alertas, [])
         self.assertEqual(
             self._respuesta(resultado).texto,
-            "Tu saldo pendiente es de $12.500. Próximo vencimiento de pago: 15/04/2024.",
+            "Te cuento: tu saldo pendiente es de $12.500 y el próximo vencimiento de pago es el 15/04/2024.",
         )
 
     # AC-T3-35
@@ -563,7 +649,7 @@ class RespuestasConDatosTests(BaseBotTests):
         _, _, resultado = self._procesar("1001", "cuándo vence mi póliza")
 
         texto = self._respuesta(resultado).texto
-        self.assertTrue(texto.startswith("Estas son tus pólizas:"))
+        self.assertTrue(texto.startswith("Acá tenés tus pólizas:"))
         self.assertIn("• POL-00101 (Automotor): vence el 31/03/2026", texto)
         self.assertIn("• POL-00102 (Automotor): vence el 30/06/2026 — VENCIDA", texto)
         self.assertEqual(resultado.alertas, [])
@@ -578,7 +664,7 @@ class RespuestasConDatosTests(BaseBotTests):
 
         self.assertEqual(resultado.tipo_consulta, "vencimiento")
         texto = self._respuesta(resultado).texto
-        self.assertTrue(texto.startswith("Estas son tus pólizas:"))
+        self.assertTrue(texto.startswith("Acá tenés tus pólizas:"))
         self.assertIn("POL-00101", texto)
         self.assertFalse(Derivacion.objects.exists())
 

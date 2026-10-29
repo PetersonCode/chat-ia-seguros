@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20261020b";
+import { api } from "./api.js?v=20261029a";
 
 const contadores = [
     { clave: "acciones", etiqueta: "Acciones", destino: "/panel/acciones/" },
@@ -10,6 +10,7 @@ const destinos = [
     { etiqueta: "Bandeja", destino: "/panel/" },
     { etiqueta: "Clientes", destino: "/panel/clientes/" },
     { etiqueta: "Casos cerrados", destino: "/panel/cerrados/" },
+    { etiqueta: "Métricas", destino: "/panel/metricas/" },
 ];
 
 function crearElemento(etiqueta, clase, texto) {

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from datetime import timezone as dt_timezone
 
 from django.utils import timezone
 
@@ -453,6 +454,72 @@ class VaciarChatTests(ApiTestCase):
         self.assertEqual(respuesta.status_code, 409, respuesta.content)
 
     def test_sin_sesion_no_se_puede_vaciar(self):
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertIn(respuesta.status_code, (401, 403))
+
+
+class DesbloquearNumeroTests(ApiTestCase):
+    """`POST /api/conversaciones/<id>/desbloquear/`: levanta el bloqueo de 48 h."""
+
+    def setUp(self):
+        super().setUp()
+        consulta = fabricas.crear_consulta(self.conversacion)
+        mensaje = fabricas.crear_mensaje(self.conversacion, consulta=consulta)
+        self.insistencia = fabricas.crear_alerta(
+            consulta,
+            mensaje=mensaje,
+            tipo="prompt_injection",
+            severidad="critica",
+            descripcion="Insistió: es el intento de manipulación número 3 de este número.",
+        )
+
+    @property
+    def ruta(self) -> str:
+        return f"/api/conversaciones/{self.conversacion.id}/desbloquear/"
+
+    def detalle(self) -> dict:
+        return self.cliente_api.get(f"/api/conversaciones/{self.conversacion.id}/").json()
+
+    def test_el_detalle_dice_hasta_cuando_esta_bloqueado(self):
+        self.entrar(self.operador)
+
+        hasta = self.detalle()["bloqueado_hasta"]
+
+        esperado = self.insistencia.creada_en + timedelta(hours=48)
+        self.assertEqual(hasta, esperado.astimezone(dt_timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+    def test_desbloquear_devuelve_el_detalle_sin_bloqueo_y_resuelve_la_alerta(self):
+        self.entrar()
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 200, respuesta.content)
+        self.assertIsNone(respuesta.json()["bloqueado_hasta"])
+        self.assertNotIn(
+            self.insistencia.id, [alerta["id"] for alerta in respuesta.json()["alertas"]]
+        )
+        self.insistencia.refresh_from_db()
+        self.assertEqual(self.insistencia.estado, EstadoAlerta.RESUELTA)
+        self.assertEqual(self.insistencia.resuelta_por_id, self.aprobadora.id)
+
+    def test_desbloquear_dos_veces_es_409(self):
+        self.entrar()
+        self.cliente_api.post(self.ruta, {}, format="json")
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 409, respuesta.content)
+
+    def test_un_operador_sin_permiso_de_aprobacion_no_puede_desbloquear(self):
+        self.entrar(self.operador)
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertError(respuesta, 403, "permiso_denegado")
+        self.assertIsNotNone(self.detalle()["bloqueado_hasta"])
+
+    def test_sin_sesion_no_se_puede_desbloquear(self):
         respuesta = self.cliente_api.post(self.ruta, {}, format="json")
 
         self.assertIn(respuesta.status_code, (401, 403))

@@ -1,6 +1,6 @@
-import { api } from "../api.js?v=20261020b";
-import { inicializarNav } from "../nav.js?v=20261020b";
-import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261020b";
+import { api } from "../api.js?v=20261029a";
+import { inicializarNav } from "../nav.js?v=20261029a";
+import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261029a";
 
 const ROLES = {
     propietario: "Propietario",

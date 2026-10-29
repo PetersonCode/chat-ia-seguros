@@ -79,9 +79,11 @@ from negocio.reglas import (
     ventana_24h_abierta,
 )
 from negocio.sesion import funcionario_de
+from negocio.bot.orquestador import bloqueado_hasta
 from negocio.supervision import (
     ESTADOS_CASO_ABIERTO,
     cerrar_casos,
+    desbloquear_numero,
     descartar_respuesta,
     devolver_al_bot,
     liberar_respuesta,
@@ -268,6 +270,12 @@ def _conversacion_detalle(conversacion_id: int) -> dict:
     # sabemos de esa persona antes de que un humano cargue sus datos reales.
     payload["nombre_perfil"] = (
         conversacion.contacto.nombre_perfil if conversacion.contacto else None
+    )
+    # El bloqueo por insistencia es del número: se ve desde cualquiera de sus chats.
+    payload["bloqueado_hasta"] = (
+        _iso(bloqueado_hasta(conversacion.contacto_id))
+        if conversacion.contacto_id is not None
+        else None
     )
     payload["alertas"] = [
         _alerta(alerta)
@@ -532,6 +540,15 @@ def conversacion_cerrar_casos(request, id):
 def conversacion_vaciar(request, id):
     """Cierra la conversación para que el bot arranque sin contexto."""
     vaciar_chat(id, request.funcionario.id)
+    return Response(_conversacion_detalle(id))
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsAprobador])
+def conversacion_desbloquear(request, id):
+    """Levanta el bloqueo de 48 horas del número antes de que venza."""
+    desbloquear_numero(id, request.funcionario.id)
     return Response(_conversacion_detalle(id))
 
 

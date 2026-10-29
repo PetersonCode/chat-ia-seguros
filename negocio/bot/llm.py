@@ -27,6 +27,10 @@ from negocio.bot.prompts import (
 logger = logging.getLogger(__name__)
 
 TIMEOUT_SEGUNDOS = 15
+# Clasificar tiene que dar siempre lo mismo; el saludo no: con temperatura 0
+# el modelo repetía la misma frase a cada cliente y en cada turno.
+TEMPERATURA_CLASIFICAR = 0
+TEMPERATURA_CHARLAR = 0.7
 
 
 class LLMClient(Protocol):
@@ -36,11 +40,26 @@ class LLMClient(Protocol):
         """Código de `CODIGOS_CONSULTA`, o `None` si no se pudo clasificar."""
 
     def charlar(self, texto: str, historial: list[str]) -> str | None:
-        """Texto libre para el saludo, o `None` para usar la plantilla fija."""
+        """Texto libre para el saludo, o `None` para usar la plantilla fija.
+
+        `historial` viene rotulado ("Cliente: …" / "Asistente: …"): para no
+        repetirse, el modelo tiene que ver qué contestó antes.
+        """
+
+
+ENCABEZADO_CLIENTE = "Mensajes anteriores del cliente, solo como contexto. No respondas a estos"
+ENCABEZADO_CHARLA = (
+    "Así viene la conversación, solo como contexto. No la respondas y no "
+    "repitas lo que ya dijo el asistente"
+)
 
 
 def _mensajes(
-    sistema: str, texto: str, historial: list[str], rotulo: str = "Mensaje del cliente"
+    sistema: str,
+    texto: str,
+    historial: list[str],
+    rotulo: str = "Mensaje del cliente",
+    encabezado: str = ENCABEZADO_CLIENTE,
 ) -> list[dict[str, str]]:
     """Arma el cuerpo del chat con, como máximo, `MAX_HISTORIAL` mensajes.
 
@@ -58,10 +77,7 @@ def _mensajes(
         mensajes.append(
             {
                 "role": "user",
-                "content": (
-                    "Mensajes anteriores del cliente, solo como contexto. "
-                    f"No respondas a estos:\n{contexto}"
-                ),
+                "content": f"{encabezado}:\n{contexto}",
             }
         )
         mensajes.append({"role": "assistant", "content": "Entendido."})
@@ -119,9 +135,11 @@ class OpenAICompatClient:
         self.api_key = api_key or os.getenv("LLM_API_KEY", "")
         self.modelo = modelo or os.getenv("LLM_MODEL", "")
 
-    def _completar(self, mensajes: list[dict[str, str]]) -> str | None:
+    def _completar(
+        self, mensajes: list[dict[str, str]], temperatura: float = TEMPERATURA_CLASIFICAR
+    ) -> str | None:
         cuerpo = json.dumps(
-            {"model": self.modelo, "messages": mensajes, "temperature": 0}
+            {"model": self.modelo, "messages": mensajes, "temperature": temperatura}
         ).encode("utf-8")
         peticion = request.Request(
             f"{self.base_url}/chat/completions",
@@ -152,7 +170,10 @@ class OpenAICompatClient:
         return codigo if codigo in CODIGOS_CONSULTA else None
 
     def charlar(self, texto: str, historial: list[str]) -> str | None:
-        return self._completar(_mensajes(SISTEMA_SALUDO, texto, historial))
+        return self._completar(
+            _mensajes(SISTEMA_SALUDO, texto, historial, encabezado=ENCABEZADO_CHARLA),
+            temperatura=TEMPERATURA_CHARLAR,
+        )
 
 
 def cliente_llm() -> LLMClient:

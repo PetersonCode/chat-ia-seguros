@@ -1,3 +1,5 @@
+import { inicializarNav } from "../nav.js?v=20261029a";
+
 document.addEventListener('DOMContentLoaded', () => {
     const filtroPeriodo = document.getElementById('filtro-periodo');
     const listaMotivos = document.getElementById('lista-motivos');
@@ -78,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Inicializar
+    inicializarNav();
     actualizarKPIs('7dias');
     renderizarMotivos();
 });

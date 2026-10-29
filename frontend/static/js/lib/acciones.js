@@ -1,4 +1,4 @@
-import { formatearMonto } from "./formato.js?v=20261020b";
+import { formatearMonto } from "./formato.js?v=20261029a";
 
 const tiposQueRequierenPoliza = new Set([
     "baja_poliza",

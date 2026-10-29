@@ -1,13 +1,13 @@
-import { api } from "../api.js?v=20261020b";
-import { inicializarNav } from "../nav.js?v=20261020b";
-import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261020b";
+import { api } from "../api.js?v=20261029a";
+import { inicializarNav } from "../nav.js?v=20261029a";
+import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261029a";
 import {
     etiquetaEstadoPoliza,
     mesesDeCobertura,
     ordenarPolizas,
     validarPoliza,
-} from "../lib/polizas.js?v=20261020b";
-import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261020b";
+} from "../lib/polizas.js?v=20261029a";
+import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261029a";
 
 const idCliente = new URLSearchParams(globalThis.location.search).get("id");
 const nombreCliente = document.getElementById("nombre-cliente");

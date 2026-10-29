@@ -49,6 +49,7 @@ from datos.selectors import (
     historial_reciente,
     polizas_vigentes,
     resumen_polizas,
+    ultimo_saliente_visible,
 )
 from negocio.acciones import derivar, solicitar_accion
 from negocio.bot import plantillas, registro
@@ -101,6 +102,9 @@ DURACION_BLOQUEO = timedelta(hours=48)
 # Con qué empieza la descripción de la alerta de insistencia. El bloqueo se lee
 # de esa alerta, así que no hace falta estado nuevo en la base.
 MARCA_INSISTENCIA = "Insistió"
+# La resolución con la que un funcionario levanta el bloqueo antes de tiempo
+# (`supervision.desbloquear_numero`). También se lee de la alerta.
+RESOLUCION_DESBLOQUEO = "Desbloqueado por un funcionario antes de que venciera el bloqueo"
 
 
 @dataclass
@@ -269,9 +273,30 @@ def _respuesta_derivacion(tipo: str) -> _Respuesta:
     return _Respuesta(texto, derivar_a=destino)
 
 
-def _respuesta_saludo(texto: str, historial: list[str], llm) -> _Respuesta:
+def _historial_charla(conversacion_id: int) -> list[str]:
+    """La conversación ya contestada, con quién dijo cada cosa.
+
+    Al clasificador le alcanza con los textos; para saludar sin repetirse, el
+    LLM tiene que saber qué le contestó antes. Los entrantes sin consulta son
+    la ráfaga que se está atendiendo, que ya va como mensaje del cliente.
+    """
+    lineas = []
+    for previo in historial_reciente(conversacion_id, limite=MAX_HISTORIAL * 2):
+        if previo.direccion == Direccion.ENTRANTE:
+            if previo.consulta_id is not None:
+                lineas.append(f"Cliente: {previo.texto}")
+        elif previo.estado_envio not in (EstadoEnvio.RETENIDO, EstadoEnvio.DESCARTADO):
+            lineas.append(f"Asistente: {previo.texto}")
+    return lineas[-MAX_HISTORIAL:]
+
+
+def _respuesta_saludo(texto: str, llm, conversacion) -> _Respuesta:
     """AC-T3-36: el saludo puede venir del LLM, pero igual pasa por guardrails."""
-    del_llm = charlar_con_llm(llm, texto, historial)
+    del_llm = charlar_con_llm(llm, texto, _historial_charla(conversacion.id))
+    if del_llm and plantillas.es_repeticion(
+        del_llm, ultimo_saliente_visible(conversacion.id)
+    ):
+        del_llm = None
     return _Respuesta(del_llm or plantillas.SALUDO)
 
 
@@ -281,7 +306,6 @@ def _armar_respuesta(
     *,
     cliente_id: int | None,
     texto: str,
-    historial: list[str],
     llm,
     conversacion,
     contacto,
@@ -299,7 +323,7 @@ def _armar_respuesta(
 
     # Política `bot_responde`: saludo, saldo, vencimiento, siniestro, asistencia.
     if tipo == "saludo":
-        return _respuesta_saludo(texto, historial, llm)
+        return _respuesta_saludo(texto, llm, conversacion)
     if tipo == "siniestro":
         return _Respuesta(plantillas.SINIESTRO_INSTRUCCIONES)
     if tipo == "asistencia":
@@ -526,6 +550,27 @@ def _marcar_insistencia(alertas: list[AlertaDetectada], contacto_id: int) -> boo
     return True
 
 
+def bloqueo_vigente(contacto_id: int) -> Alerta | None:
+    """La alerta de insistencia que tiene bloqueado al número, si sigue vigente.
+
+    Deja de estarlo a las 48 horas o cuando un funcionario lo desbloquea. En los
+    dos casos la alerta sigue siendo la última insistencia, así que la cuenta de
+    intentos arranca de cero desde ahí.
+    """
+    insistencia = _ultima_insistencia(contacto_id)
+    if insistencia is None or insistencia.resolucion == RESOLUCION_DESBLOQUEO:
+        return None
+    if insistencia.creada_en + DURACION_BLOQUEO <= timezone.now():
+        return None
+    return insistencia
+
+
+def bloqueado_hasta(contacto_id: int):
+    """Hasta cuándo el bot ignora al número, o `None` si no está bloqueado."""
+    insistencia = bloqueo_vigente(contacto_id)
+    return insistencia.creada_en + DURACION_BLOQUEO if insistencia else None
+
+
 def ignorar_si_bloqueado(mensaje: Mensaje) -> bool:
     """Si el número está bloqueado por insistir, deja el mensaje sin respuesta.
 
@@ -537,10 +582,8 @@ def ignorar_si_bloqueado(mensaje: Mensaje) -> bool:
     """
     if mensaje.consulta_id is not None:
         return False
-    insistencia = _ultima_insistencia(mensaje.conversacion.contacto_id)
+    insistencia = bloqueo_vigente(mensaje.conversacion.contacto_id)
     if insistencia is None:
-        return False
-    if insistencia.creada_en + DURACION_BLOQUEO <= timezone.now():
         return False
     Mensaje.objects.filter(pk=mensaje.pk, consulta__isnull=True).update(
         consulta_id=insistencia.consulta_id
@@ -839,7 +882,6 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
                 tipo_obj.politica,
                 cliente_id=cliente_id,
                 texto=texto,
-                historial=historial,
                 llm=llm,
                 conversacion=conversacion,
                 contacto=contacto,
@@ -856,6 +898,10 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
                 conversacion=conversacion,
                 contacto=contacto,
             )
+
+    # Antes de los guardrails, para que revisen el texto que de verdad sale.
+    anterior = ultimo_saliente_visible(conversacion.id)
+    respuesta.texto = plantillas.sin_repetir(respuesta.texto, anterior)
 
     alertas_salida = evaluar_salida(
         respuesta.texto,
@@ -909,7 +955,8 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
             aviso = _crear_saliente(
                 conversacion,
                 consulta,
-                plantillas.AVISO_NEUTRO,
+                # La respuesta retenida no la vio: se compara con lo anterior.
+                plantillas.sin_repetir(plantillas.AVISO_NEUTRO, anterior),
                 EstadoEnvio.PENDIENTE_ENVIO,
             )
 

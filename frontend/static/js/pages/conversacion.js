@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261020b";
-import { inicializarNav } from "../nav.js?v=20261020b";
-import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261020b";
-import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261020b";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261020b";
-import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261020b";
+import { api } from "../api.js?v=20261029a";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261029a";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261029a";
+import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261029a";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261029a";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261029a";
 
 const idConversacion = new URLSearchParams(globalThis.location.search).get("id");
 const tituloChat = document.getElementById("titulo-chat");
@@ -16,6 +16,8 @@ const mensajesChat = document.getElementById("mensajes-chat");
 const botonModo = document.getElementById("boton-modo");
 const botonCerrarCasos = document.getElementById("boton-cerrar-casos");
 const botonVaciar = document.getElementById("boton-vaciar");
+const avisoBloqueo = document.getElementById("aviso-bloqueo");
+const botonDesbloquear = document.getElementById("boton-desbloquear");
 const formularioRespuesta = document.getElementById("formulario-respuesta");
 const textoRespuesta = document.getElementById("texto-respuesta");
 const botonResponder = document.getElementById("boton-responder");
@@ -229,6 +231,16 @@ function renderizarConversacion(detalle) {
         ? ""
         : "La ventana de atención de 24 horas está cerrada; no se puede responder por WhatsApp.";
 
+    // El bloqueo es del número: se avisa aunque esta conversación esté cerrada.
+    // Levantarlo es una decisión de seguridad, así que el botón es para aprobadores.
+    const bloqueado = Boolean(detalle.bloqueado_hasta);
+    avisoBloqueo.hidden = !bloqueado;
+    botonDesbloquear.hidden = !bloqueado || !funcionario?.puede_aprobar;
+    avisoBloqueo.textContent = bloqueado
+        ? `Número bloqueado por insistir con intentos de manipulación: el bot lo ignora hasta el ${formatearFechaHora(detalle.bloqueado_hasta)}.`
+            + (funcionario?.puede_aprobar ? "" : " Solo un funcionario con permiso de aprobación puede desbloquearlo.")
+        : "";
+
     renderizarCliente(detalle);
     renderizarAlertas(detalle.alertas);
 }
@@ -295,6 +307,21 @@ function vaciarChat() {
             nodosPorId.clear();
             mensajesChat.replaceChildren();
             mostrarMensajePagina("Chat vaciado. El próximo mensaje del cliente empieza una conversación nueva.");
+        },
+    );
+}
+
+function desbloquearNumero() {
+    abrirConfirmacion(
+        "Desbloquear número",
+        "El bot vuelve a atender a este número desde su próximo mensaje. Los mensajes"
+        + " que mandó mientras estaba bloqueado no se responden. Si vuelve a insistir"
+        + " con 3 intentos de manipulación, se bloquea otras 48 horas.",
+        async () => {
+            conversacion = await api.post(`/api/conversaciones/${idConversacion}/desbloquear/`);
+            renderizarConversacion(conversacion);
+            notificarActualizacionPendientes();
+            mostrarMensajePagina("Número desbloqueado: el bot vuelve a atenderlo.");
         },
     );
 }
@@ -465,6 +492,7 @@ async function iniciar() {
 botonModo.addEventListener("click", cambiarModo);
 botonCerrarCasos.addEventListener("click", cerrarCasos);
 botonVaciar.addEventListener("click", vaciarChat);
+botonDesbloquear.addEventListener("click", desbloquearNumero);
 formularioRespuesta.addEventListener("submit", responder);
 dialogoCancelar.addEventListener("click", () => dialogo.close());
 dialogoConfirmar.addEventListener("click", confirmarAccion);

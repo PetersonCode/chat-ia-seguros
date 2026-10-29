@@ -17,6 +17,7 @@ _PAGINAS = {
     "/panel/clientes/": "clientes.html",
     "/panel/cliente/": "cliente.html",
     "/panel/usuarios/": "usuarios.html",
+    "/panel/metricas/": "panel.html",
 }
 
 

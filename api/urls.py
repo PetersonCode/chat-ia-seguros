@@ -26,6 +26,7 @@ from api.views import (
     conversacion_responder,
     conversacion_tomar,
     conversacion_vaciar,
+    conversacion_desbloquear,
     conversaciones_listar,
     usuario_cambiar_clave,
     usuario_modificar,
@@ -60,6 +61,7 @@ urlpatterns = [
     path("api/usuarios/<int:id>/", usuario_modificar, name="api_usuario"),
     path("api/usuarios/<int:id>/clave/", usuario_cambiar_clave, name="api_usuario_clave"),
     path("api/conversaciones/<int:id>/vaciar/", conversacion_vaciar, name="api_conversacion_vaciar"),
+    path("api/conversaciones/<int:id>/desbloquear/", conversacion_desbloquear, name="api_conversacion_desbloquear"),
     path("api/mensajes/<int:id>/liberar/", mensaje_liberar, name="api_mensaje_liberar"),
     path("api/mensajes/<int:id>/descartar/", mensaje_descartar, name="api_mensaje_descartar"),
     path("api/alertas/", alertas_listar, name="api_alertas"),
@@ -92,4 +94,5 @@ urlpatterns = [
     path("panel/clientes/", servir_pagina, name="pagina_clientes"),
     path("panel/cliente/", servir_pagina, name="pagina_cliente"),
     path("panel/usuarios/", servir_pagina, name="pagina_usuarios"),
+    path("panel/metricas/", servir_pagina, name="pagina_metricas"),
 ]
