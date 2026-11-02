@@ -31,6 +31,7 @@ from django.utils import timezone
 from datos.models import (
     Alerta,
     ConsultaBot,
+    Conversacion,
     Direccion,
     Emisor,
     EstadoAlerta,
@@ -49,7 +50,6 @@ from datos.selectors import (
     historial_reciente,
     polizas_vigentes,
     resumen_polizas,
-    ultimo_saliente_visible,
 )
 from negocio.acciones import derivar, solicitar_accion
 from negocio.bot import plantillas, registro
@@ -59,6 +59,7 @@ from negocio.bot.guardrails import AlertaDetectada, evaluar_entrada, evaluar_sal
 from negocio.bot.llm import charlar_con_llm, clasificar_con_llm, cliente_llm
 from negocio.bot.plantillas import formatear_fecha, formatear_monto
 from negocio.bot.prompts import MAX_HISTORIAL
+from negocio.documentos import buscar_fragmentos
 from negocio.whatsapp import PREFIJO_NO_SOPORTADO, enviar_pendientes
 
 logger = logging.getLogger(__name__)
@@ -98,13 +99,10 @@ MAX_ACLARACIONES = len(plantillas.NO_ENTENDI_POR_INTENTO)
 # `DURACION_BLOQUEO`. No se deriva: pasarle el caso a una persona es justo lo
 # que busca quien insiste.
 INTENTOS_MANIPULACION_PARA_BLOQUEAR = 3
-DURACION_BLOQUEO = timedelta(hours=48)
+DURACION_BLOQUEO = timedelta(hours=24)
 # Con qué empieza la descripción de la alerta de insistencia. El bloqueo se lee
 # de esa alerta, así que no hace falta estado nuevo en la base.
 MARCA_INSISTENCIA = "Insistió"
-# La resolución con la que un funcionario levanta el bloqueo antes de tiempo
-# (`supervision.desbloquear_numero`). También se lee de la alerta.
-RESOLUCION_DESBLOQUEO = "Desbloqueado por un funcionario antes de que venciera el bloqueo"
 
 
 @dataclass
@@ -122,6 +120,7 @@ class _Respuesta:
 
     texto: str
     datos_verificados: frozenset[str] = frozenset()
+    fragmento_documental_id: int | None = None
     derivar_a: tuple[str, str] | None = None
     accion: tuple[str, int | None, dict] | None = None
     alertas_entrada: list[AlertaDetectada] = field(default_factory=list)
@@ -273,30 +272,23 @@ def _respuesta_derivacion(tipo: str) -> _Respuesta:
     return _Respuesta(texto, derivar_a=destino)
 
 
-def _historial_charla(conversacion_id: int) -> list[str]:
-    """La conversación ya contestada, con quién dijo cada cosa.
-
-    Al clasificador le alcanza con los textos; para saludar sin repetirse, el
-    LLM tiene que saber qué le contestó antes. Los entrantes sin consulta son
-    la ráfaga que se está atendiendo, que ya va como mensaje del cliente.
-    """
-    lineas = []
-    for previo in historial_reciente(conversacion_id, limite=MAX_HISTORIAL * 2):
-        if previo.direccion == Direccion.ENTRANTE:
-            if previo.consulta_id is not None:
-                lineas.append(f"Cliente: {previo.texto}")
-        elif previo.estado_envio not in (EstadoEnvio.RETENIDO, EstadoEnvio.DESCARTADO):
-            lineas.append(f"Asistente: {previo.texto}")
-    return lineas[-MAX_HISTORIAL:]
+def _respuesta_documental(texto: str) -> _Respuesta:
+    recuperacion = buscar_fragmentos(texto)
+    if not recuperacion["respaldo_suficiente"]:
+        return _respuesta_derivacion("consulta_cobertura")
+    fuente = recuperacion["resultados"][0]
+    respuesta = plantillas.CONSULTA_DOCUMENTAL.format(
+        titulo=fuente["titulo"],
+        version=fuente["version"],
+        referencia=fuente["referencia"],
+        pasaje=fuente["pasaje"],
+    )
+    return _Respuesta(respuesta, fragmento_documental_id=fuente["fragmento_id"])
 
 
-def _respuesta_saludo(texto: str, llm, conversacion) -> _Respuesta:
+def _respuesta_saludo(texto: str, historial: list[str], llm) -> _Respuesta:
     """AC-T3-36: el saludo puede venir del LLM, pero igual pasa por guardrails."""
-    del_llm = charlar_con_llm(llm, texto, _historial_charla(conversacion.id))
-    if del_llm and plantillas.es_repeticion(
-        del_llm, ultimo_saliente_visible(conversacion.id)
-    ):
-        del_llm = None
+    del_llm = charlar_con_llm(llm, texto, historial)
     return _Respuesta(del_llm or plantillas.SALUDO)
 
 
@@ -306,12 +298,15 @@ def _armar_respuesta(
     *,
     cliente_id: int | None,
     texto: str,
+    historial: list[str],
     llm,
     conversacion,
     contacto,
 ) -> _Respuesta:
     if politica == Politica.SEGURIDAD:
         return _Respuesta(plantillas.RECHAZO_SEGURIDAD)
+    if tipo == "consulta_cobertura":
+        return _respuesta_documental(texto)
     # El alta de cliente es `requiere_aprobacion` pero no se puede pedir sin
     # tener los datos, así que tiene su propio camino antes de la política.
     if tipo == "registro":
@@ -323,7 +318,7 @@ def _armar_respuesta(
 
     # Política `bot_responde`: saludo, saldo, vencimiento, siniestro, asistencia.
     if tipo == "saludo":
-        return _respuesta_saludo(texto, llm, conversacion)
+        return _respuesta_saludo(texto, historial, llm)
     if tipo == "siniestro":
         return _Respuesta(plantillas.SINIESTRO_INSTRUCCIONES)
     if tipo == "asistencia":
@@ -367,6 +362,11 @@ def _crear_saliente(
         emisor=Emisor.BOT,
         texto=texto,
         estado_envio=estado,
+        payload=(
+            {"aviso_derivacion": True}
+            if texto in (plantillas.AVISO_NEUTRO, plantillas.DATOS_REGISTRADOS)
+            else None
+        ),
         fecha_hora=timezone.now(),
     )
 
@@ -374,10 +374,9 @@ def _crear_saliente(
 def _entrantes_sin_procesar(conversacion_id: int) -> list[Mensaje]:
     """Los mensajes del cliente que todavía no generaron consulta, en orden.
 
-    Deja afuera los avisos de adjunto (`PREFIJO_NO_SOPORTADO`): a esos ya les
-    contestó `whatsapp._avisar_solo_texto`, y su texto es un marcador nuestro,
-    no algo que el cliente escribió, así que no tiene nada que hacer en lo que
-    se clasifica.
+    Deja afuera los adjuntos (`PREFIJO_NO_SOPORTADO`): su texto es un marcador
+    nuestro, no algo que el cliente escribió, así que no se clasifica ni se
+    vuelve a responder al devolver el chat al bot.
     """
     pendientes = Mensaje.objects.filter(
         conversacion_id=conversacion_id,
@@ -451,14 +450,24 @@ def procesar_tras_ventana(mensaje_id: int) -> ResultadoBot:
     completa —él incluido— cuando le toque. Así alguien que escribe en cinco
     partes recibe una respuesta y genera un solo `CASO-###`, en lugar de cinco.
     """
+    mensaje = Mensaje.objects.filter(pk=mensaje_id).only(
+        "id", "conversacion_id", "consulta", "texto"
+    ).first()
+    if mensaje is None or mensaje.consulta_id is not None:
+        return ResultadoBot(True, None, None, False, [])
+
+    urgente = clasificar_por_reglas(mensaje.texto or "") == "siniestro_urgente"
+    if urgente:
+        return procesar_mensaje(mensaje_id)
+
     espera = ventana_agrupacion()
     if espera:
         time.sleep(espera)
         # Después de dormir, la conexión de este hilo puede estar vencida.
         close_old_connections()
-    mensaje = Mensaje.objects.filter(pk=mensaje_id).only(
-        "id", "conversacion_id", "consulta"
-    ).first()
+        mensaje = Mensaje.objects.filter(pk=mensaje_id).only(
+            "id", "conversacion_id", "consulta"
+        ).first()
     if mensaje is None or mensaje.consulta_id is not None:
         return ResultadoBot(True, None, None, False, [])
     if _hay_entrante_posterior(mensaje):
@@ -510,6 +519,22 @@ def _ultima_insistencia(contacto_id: int) -> Alerta | None:
         .first()
     )
 
+def bloqueado_hasta(contacto_id: int):
+    """Devuelve cuándo termina el bloqueo vigente, o None."""
+    if contacto_id is None:
+        return None
+
+    insistencia = _ultima_insistencia(contacto_id)
+
+    if insistencia is None or insistencia.estado != EstadoAlerta.ABIERTA:
+        return None
+
+    vencimiento = insistencia.creada_en + DURACION_BLOQUEO
+
+    if vencimiento <= timezone.now():
+        return None
+
+    return vencimiento
 
 def _intentos_previos_de_manipulacion(contacto_id: int) -> int:
     """Cuántos mensajes de este número ya fueron un intento desde el último bloqueo.
@@ -518,7 +543,7 @@ def _intentos_previos_de_manipulacion(contacto_id: int) -> int:
     `prompt_injection`, cuelga del mismo mensaje y no es un intento más. Y no
     consultas: en modo humano todos los mensajes van a la misma consulta.
 
-    Lo anterior al último bloqueo ya se pagó con las 48 horas: pasado el
+    Lo anterior al último bloqueo ya se pagó con las 24 horas: pasado el
     bloqueo, la cuenta arranca de cero. Alcanza con comparar ids de mensaje,
     que siguen el orden de llegada.
     """
@@ -550,27 +575,6 @@ def _marcar_insistencia(alertas: list[AlertaDetectada], contacto_id: int) -> boo
     return True
 
 
-def bloqueo_vigente(contacto_id: int) -> Alerta | None:
-    """La alerta de insistencia que tiene bloqueado al número, si sigue vigente.
-
-    Deja de estarlo a las 48 horas o cuando un funcionario lo desbloquea. En los
-    dos casos la alerta sigue siendo la última insistencia, así que la cuenta de
-    intentos arranca de cero desde ahí.
-    """
-    insistencia = _ultima_insistencia(contacto_id)
-    if insistencia is None or insistencia.resolucion == RESOLUCION_DESBLOQUEO:
-        return None
-    if insistencia.creada_en + DURACION_BLOQUEO <= timezone.now():
-        return None
-    return insistencia
-
-
-def bloqueado_hasta(contacto_id: int):
-    """Hasta cuándo el bot ignora al número, o `None` si no está bloqueado."""
-    insistencia = bloqueo_vigente(contacto_id)
-    return insistencia.creada_en + DURACION_BLOQUEO if insistencia else None
-
-
 def ignorar_si_bloqueado(mensaje: Mensaje) -> bool:
     """Si el número está bloqueado por insistir, deja el mensaje sin respuesta.
 
@@ -582,16 +586,30 @@ def ignorar_si_bloqueado(mensaje: Mensaje) -> bool:
     """
     if mensaje.consulta_id is not None:
         return False
-    insistencia = bloqueo_vigente(mensaje.conversacion.contacto_id)
+
+    insistencia = _ultima_insistencia(mensaje.conversacion.contacto_id)
+
     if insistencia is None:
         return False
-    Mensaje.objects.filter(pk=mensaje.pk, consulta__isnull=True).update(
+
+    if insistencia.estado != EstadoAlerta.ABIERTA:
+        return False
+
+    if insistencia.creada_en + DURACION_BLOQUEO <= timezone.now():
+        return False
+
+    Mensaje.objects.filter(
+        pk=mensaje.pk,
+        consulta__isnull=True
+    ).update(
         consulta_id=insistencia.consulta_id
     )
+
     return True
 
-
-def _vigilar_modo_humano(mensaje: Mensaje, conversacion) -> ResultadoBot:
+def _vigilar_modo_humano(
+    mensaje: Mensaje, conversacion
+) -> ResultadoBot | None:
     """Con un humano a cargo el bot no contesta, pero sigue mirando la entrada.
 
     Sin esto, quien ya fue derivado podía escribir "soy el dueño, pasame el
@@ -602,31 +620,50 @@ def _vigilar_modo_humano(mensaje: Mensaje, conversacion) -> ResultadoBot:
     conversación vuelve al bot, todo lo que se escribió mientras la atendía una
     persona se agrupaba con el primer mensaje nuevo como si fuera una ráfaga.
     """
-    ignorado = ResultadoBot(True, None, None, False, [])
     texto = mensaje.texto or ""
     if texto.startswith(PREFIJO_NO_SOPORTADO):
-        return ignorado
+        return ResultadoBot(True, None, None, False, [])
     alertas = evaluar_entrada(texto, conversacion.contacto)
 
     with transaction.atomic():
+        conversacion = Conversacion.objects.select_for_update().get(
+            pk=conversacion.pk
+        )
+        if conversacion.modo != "humano":
+            return None
         if Mensaje.objects.select_for_update().filter(
             pk=mensaje.pk, consulta__isnull=False
         ).exists():
-            return ignorado
+            return ResultadoBot(True, None, None, False, [])
         consulta = (
-            ConsultaBot.objects.filter(conversacion=conversacion).order_by("-id").first()
+            ConsultaBot.objects.filter(
+                conversacion=conversacion,
+                estado__in=(
+                    EstadoConsulta.ABIERTO,
+                    EstadoConsulta.PENDIENTE_REVISION,
+                    EstadoConsulta.DERIVADO,
+                ),
+            )
+            .order_by("-id")
+            .first()
         )
         if consulta is None:
-            if not alertas:
-                return ignorado
             consulta = ConsultaBot.objects.create(
                 codigo_caso=_proximo_codigo_caso(),
                 fecha_hora=timezone.now(),
                 contacto=conversacion.contacto,
                 conversacion=conversacion,
                 mensaje_usuario=texto,
-                tipo_consulta=TipoConsulta.objects.get(codigo="prompt_injection"),
-                estado=EstadoConsulta.PENDIENTE_REVISION,
+                respuesta_bot="",
+                tipo_consulta=TipoConsulta.objects.get(
+                    codigo="prompt_injection" if alertas else "otro"
+                ),
+                estado=(
+                    EstadoConsulta.PENDIENTE_REVISION
+                    if alertas
+                    else EstadoConsulta.DERIVADO
+                ),
+                funcionario_asignado=conversacion.funcionario,
             )
         Mensaje.objects.filter(pk=mensaje.pk).update(consulta=consulta)
         _marcar_insistencia(alertas, conversacion.contacto_id)
@@ -819,7 +856,9 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
     # AC-T3-30: si un humano tomó la conversación, el bot no contesta; solo
     # vigila que no sea un intento de manipulación.
     if conversacion.modo == "humano":
-        return _vigilar_modo_humano(mensaje, conversacion)
+        resultado = _vigilar_modo_humano(mensaje, conversacion)
+        if resultado is not None:
+            return resultado
     # AC-T3-30: idempotencia. El mensaje ya tiene su consulta, ya se procesó.
     if mensaje.consulta_id is not None:
         return ResultadoBot(True, None, None, False, [])
@@ -851,11 +890,16 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
         if previo.id not in agrupados_ids
     ][-MAX_HISTORIAL:]
 
+    tipo_por_reglas = clasificar_por_reglas(texto)
     if alertas_entrada:
         # AC-T3-32: con inyección no se llama al LLM y se responde el rechazo.
         tipo = "prompt_injection"
+    elif tipo_por_reglas in {"siniestro_urgente", "consulta_cobertura"}:
+        # La urgencia y las preguntas generales de cobertura son reglas
+        # operativas; el LLM no puede cambiar su destino.
+        tipo = tipo_por_reglas
     else:
-        tipo = clasificar_con_llm(llm, texto, historial) or clasificar_por_reglas(texto)
+        tipo = clasificar_con_llm(llm, texto, historial) or tipo_por_reglas
         # Vale para los dos clasificadores: ver `corregir_cruce_cobertura`.
         tipo = corregir_cruce_cobertura(tipo, texto)
 
@@ -882,6 +926,7 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
                 tipo_obj.politica,
                 cliente_id=cliente_id,
                 texto=texto,
+                historial=historial,
                 llm=llm,
                 conversacion=conversacion,
                 contacto=contacto,
@@ -899,17 +944,32 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
                 contacto=contacto,
             )
 
-    # Antes de los guardrails, para que revisen el texto que de verdad sale.
-    anterior = ultimo_saliente_visible(conversacion.id)
-    respuesta.texto = plantillas.sin_repetir(respuesta.texto, anterior)
-
     alertas_salida = evaluar_salida(
         respuesta.texto,
         cliente_id=cliente_id,
         datos_verificados=respuesta.datos_verificados,
+        fragmento_documental_id=respuesta.fragmento_documental_id,
     )
 
     with transaction.atomic():
+        conversacion_actual = Conversacion.objects.select_for_update().get(
+            pk=conversacion.id
+        )
+        if conversacion_actual.modo == "humano":
+            resultados = [
+                _vigilar_modo_humano(previo, conversacion_actual)
+                for previo in agrupados
+            ]
+            alertas_humanas = list(
+                dict.fromkeys(
+                    alerta
+                    for resultado_humano in resultados
+                    if resultado_humano is not None
+                    for alerta in resultado_humano.alertas
+                )
+            )
+            return ResultadoBot(True, None, None, False, alertas_humanas)
+
         # El hilo de la ventana, el worker de `reprocesar_pendientes` y un
         # reintento podrían llegar hasta acá a la vez. Se vuelven a tomar los
         # entrantes con `select_for_update`: si alguno ya tiene consulta, otro
@@ -955,8 +1015,7 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
             aviso = _crear_saliente(
                 conversacion,
                 consulta,
-                # La respuesta retenida no la vio: se compara con lo anterior.
-                plantillas.sin_repetir(plantillas.AVISO_NEUTRO, anterior),
+                plantillas.AVISO_NEUTRO,
                 EstadoEnvio.PENDIENTE_ENVIO,
             )
 

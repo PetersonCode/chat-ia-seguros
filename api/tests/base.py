@@ -10,6 +10,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from datos import fabricas
+from datos.tests.transacciones import conservar_conexion_del_test
 
 CLAVE = "clave-de-prueba"
 
@@ -19,6 +20,7 @@ class ApiTestCase(TestCase):
     """Crea un aprobador, un operador y un cliente con conversación abierta."""
 
     def setUp(self):
+        conservar_conexion_del_test(self)
         self.cliente_api = APIClient()
         self.aprobadora = fabricas.crear_funcionario("Graciela", puede_aprobar=True)
         self.operador = fabricas.crear_funcionario("Diego", puede_aprobar=False)

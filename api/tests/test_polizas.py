@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from api.tests.base import ApiTestCase
 from datos import fabricas
-from datos.models import Cuota, EstadoCuota, Poliza
+from datos.models import Cuota, EstadoCuota, Pago, Poliza
 
 
 class AltaDePolizaPorApiTests(ApiTestCase):
@@ -63,7 +63,7 @@ class AltaDePolizaPorApiTests(ApiTestCase):
 
         # 12 cuotas de 18.000, todas pendientes.
         self.assertEqual(cuerpo["saldo_pendiente"], "216000.00")
-        self.assertEqual(cuerpo["proximo_vencimiento_pago"], "2026-01-15")
+        self.assertEqual(cuerpo["proximo_vencimiento_pago"], "2026-01-10")
 
     def test_las_opciones_traen_tipos_coberturas_y_el_proximo_numero(self):
         self.entrar()
@@ -158,7 +158,7 @@ class AltaDePolizaPorApiTests(ApiTestCase):
 
 
 class RegistrarPagoPorApiTests(ApiTestCase):
-    """`POST /api/polizas/<id>/pagos/`: cobra la cuota impaga más vieja."""
+    """`POST /api/polizas/<id>/pagos/`: registra un cobro completo identificado."""
 
     ALTA = {
         "tipo_seguro": "automotor",
@@ -180,14 +180,36 @@ class RegistrarPagoPorApiTests(ApiTestCase):
     def ruta(self) -> str:
         return f"/api/polizas/{self.poliza['id']}/pagos/"
 
+    def _pagar(self, referencia="COMP-001", importe="18000.00", poliza=None):
+        poliza_id = (poliza or self.poliza)["id"]
+        return self.cliente_api.post(
+            f"/api/polizas/{poliza_id}/pagos/",
+            {"referencia": referencia, "importe": importe},
+            format="json",
+        )
+
     def test_el_pago_devuelve_la_poliza_con_el_saldo_ya_bajado(self):
-        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+        respuesta = self._pagar()
 
         self.assertEqual(respuesta.status_code, 200, respuesta.content)
         cuerpo = respuesta.json()
         # Eran 12 × 18.000; queda un mes menos.
         self.assertEqual(cuerpo["saldo_pendiente"], "198000.00")
-        self.assertEqual(cuerpo["proximo_vencimiento_pago"], "2026-02-15")
+        self.assertEqual(cuerpo["proximo_vencimiento_pago"], "2026-02-10")
+        self.assertEqual(
+            cuerpo["pago"],
+            {
+                "id": Pago.objects.get().id,
+                "referencia": "COMP-001",
+                "cuota_id": Pago.objects.get().cuota_id,
+                "importe": "18000.00",
+                "fecha_pago": Pago.objects.get().fecha_pago.isoformat(),
+                "responsable": {
+                    "id": self.aprobadora.id,
+                    "nombre": self.aprobadora.nombre,
+                },
+            },
+        )
         self.assertEqual(
             Cuota.objects.filter(
                 poliza_id=self.poliza["id"], estado=EstadoCuota.PAGADA
@@ -195,11 +217,62 @@ class RegistrarPagoPorApiTests(ApiTestCase):
             1,
         )
 
+    def test_reintentar_el_mismo_comprobante_devuelve_el_pago_sin_bajar_otro_mes(self):
+        primero = self._pagar()
+        segundo = self._pagar()
+
+        self.assertEqual(primero.status_code, 200, primero.content)
+        self.assertEqual(segundo.status_code, 200, segundo.content)
+        pago_primero = primero.json()["pago"]
+        pago_segundo = segundo.json()["pago"]
+        self.assertEqual(pago_segundo, pago_primero)
+        self.assertEqual(Pago.objects.count(), 1)
+        self.assertEqual(
+            segundo.json()["saldo_pendiente"],
+            "198000.00",
+        )
+        self.assertEqual(
+            Cuota.objects.filter(
+                poliza_id=self.poliza["id"], estado=EstadoCuota.PAGADA
+            ).count(),
+            1,
+        )
+
+    def test_la_referencia_con_datos_incompatibles_se_rechaza(self):
+        self._pagar()
+        respuesta = self._pagar(importe="17000.00")
+
+        self.assertError(respuesta, 409, "estado_invalido")
+        self.assertEqual(Pago.objects.count(), 1)
+
+    def test_un_pago_parcial_se_rechaza_y_no_cambia_el_saldo(self):
+        respuesta = self._pagar(importe="9000.00")
+
+        self.assertError(respuesta, 400, "datos_invalidos")
+        self.assertFalse(Pago.objects.exists())
+        self.assertFalse(
+            Cuota.objects.filter(
+                poliza_id=self.poliza["id"], estado=EstadoCuota.PAGADA
+            ).exists()
+        )
+
+    def test_faltan_referencia_o_importe(self):
+        for payload in (
+            {"importe": "18000.00"},
+            {"referencia": "COMP-SIN-IMPORTE"},
+        ):
+            with self.subTest(payload=payload):
+                self.assertError(
+                    self.cliente_api.post(self.ruta, payload, format="json"),
+                    400,
+                    "datos_invalidos",
+                )
+
     def test_un_operador_sin_permiso_de_aprobacion_no_puede_cobrar(self):
         self.cliente_api.logout()
         self.entrar(self.operador)
 
-        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+        respuesta = self._pagar()
 
         self.assertError(respuesta, 403, "permiso_denegado")
         self.assertFalse(
@@ -209,19 +282,25 @@ class RegistrarPagoPorApiTests(ApiTestCase):
         )
 
     def test_sin_cuotas_pendientes_es_409(self):
-        for _ in range(12):
-            self.cliente_api.post(self.ruta, {}, format="json")
+        for indice in range(12):
+            self._pagar(f"COMP-{indice:03}")
 
-        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+        respuesta = self._pagar("COMP-ULTIMO")
 
         self.assertError(respuesta, 409, "estado_invalido")
 
     def test_una_poliza_inexistente_es_404(self):
-        respuesta = self.cliente_api.post("/api/polizas/999999/pagos/", {}, format="json")
+        respuesta = self.cliente_api.post(
+            "/api/polizas/999999/pagos/",
+            {"referencia": "COMP-404", "importe": "18000.00"},
+            format="json",
+        )
 
         self.assertError(respuesta, 404, "no_encontrado")
 
     def test_sin_sesion_es_401(self):
         self.cliente_api.logout()
 
-        self.assertError(self.cliente_api.post(self.ruta, {}, format="json"), 401, "no_autenticado")
+        self.assertError(
+            self._pagar(), 401, "no_autenticado"
+        )

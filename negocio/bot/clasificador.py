@@ -42,6 +42,13 @@ PATRONES: dict[str, tuple[str, ...]] = {
         "urgente",
         "urgencia",
         "emergencia",
+        "tuve un choque",
+        "tuve un accidente",
+        "me robaron el auto",
+        "me robaron el coche",
+        "estoy en el hospital",
+        "estoy hospitalizado",
+        "estoy hospitalizada",
         "se inundo",
         "se esta inundando",
         "se incendio",
@@ -215,6 +222,12 @@ PATRONES: dict[str, tuple[str, ...]] = {
         "clausula",
         "condiciones de la poliza",
         "que incluye",
+        "que documentacion",
+        "que documentos",
+        "que papeles",
+        "requisitos para",
+        "documentacion necesaria",
+        "documentos necesarios",
     ),
     # Va último en ORDEN, así que acá solo cae lo que ningún otro tipo pidió:
     # es el lugar seguro para la jerga rioplatense. "todo bien" no le roba nada
@@ -278,13 +291,51 @@ def corregir_cruce_cobertura(tipo: str, texto: str) -> str:
     return tipo
 
 
+def _esta_negado(prefijo: str) -> bool:
+    # La negación debe afectar al hecho, no a otra parte del mensaje:
+    # “no tengo el número de póliza, me robaron” sigue siendo urgente.
+    return bool(re.search(
+        r"\b(?:no|nunca|sin)(?:\s+(?:he|hemos|habia|habiamos|me|nos|siquiera|"
+        r"tampoco|aun|todavia|fue|es|era|hubo|un|una|ningun|ninguna))*\s*$",
+        prefijo,
+    ))
+
+
 def clasificar(texto: str) -> str:
     """Devuelve el código de `TipoConsulta` para un mensaje del cliente."""
     normalizado = normalizar(texto)
     if not normalizado:
         return "otro"
+    # Hechos relatados: no dependen de una frase exacta ni del modelo de IA.
+    # Se excluyen negaciones y preguntas generales, sin ocultar otro incidente
+    # afirmativo que aparezca después en el mismo mensaje.
+    frases = re.split(r"[.!?;,]|\bpero\b", normalizado)
+    for frase in frases:
+        incidentes = re.finditer(
+            r"\b(?:choque|chocamos|chocaron|me chocaron|tuve un (?:choque|accidente)|"
+            r"tuvimos un accidente|me robaron|nos robaron|estoy (?:en (?:el )?hospital|hospitalizad[oa])|"
+            r"hay heridos|estoy herid[oa])\b", frase
+        )
+        for incidente in incidentes:
+            if _esta_negado(frase[:incidente.start()]):
+                continue
+            pregunta_general = any(marca in frase for marca in PREGUNTA_COBERTURA)
+            hecho_explicito = re.search(
+                r"\b(?:me|nos) (?:chocaron|robaron)\b|\b(?:tuve|tuvimos|estoy|hay heridos)\b", incidente.group()
+            )
+            if not pregunta_general or hecho_explicito:
+                return "siniestro_urgente"
     for tipo in ORDEN:
-        if any(patron in normalizado for patron in PATRONES[tipo]):
+        candidatos = normalizado
+        if tipo == "siniestro_urgente":
+            for frase in frases:
+                if any(marca in frase for marca in PREGUNTA_COBERTURA):
+                    continue
+                for patron in PATRONES[tipo]:
+                    if any(not _esta_negado(frase[:m.start()]) for m in re.finditer(re.escape(patron), frase)):
+                        return tipo
+            continue
+        if any(patron in candidatos for patron in PATRONES[tipo]):
             return corregir_cruce_cobertura(tipo, texto)
     return "otro"
 

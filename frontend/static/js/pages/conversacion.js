@@ -316,7 +316,7 @@ function desbloquearNumero() {
         "Desbloquear número",
         "El bot vuelve a atender a este número desde su próximo mensaje. Los mensajes"
         + " que mandó mientras estaba bloqueado no se responden. Si vuelve a insistir"
-        + " con 3 intentos de manipulación, se bloquea otras 48 horas.",
+        + " con 3 intentos de manipulación, se bloquea otras 24 horas.",
         async () => {
             conversacion = await api.post(`/api/conversaciones/${idConversacion}/desbloquear/`);
             renderizarConversacion(conversacion);

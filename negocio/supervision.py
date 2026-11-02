@@ -4,8 +4,8 @@ Un mensaje `retenido` nunca sale solo: alguien lo libera tal cual, lo corrige o
 lo descarta. Las tres cosas cierran las alertas que lo retuvieron, y las dos
 primeras disparan el envío.
 
-Aprobador obligatorio en `liberar_respuesta`, `descartar_respuesta`,
-`reabrir_consulta` (contrato, sección 6) y `desbloquear_numero`.
+Aprobador obligatorio en `liberar_respuesta`, `descartar_respuesta` y
+`reabrir_consulta` (contrato, sección 6).
 """
 
 from __future__ import annotations
@@ -14,20 +14,22 @@ from django.db import transaction
 from django.utils import timezone
 
 from datos.models import (
+    AccionPendiente,
     Conversacion,
     ConsultaBot,
     Direccion,
     Emisor,
     EstadoAlerta,
+    EstadoAccion,
     EstadoConsulta,
     EstadoConversacion,
     EstadoEnvio,
     Funcionario,
     Mensaje,
     ModoConversacion,
+    Alerta,
 )
 from datos.selectors import alertas_abiertas
-from negocio.bot.orquestador import RESOLUCION_DESBLOQUEO, bloqueo_vigente
 from negocio.errores import (
     DatosInvalidos,
     EstadoInvalido,
@@ -35,7 +37,7 @@ from negocio.errores import (
     PermisoDenegado,
 )
 from negocio.reglas import ventana_24h_abierta
-from negocio.whatsapp import enviar_pendientes
+from negocio.whatsapp import descartar_automaticos_pendientes, enviar_pendientes
 
 # Un caso sigue "vivo" mientras esté en alguno de estos estados.
 ESTADOS_CASO_ABIERTO = (
@@ -43,10 +45,16 @@ ESTADOS_CASO_ABIERTO = (
     EstadoConsulta.PENDIENTE_REVISION,
     EstadoConsulta.DERIVADO,
 )
+ESTADOS_ACCION_PENDIENTE = (
+    EstadoAccion.PENDIENTE,
+    EstadoAccion.APROBADA,
+)
 
 MOTIVO_MINIMO = 5
 RESOLUCION_LIBERADA = "Liberada sin cambios"
+RESOLUCION_DESBLOQUEO = "Número desbloqueado manualmente"
 RESOLUCION_CORREGIDA = "Respuesta corregida por el funcionario"
+RESOLUCION_DESBLOQUEO = "Número desbloqueado manualmente"
 
 
 def _funcionario(funcionario_id: int, *, aprobador: bool) -> Funcionario:
@@ -108,10 +116,15 @@ def liberar_respuesta(
     """Libera la respuesta retenida, tal cual o reemplazada por otra."""
     funcionario = _funcionario(funcionario_id, aprobador=True)
     mensaje = _mensaje_retenido(mensaje_id)
-    conversacion = mensaje.conversacion
     corregido = (texto_corregido or "").strip()
 
     with transaction.atomic():
+        conversacion = Conversacion.objects.select_for_update().get(
+            pk=mensaje.conversacion_id
+        )
+        mensaje = Mensaje.objects.select_for_update().get(pk=mensaje_id)
+        if mensaje.estado_envio != EstadoEnvio.RETENIDO:
+            raise EstadoInvalido("El mensaje ya no está retenido.")
         if corregido:
             # AC-T3-25: lo del bot se descarta y sale el texto del funcionario.
             mensaje.estado_envio = EstadoEnvio.DESCARTADO
@@ -135,6 +148,13 @@ def liberar_respuesta(
             mensaje.estado_envio = EstadoEnvio.PENDIENTE_ENVIO
             mensaje.save(update_fields=["estado_envio"])
             sale = mensaje
+            if mensaje.consulta is not None:
+                mensaje.consulta.revisado_por = funcionario
+                mensaje.consulta.revisado_en = timezone.now()
+                mensaje.consulta.nota_revision = RESOLUCION_LIBERADA
+                mensaje.consulta.save(
+                    update_fields=["revisado_por", "revisado_en", "nota_revision"]
+                )
             _cerrar_alertas(
                 mensaje, funcionario, EstadoAlerta.DESCARTADA, RESOLUCION_LIBERADA
             )
@@ -163,50 +183,48 @@ def descartar_respuesta(mensaje_id: int, funcionario_id: int, motivo: str) -> Me
 
 
 def tomar_conversacion(conversacion_id: int, funcionario_id: int) -> Conversacion:
-    """El funcionario se queda con la conversación y el bot deja de responder."""
+    """Toma o reasigna el chat; cualquier funcionario activo puede hacerlo."""
     funcionario = _funcionario(funcionario_id, aprobador=False)
-    conversacion = _conversacion(conversacion_id)
-    conversacion.modo = ModoConversacion.HUMANO
-    conversacion.funcionario = funcionario
-    conversacion.save(update_fields=["modo", "funcionario"])
+    with transaction.atomic():
+        conversacion = (
+            Conversacion.objects.select_for_update()
+            .filter(pk=conversacion_id)
+            .first()
+        )
+        if conversacion is None:
+            raise NoEncontrado("La conversación no existe.")
+        if conversacion.estado == EstadoConversacion.CERRADA:
+            raise EstadoInvalido("No se puede tomar una conversación cerrada.")
+        conversacion.modo = ModoConversacion.HUMANO
+        conversacion.funcionario = funcionario
+        conversacion.save(update_fields=["modo", "funcionario"])
+        descartar_automaticos_pendientes(conversacion.id)
+    # Las derivaciones y las respuestas ya liberadas siguen saliendo; la pausa
+    # cancela solo las respuestas automáticas comunes que estaban en cola.
+    enviar_pendientes(conversacion.id)
     return conversacion
 
 
 def devolver_al_bot(conversacion_id: int, funcionario_id: int) -> Conversacion:
-    """Devuelve la conversación al bot y la deja sin responsable."""
-    _funcionario(funcionario_id, aprobador=False)
-    conversacion = _conversacion(conversacion_id)
-    conversacion.modo = ModoConversacion.BOT
-    conversacion.funcionario = None
-    conversacion.save(update_fields=["modo", "funcionario"])
-    return conversacion
-
-
-def desbloquear_numero(conversacion_id: int, funcionario_id: int) -> Conversacion:
-    """Levanta antes de tiempo el bloqueo de 48 horas por insistencia.
-
-    El bloqueo es del número, no de la conversación, así que vale desde
-    cualquiera de sus chats. Se resuelve la alerta de insistencia con una
-    resolución fija: queda registrado quién y cuándo, y como sigue siendo la
-    última insistencia, la cuenta de intentos arranca de cero igual que cuando
-    vencen las 48 horas.
-    """
-    funcionario = _funcionario(funcionario_id, aprobador=True)
-    conversacion = _conversacion(conversacion_id)
-    insistencia = (
-        bloqueo_vigente(conversacion.contacto_id)
-        if conversacion.contacto_id is not None
-        else None
-    )
-    if insistencia is None:
-        raise EstadoInvalido("El número no está bloqueado.")
-    insistencia.estado = EstadoAlerta.RESUELTA
-    insistencia.resuelta_por = funcionario
-    insistencia.resuelta_en = timezone.now()
-    insistencia.resolucion = RESOLUCION_DESBLOQUEO
-    insistencia.save(
-        update_fields=["estado", "resuelta_por", "resuelta_en", "resolucion"]
-    )
+    """Solo el funcionario asignado puede devolver el chat al bot."""
+    funcionario = _funcionario(funcionario_id, aprobador=False)
+    with transaction.atomic():
+        conversacion = (
+            Conversacion.objects.select_for_update()
+            .filter(pk=conversacion_id)
+            .first()
+        )
+        if conversacion is None:
+            raise NoEncontrado("La conversación no existe.")
+        if conversacion.modo != ModoConversacion.HUMANO:
+            raise EstadoInvalido("La conversación no está en atención humana.")
+        if conversacion.funcionario_id != funcionario.id:
+            raise PermisoDenegado(
+                "Solo el funcionario asignado puede devolverla al bot."
+            )
+        conversacion.modo = ModoConversacion.BOT
+        conversacion.funcionario = None
+        conversacion.save(update_fields=["modo", "funcionario"])
     return conversacion
 
 
@@ -217,24 +235,35 @@ def responder_como_humano(
     if not texto or not texto.strip():
         raise DatosInvalidos("El mensaje no puede estar vacío.")
     funcionario = _funcionario(funcionario_id, aprobador=False)
-    conversacion = _conversacion(conversacion_id)
-    if not ventana_24h_abierta(
-        conversacion.ultimo_mensaje_cliente_en, timezone.now()
-    ):
-        raise EstadoInvalido(
-            "Pasaron más de 24 h desde el último mensaje del cliente.",
-            codigo="ventana_24h_cerrada",
+    with transaction.atomic():
+        conversacion = (
+            Conversacion.objects.select_for_update()
+            .filter(pk=conversacion_id)
+            .first()
         )
+        if conversacion is None:
+            raise NoEncontrado("La conversación no existe.")
+        if conversacion.modo != ModoConversacion.HUMANO:
+            raise EstadoInvalido("La conversación no está en atención humana.")
+        if conversacion.funcionario_id != funcionario.id:
+            raise PermisoDenegado("Solo el funcionario asignado puede responder.")
+        if not ventana_24h_abierta(
+            conversacion.ultimo_mensaje_cliente_en, timezone.now()
+        ):
+            raise EstadoInvalido(
+                "Pasaron más de 24 h desde el último mensaje del cliente.",
+                codigo="ventana_24h_cerrada",
+            )
 
-    mensaje = Mensaje.objects.create(
-        conversacion=conversacion,
-        direccion=Direccion.SALIENTE,
-        emisor=Emisor.FUNCIONARIO,
-        funcionario=funcionario,
-        texto=texto.strip(),
-        estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
-        fecha_hora=timezone.now(),
-    )
+        mensaje = Mensaje.objects.create(
+            conversacion=conversacion,
+            direccion=Direccion.SALIENTE,
+            emisor=Emisor.FUNCIONARIO,
+            funcionario=funcionario,
+            texto=texto.strip(),
+            estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
+            fecha_hora=timezone.now(),
+        )
     enviar_pendientes(conversacion.id)
     mensaje.refresh_from_db()
     return mensaje
@@ -284,6 +313,35 @@ def cerrar_casos(conversacion_id: int, funcionario_id: int) -> list[ConsultaBot]
         )
 
     with transaction.atomic():
+        acciones_pendientes = list(
+            AccionPendiente.objects.select_for_update()
+            .filter(
+                consulta_id__in=[caso.pk for caso in casos],
+                estado__in=ESTADOS_ACCION_PENDIENTE,
+            )
+            .order_by("id")
+        )
+        if acciones_pendientes:
+            por_aprobar = sum(
+                accion.estado == EstadoAccion.PENDIENTE
+                for accion in acciones_pendientes
+            )
+            gestion_externa = sum(
+                accion.estado == EstadoAccion.APROBADA
+                for accion in acciones_pendientes
+            )
+            detalles = []
+            if por_aprobar:
+                detalles.append(f"{por_aprobar} pendiente(s) de aprobación")
+            if gestion_externa:
+                detalles.append(
+                    f"{gestion_externa} aprobada(s), pendiente(s) de gestión externa"
+                )
+            raise EstadoInvalido(
+                "No se pueden cerrar los casos: quedan acciones administrativas "
+                "sin resolver (" + "; ".join(detalles) + "). "
+                "Resolvelas o completá su gestión antes de cerrar."
+            )
         ConsultaBot.objects.filter(pk__in=[caso.pk for caso in casos]).update(
             estado=EstadoConsulta.CERRADO,
             fecha_resolucion=timezone.localdate(),
@@ -329,4 +387,42 @@ def vaciar_chat(conversacion_id: int, funcionario_id: int) -> Conversacion:
     conversacion.modo = ModoConversacion.BOT
     conversacion.funcionario = None
     conversacion.save(update_fields=["estado", "cerrada_en", "modo", "funcionario"])
+    return conversacion
+
+@transaction.atomic
+def desbloquear_numero(conversacion_id: int, funcionario_id: int) -> Conversacion:
+    funcionario = _funcionario(funcionario_id, aprobador=True)
+    conversacion = _conversacion(conversacion_id)
+
+    if conversacion.contacto_id is None:
+        raise EstadoInvalido("La conversación no tiene un contacto asociado.")
+
+    from negocio.bot.orquestador import (
+        _ultima_insistencia,
+        DURACION_BLOQUEO,
+    )
+
+    insistencia = _ultima_insistencia(conversacion.contacto_id)
+
+    if (
+        insistencia is None
+        or insistencia.estado != EstadoAlerta.ABIERTA
+        or insistencia.creada_en + DURACION_BLOQUEO <= timezone.now()
+    ):
+        raise EstadoInvalido("El número no está bloqueado.")
+
+    insistencia.estado = EstadoAlerta.RESUELTA
+    insistencia.resuelta_por = funcionario
+    insistencia.resuelta_en = timezone.now()
+    insistencia.resolucion = RESOLUCION_DESBLOQUEO
+
+    insistencia.save(
+        update_fields=[
+            "estado",
+            "resuelta_por",
+            "resuelta_en",
+            "resolucion",
+        ]
+    )
+
     return conversacion

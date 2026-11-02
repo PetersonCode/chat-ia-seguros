@@ -14,6 +14,8 @@ la lógica de cobranza del bot.
 
 from __future__ import annotations
 
+import calendar
+import hashlib
 import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -27,10 +29,17 @@ from datos.models import (
     Cuota,
     EstadoCuota,
     EstadoPoliza,
+    Funcionario,
+    Pago,
     Poliza,
     TipoSeguro,
 )
-from negocio.errores import DatosInvalidos, EstadoInvalido, NoEncontrado
+from negocio.errores import (
+    DatosInvalidos,
+    EstadoInvalido,
+    NoEncontrado,
+    PermisoDenegado,
+)
 
 # Llave del advisory lock que serializa la numeración, como `LOCK_CODIGO_CASO`
 # hace con los `CASO-###`: sin esto, dos altas a la vez proponen el mismo
@@ -39,11 +48,6 @@ LOCK_NUMERO_POLIZA = 4243
 
 RE_NUMERO_POLIZA = re.compile(r"^POL-\d{5}$")
 NUMERO_MAXIMO = 99999
-
-# Día del mes en que vence cada cuota. Es la convención del seed (período el 1,
-# vencimiento el 15) y la base solo exige que el período sea el primer día.
-DIA_VENCIMIENTO_CUOTA = 15
-
 
 # Lo que todavía se le debe a la póliza: `v_polizas_resumen` suma estos dos
 # estados para el saldo, así que cobrar es pasar la más vieja a `pagada`.
@@ -122,9 +126,19 @@ def _prima_validada(valor) -> Decimal:
         prima = Decimal(str(valor).replace(",", "."))
     except (InvalidOperation, AttributeError, TypeError) as error:
         raise DatosInvalidos("La prima mensual tiene que ser un número.") from error
+    if not prima.is_finite():
+        raise DatosInvalidos("La prima mensual debe ser un número finito.")
     if prima < 0:
         raise DatosInvalidos("La prima mensual no puede ser negativa.")
-    return prima.quantize(Decimal("0.01"))
+    if prima > Decimal("9999999999.99"):
+        raise DatosInvalidos("La prima mensual está fuera del rango permitido.")
+    try:
+        centavos = prima.quantize(Decimal("0.01"))
+    except InvalidOperation as error:
+        raise DatosInvalidos("La prima mensual está fuera del rango permitido.") from error
+    if centavos != prima:
+        raise DatosInvalidos("La prima mensual admite como máximo dos decimales.")
+    return centavos
 
 
 def _fechas_validadas(inicio, vencimiento) -> tuple[date, date]:
@@ -137,47 +151,48 @@ def _fechas_validadas(inicio, vencimiento) -> tuple[date, date]:
     return inicio, vencimiento
 
 
-def _sumar_meses(primero_de_mes: date, meses: int) -> date:
-    """Avanza meses sobre un primer día de mes, sin dependencias externas."""
-    total = primero_de_mes.month - 1 + meses
-    return date(primero_de_mes.year + total // 12, total % 12 + 1, 1)
+def _aniversario_mensual(inicio: date, meses: int) -> date:
+    """Calcula aniversarios anclados al día original, acotando meses cortos."""
+    total = inicio.month - 1 + meses
+    anio = inicio.year + total // 12
+    mes = total % 12 + 1
+    ultimo_dia = calendar.monthrange(anio, mes)[1]
+    return date(anio, mes, min(inicio.day, ultimo_dia))
 
 
 def meses_de_cobertura(inicio: date, vencimiento: date) -> int:
-    """Meses enteros que cubre la póliza; nunca menos de uno.
+    """Cuenta ciclos mensuales desde el inicio, cobrando completo el último.
 
-    Una póliza del 10/01 al 10/01 del año siguiente son 12 cuotas, no 13:
-    contar los meses del calendario que toca daría trece. Y una de quince días
-    igual lleva una cuota, porque se cobró una prima.
+    El día original se conserva como ancla cuando un mes no tiene ese día:
+    después de que enero 31 cae en febrero 28, marzo vuelve al 31. Si el
+    vencimiento es un aniversario exacto no se agrega otro ciclo.
     """
     meses = (vencimiento.year - inicio.year) * 12 + (vencimiento.month - inicio.month)
-    if vencimiento.day < inicio.day:
-        meses -= 1
+    if _aniversario_mensual(inicio, meses) < vencimiento:
+        meses += 1
     return max(1, meses)
 
 
 def plan_de_cuotas(poliza: Poliza) -> list[Cuota]:
-    """Una cuota por mes de cobertura, todas pendientes.
+    """Una cuota por ciclo mensual desde el inicio, todas pendientes.
 
     Quedan `pendiente` aunque el vencimiento ya haya pasado: pasarlas a
     `vencida` es trabajo de la cobranza, y para el saldo del bot da igual
-    —`v_polizas_resumen` suma los dos estados—.
+    —`v_polizas_resumen` suma los dos estados—. `periodo` sigue identificando
+    el mes calendario del ciclo para cumplir la restricción de la base.
     """
-    primer_periodo = poliza.fecha_inicio.replace(day=1)
+    # Una prima gratuita no genera deuda ni un pago ficticio por cero.
+    if poliza.prima_mensual == 0:
+        return []
     cuotas = []
     for indice in range(meses_de_cobertura(poliza.fecha_inicio, poliza.fecha_vencimiento)):
-        periodo = _sumar_meses(primer_periodo, indice)
-        vencimiento = periodo.replace(day=DIA_VENCIMIENTO_CUOTA)
-        # Una póliza que arranca después del 15 no puede tener su primera cuota
-        # vencida antes de existir.
-        if vencimiento < poliza.fecha_inicio:
-            vencimiento = poliza.fecha_inicio
+        inicio_ciclo = _aniversario_mensual(poliza.fecha_inicio, indice)
         cuotas.append(
             Cuota(
                 poliza=poliza,
-                periodo=periodo,
+                periodo=inicio_ciclo.replace(day=1),
                 importe=poliza.prima_mensual,
-                vencimiento=vencimiento,
+                vencimiento=inicio_ciclo,
                 estado=EstadoCuota.PENDIENTE,
             )
         )
@@ -214,11 +229,11 @@ def alta_poliza(
         cliente=cliente,
         tipo_seguro=_tipo_validado(tipo_seguro),
         cobertura=_cobertura_validada(cobertura),
-        # Una póliza que nace con el vencimiento pasado nace vencida: dejarla
-        # `vigente` le mentiría al bot y trabaría la baja del cliente.
+        # La fecha de vencimiento es inclusiva, igual que en
+        # `selectors.polizas_vigentes`.
         estado=(
             EstadoPoliza.VIGENTE
-            if vencimiento > timezone.localdate()
+            if vencimiento >= timezone.localdate()
             else EstadoPoliza.VENCIDA
         ),
         fecha_inicio=inicio,
@@ -230,19 +245,76 @@ def alta_poliza(
     return poliza
 
 
+def _importe_pago_validado(valor) -> Decimal:
+    try:
+        importe = Decimal(str(valor).replace(",", "."))
+    except (InvalidOperation, AttributeError, TypeError) as error:
+        raise DatosInvalidos("El importe del pago tiene que ser un número.") from error
+    if not importe.is_finite() or importe <= 0:
+        raise DatosInvalidos("El importe del pago tiene que ser mayor que cero.")
+    try:
+        importe_centavos = importe.quantize(Decimal("0.01"))
+    except InvalidOperation as error:
+        raise DatosInvalidos("El importe del pago está fuera del rango permitido.") from error
+    if importe != importe_centavos:
+        raise DatosInvalidos("El importe del pago admite como máximo dos decimales.")
+    return importe_centavos
+
+
+def _referencia_pago_validada(referencia: str) -> str:
+    texto = (referencia or "").strip()
+    if not texto:
+        raise DatosInvalidos("La referencia del comprobante es obligatoria.")
+    if len(texto) > 100:
+        raise DatosInvalidos(
+            "La referencia del comprobante no puede superar 100 caracteres."
+        )
+    return texto
+
+
+def _lock_referencia_pago(referencia: str) -> None:
+    """Serializa referencias iguales aun si llegan para pólizas distintas."""
+    llave = int.from_bytes(
+        hashlib.sha256(referencia.encode("utf-8")).digest()[:8], "big"
+    )
+    if llave >= 2**63:
+        llave -= 2**64
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT pg_advisory_xact_lock(%s)", [llave])
+
+
 @transaction.atomic
-def registrar_pago(poliza_id: int) -> Cuota:
-    """Marca pagada la cuota impaga más vieja de la póliza y la devuelve.
+def registrar_pago(
+    poliza_id: int,
+    *,
+    referencia: str,
+    importe,
+    funcionario_id: int,
+) -> Pago:
+    """Registra un cobro completo e idempotente de la cuota impaga más vieja."""
+    referencia = _referencia_pago_validada(referencia)
+    importe = _importe_pago_validado(importe)
+    funcionario = Funcionario.objects.filter(
+        pk=funcionario_id, activo=True, puede_aprobar=True
+    ).first()
+    if funcionario is None:
+        raise PermisoDenegado(
+            "Hace falta un funcionario activo con permiso de aprobación para registrar pagos."
+        )
 
-    Una cuota por vez, y siempre la más vieja: es como se cobra una póliza
-    mensual, y deja el saldo bajando de a un mes en vez de borrar la deuda
-    entera de un clic.
+    _lock_referencia_pago(referencia)
+    existente = Pago.objects.select_related("cuota__poliza").filter(
+        referencia=referencia
+    ).first()
+    if existente is not None:
+        if existente.cuota.poliza_id != poliza_id or existente.importe != importe:
+            raise EstadoInvalido(
+                "La referencia del comprobante ya se usó con otra póliza o importe."
+            )
+        return existente
 
-    `select_for_update` es por dos pantallas a la vez: sin el lock, dos
-    funcionarios que aprietan el botón al mismo tiempo leen la misma cuota
-    pendiente y cobran dos veces el mismo mes.
-    """
-    if not Poliza.objects.filter(pk=poliza_id).exists():
+    poliza = Poliza.objects.select_for_update().filter(pk=poliza_id).first()
+    if poliza is None:
         raise NoEncontrado("La póliza no existe.")
 
     cuota = (
@@ -253,11 +325,17 @@ def registrar_pago(poliza_id: int) -> Cuota:
     )
     if cuota is None:
         raise EstadoInvalido("La póliza no tiene cuotas pendientes de pago.")
+    if importe != cuota.importe:
+        raise DatosInvalidos(
+            "Solo se admiten pagos completos: el importe debe coincidir con el de la cuota."
+        )
 
-    cuota.estado = EstadoCuota.PAGADA
-    cuota.fecha_pago = timezone.localdate()
-    # La base exige que una cuota pagada tenga fecha e importe, los dos o
-    # ninguno. Se cobra el importe de la cuota: no hay pagos parciales acá.
-    cuota.importe_pagado = cuota.importe
-    cuota.save(update_fields=["estado", "fecha_pago", "importe_pagado"])
-    return cuota
+    pago = Pago.objects.create(
+        referencia=referencia,
+        cuota=cuota,
+        importe=importe,
+        fecha_pago=timezone.localdate(),
+        responsable=funcionario,
+    )
+    pago.refresh_from_db()
+    return pago

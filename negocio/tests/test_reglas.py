@@ -195,12 +195,23 @@ class JergaYCoberturaTests(TestCase):
     def test_contar_un_siniestro_sigue_siendo_siniestro(self):
         for texto in (
             "Mi auto choco ayer, como hago el siniestro?",
-            "tuve un accidente",
-            "me robaron el auto",
+            "quiero denunciar un robo",
             "quiero hacer la denuncia por granizo",
         ):
             with self.subTest(texto=texto):
                 self.assertEqual(clasificar(texto), "siniestro")
+
+    def test_un_incidente_en_curso_se_clasifica_como_urgente(self):
+        for texto in (
+            "tuve un choque",
+            "me robaron el auto",
+            "estoy en el hospital",
+        ):
+            with self.subTest(texto=texto):
+                self.assertEqual(clasificar(texto), "siniestro_urgente")
+
+    def test_preguntar_si_el_seguro_cubre_robo_no_es_un_incidente(self):
+        self.assertEqual(clasificar("¿mi seguro cubre robo?"), "consulta_cobertura")
 
     def test_un_saludo_no_le_roba_el_turno_a_un_pedido_real(self):
         self.assertEqual(clasificar("todo bien, quiero saber mi saldo"), "saldo")

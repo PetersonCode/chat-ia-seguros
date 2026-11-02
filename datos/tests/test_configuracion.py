@@ -64,7 +64,7 @@ class ConfiguracionTests(SimpleTestCase):
         # Mientras corren los tests Django reemplaza NAME por el de la base de
         # prueba (AC-T4-10), asi que vale cualquiera de los dos.
         self.assertIn(base["NAME"], {settings.DB_NAME, base["TEST"]["NAME"]})
-        self.assertEqual(base["OPTIONS"], {"sslmode": "require"})
+        self.assertEqual(base["OPTIONS"], {"sslmode": settings.DB_SSLMODE})
         self.assertEqual(settings.TIME_ZONE, "America/Argentina/Buenos_Aires")
         self.assertTrue(settings.USE_TZ)
         self.assertEqual(settings.LANGUAGE_CODE, "es-ar")
@@ -92,7 +92,8 @@ class ConfiguracionTests(SimpleTestCase):
             [
                 "Django==5.2.4",
                 "djangorestframework==3.16.0",
-                "psycopg[binary]==3.2.9",
+                "psycopg[binary]==3.2.10",
                 "python-dotenv==1.1.1",
+                "Pillow==12.0.0",
             ],
         )
