@@ -31,7 +31,8 @@ from negocio.supervision import (
     tomar_conversacion,
     vaciar_chat,
 )
-from negocio.whatsapp import registrar_entrante
+from negocio.bot.plantillas import DERIVACION, DERIVACION_URGENTE
+from negocio.whatsapp import enviar_pendientes, registrar_entrante
 
 
 class BaseSupervisionTests(TestCase):
@@ -75,6 +76,9 @@ class LiberarTests(BaseSupervisionTests):
         self.assertEqual(self.alerta.resuelta_por_id, self.aprobador.id)
         self.assertIsNotNone(self.alerta.resuelta_en)
         self.assertEqual(self.alerta.resolucion, "Liberada sin cambios")
+        self.consulta.refresh_from_db()
+        self.assertEqual(self.consulta.revisado_por_id, self.aprobador.id)
+        self.assertIsNotNone(self.consulta.revisado_en)
 
     # AC-T3-25
     def test_liberar_con_correccion_descarta_el_original_y_manda_el_texto_nuevo(self):
@@ -173,8 +177,124 @@ class ConversacionTests(BaseSupervisionTests):
         self.assertEqual(devuelta.modo, "bot")
         self.assertIsNone(devuelta.funcionario_id)
 
+    def test_tomar_descarta_la_respuesta_comun_y_envia_solo_lo_autorizado(self):
+        comun = fabricas.crear_mensaje(
+            self.conversacion,
+            consulta=self.consulta,
+            direccion="saliente",
+            emisor="bot",
+            texto="Tu saldo es de $10.000.",
+            estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
+            wa_message_id=None,
+        )
+        derivacion = fabricas.crear_mensaje(
+            self.conversacion,
+            consulta=self.consulta,
+            direccion="saliente",
+            emisor="bot",
+            texto=DERIVACION,
+            estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
+            wa_message_id=None,
+        )
+        derivacion_urgente = fabricas.crear_mensaje(
+            self.conversacion,
+            consulta=self.consulta,
+            direccion="saliente",
+            emisor="bot",
+            texto=DERIVACION_URGENTE,
+            estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
+            wa_message_id=None,
+        )
+        liberada = fabricas.crear_mensaje(
+            self.conversacion,
+            consulta=self.consulta,
+            direccion="saliente",
+            emisor="bot",
+            texto="Respuesta revisada.",
+            estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
+            wa_message_id=None,
+        )
+        self.consulta.respuesta_bot = liberada.texto
+        self.consulta.revisado_por = self.aprobador
+        self.consulta.revisado_en = timezone.now()
+        self.consulta.respuesta_corregida = liberada.texto
+        self.consulta.save(
+            update_fields=[
+                "respuesta_bot",
+                "revisado_por",
+                "revisado_en",
+                "respuesta_corregida",
+            ]
+        )
+        humana = fabricas.crear_mensaje(
+            self.conversacion,
+            direccion="saliente",
+            emisor="funcionario",
+            funcionario=self.operador,
+            texto="Te ayudo con tu consulta.",
+            estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
+            wa_message_id=None,
+        )
+
+        tomada = tomar_conversacion(self.conversacion.id, self.operador.id)
+
+        self.assertEqual(tomada.funcionario_id, self.operador.id)
+        comun.refresh_from_db()
+        derivacion.refresh_from_db()
+        derivacion_urgente.refresh_from_db()
+        liberada.refresh_from_db()
+        humana.refresh_from_db()
+        self.assertEqual(comun.estado_envio, EstadoEnvio.DESCARTADO)
+        self.assertEqual(comun.error, "atencion_humana")
+        self.assertEqual(derivacion.estado_envio, EstadoEnvio.ENVIADO)
+        self.assertEqual(derivacion_urgente.estado_envio, EstadoEnvio.ENVIADO)
+        self.assertEqual(liberada.estado_envio, EstadoEnvio.ENVIADO)
+        self.assertEqual(humana.estado_envio, EstadoEnvio.ENVIADO)
+
+        devolver_al_bot(self.conversacion.id, self.operador.id)
+        self.assertEqual(enviar_pendientes(self.conversacion.id), 0)
+        comun.refresh_from_db()
+        self.assertEqual(comun.estado_envio, EstadoEnvio.DESCARTADO)
+
+    def test_respuesta_liberada_sin_cambios_sale_durante_atencion_humana(self):
+        tomar_conversacion(self.conversacion.id, self.operador.id)
+        mensaje = self._retenido("Respuesta segura para liberar.")
+        self.consulta.respuesta_bot = mensaje.texto
+        self.consulta.save(update_fields=["respuesta_bot"])
+
+        resultado = liberar_respuesta(mensaje.id, self.aprobador.id)
+
+        self.assertEqual(resultado.estado_envio, EstadoEnvio.ENVIADO)
+        self.consulta.refresh_from_db()
+        self.assertEqual(self.consulta.revisado_por_id, self.aprobador.id)
+        self.assertEqual(self.consulta.nota_revision, "Liberada sin cambios")
+
+    def test_cualquier_funcionario_activo_puede_reasignar_pero_solo_el_asignado_actua(
+        self,
+    ):
+        tomar_conversacion(self.conversacion.id, self.operador.id)
+        tomada = tomar_conversacion(self.conversacion.id, self.aprobador.id)
+        self.assertEqual(tomada.funcionario_id, self.aprobador.id)
+
+        with self.assertRaises(PermisoDenegado):
+            responder_como_humano(self.conversacion.id, self.operador.id, "Hola.")
+        with self.assertRaises(PermisoDenegado):
+            devolver_al_bot(self.conversacion.id, self.operador.id)
+
+        mensaje = responder_como_humano(
+            self.conversacion.id, self.aprobador.id, "Te llamo en 5 minutos."
+        )
+        self.assertEqual(mensaje.funcionario_id, self.aprobador.id)
+
+    def test_no_se_puede_responder_ni_devolver_un_chat_que_no_se_tomo(self):
+        with self.assertRaises(EstadoInvalido):
+            responder_como_humano(self.conversacion.id, self.operador.id, "Hola.")
+        with self.assertRaises(EstadoInvalido):
+            devolver_al_bot(self.conversacion.id, self.operador.id)
+
     # AC-T3-28
     def test_responder_como_humano_con_la_ventana_abierta_crea_y_envia(self):
+        tomar_conversacion(self.conversacion.id, self.operador.id)
         mensaje = responder_como_humano(
             self.conversacion.id, self.operador.id, "  Te llamo en 5 minutos.  "
         )
@@ -185,6 +305,7 @@ class ConversacionTests(BaseSupervisionTests):
 
     # AC-T3-28
     def test_responder_con_la_ventana_cerrada_da_el_codigo_especifico(self):
+        tomar_conversacion(self.conversacion.id, self.operador.id)
         self.conversacion.ultimo_mensaje_cliente_en = timezone.now() - timedelta(hours=25)
         self.conversacion.save(update_fields=["ultimo_mensaje_cliente_en"])
 

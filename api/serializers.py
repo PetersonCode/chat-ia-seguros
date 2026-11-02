@@ -1,6 +1,25 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from rest_framework import serializers
+
+from datos.models import EstadoSiniestro
+from negocio.documentos import MAXIMO_CONTENIDO
+
+
+class BuscarDocumentoSerializer(serializers.Serializer):
+    q = serializers.CharField(min_length=1, max_length=300, trim_whitespace=True)
+
+
+class DocumentoAltaSerializer(serializers.Serializer):
+    titulo = serializers.CharField(max_length=300)
+    version = serializers.CharField(max_length=100)
+    referencia = serializers.CharField(max_length=1000)
+    contenido = serializers.CharField(
+        max_length=MAXIMO_CONTENIDO,
+        trim_whitespace=False,
+    )
 
 
 class LoginSerializer(serializers.Serializer):
@@ -14,6 +33,11 @@ class ResponderSerializer(serializers.Serializer):
 
 class MotivoSerializer(serializers.Serializer):
     motivo = serializers.CharField(trim_whitespace=False)
+
+
+class FinalizacionAccionSerializer(serializers.Serializer):
+    referencia = serializers.CharField(min_length=3, max_length=100)
+    motivo = serializers.CharField(min_length=3)
 
 
 class TextoCorregidoSerializer(serializers.Serializer):
@@ -88,6 +112,42 @@ class PolizaAltaSerializer(serializers.Serializer):
     numero_poliza = serializers.CharField(
         required=False, allow_blank=True, allow_null=True
     )
+
+
+class PagoRegistroSerializer(serializers.Serializer):
+    referencia = serializers.CharField(max_length=100, trim_whitespace=True)
+    importe = serializers.DecimalField(
+        max_digits=12, decimal_places=2, min_value=Decimal("0.01")
+    )
+
+
+class ReporteGestionFiltroSerializer(serializers.Serializer):
+    desde = serializers.DateField()
+    hasta = serializers.DateField()
+    formato = serializers.ChoiceField(
+        choices=("json", "csv"),
+        required=False,
+        default="json",
+    )
+
+    def validate(self, attrs):
+        if attrs["hasta"] < attrs["desde"]:
+            raise serializers.ValidationError(
+                {"hasta": "La fecha final debe ser igual o posterior a la inicial."}
+            )
+        return attrs
+
+
+class DenunciaSiniestroSerializer(serializers.Serializer):
+    cliente_id = serializers.IntegerField(min_value=1)
+    poliza_id = serializers.IntegerField(min_value=1)
+    fecha_ocurrencia = serializers.DateField()
+    descripcion = serializers.CharField(trim_whitespace=True)
+
+
+class TransicionSiniestroSerializer(serializers.Serializer):
+    estado = serializers.ChoiceField(choices=EstadoSiniestro.choices)
+    motivo = serializers.CharField(trim_whitespace=True, min_length=3)
 
 
 class ClienteModificacionSerializer(serializers.Serializer):

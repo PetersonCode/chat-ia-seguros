@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from itertools import count
 from typing import Any
 
@@ -135,14 +135,15 @@ def crear_poliza(
 ) -> Poliza:
     crear_catalogos()
     numero = next(_polizas)
+    hoy = timezone.localdate()
     valores: dict[str, Any] = {
         "numero_poliza": f"POL-{numero:05d}",
         "cliente": cliente or crear_cliente(),
         "tipo_seguro": TipoSeguro.objects.get(codigo="automotor"),
         "cobertura": "intermedia",
         "estado": EstadoPoliza.VIGENTE,
-        "fecha_inicio": date(2025, 1, 1),
-        "fecha_vencimiento": date(2026, 1, 1),
+        "fecha_inicio": hoy - timedelta(days=1),
+        "fecha_vencimiento": hoy + timedelta(days=365),
         "prima_mensual": "1000.00",
     }
     valores.update(campos)

@@ -18,7 +18,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
-from datos.models import Cliente, Cuota, Poliza, Siniestro
+from datos.models import Cliente, Cuota, Poliza, Siniestro, FragmentoDocumento, EstadoDocumento
 
 
 @dataclass
@@ -503,6 +503,7 @@ def evaluar_salida(
     *,
     cliente_id: int | None,
     datos_verificados: frozenset[str] = frozenset(),
+    fragmento_documental_id: int | None = None,
 ) -> list[AlertaDetectada]:
     """Alertas sobre lo que el bot está por decir.
 
@@ -511,6 +512,16 @@ def evaluar_salida(
     """
     normalizado = _normalizar(texto)
     verificados = frozenset(datos_verificados or frozenset())
+    texto_operativo = texto
+    if fragmento_documental_id is not None:
+        fragmento = FragmentoDocumento.objects.filter(
+            pk=fragmento_documental_id, documento__estado=EstadoDocumento.APROBADO
+        ).first()
+        if fragmento is not None:
+            # Solo se respalda la cita exacta; lo agregado fuera de ella sigue
+            # pasando por los controles habituales. URLs e identidad se
+            # verifican sobre el mensaje completo, incluso dentro de la cita.
+            texto_operativo = texto.replace(f"“{fragmento.texto}”", "[pasaje aprobado]", 1)
     alertas: list[AlertaDetectada] = []
 
     alertas.extend(_alertas_urls(texto))
@@ -526,6 +537,6 @@ def evaluar_salida(
 
     alertas.extend(_alertas_identificadores(texto, cliente_id))
     alertas.extend(_alertas_dni(texto, cliente_id))
-    alertas.extend(_alertas_fechas(texto, cliente_id, verificados))
-    alertas.extend(_alertas_montos_y_clausulas(texto, normalizado, verificados))
+    alertas.extend(_alertas_fechas(texto_operativo, cliente_id, verificados))
+    alertas.extend(_alertas_montos_y_clausulas(texto_operativo, _normalizar(texto_operativo), verificados))
     return alertas

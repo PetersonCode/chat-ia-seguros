@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import date
 from unittest.mock import patch
 
 from django.db import IntegrityError, connection, transaction
@@ -121,6 +120,59 @@ class AprobarAccionTests(BaseAccionesTests):
         accion.refresh_from_db()
         self.assertEqual(accion.estado, EstadoAccion.PENDIENTE)
 
+    def test_baja_selecciona_poliza_del_cliente_y_ejecuta_esa_poliza(self):
+        otra_poliza = fabricas.crear_poliza(self.cliente)
+        accion = solicitar_accion(self.consulta.id, TipoAccion.BAJA_POLIZA, None)
+
+        completar_parametros(
+            accion.id, self.aprobador.id, {"poliza": otra_poliza.id}
+        )
+        accion.refresh_from_db()
+        self.assertEqual(accion.poliza_id, otra_poliza.id)
+        self.assertNotIn("poliza", accion.parametros)
+
+        resultado = aprobar_accion(accion.id, self.aprobador.id)
+
+        self.assertEqual(resultado.estado, EstadoAccion.EJECUTADA)
+        self.poliza.refresh_from_db()
+        otra_poliza.refresh_from_db()
+        self.assertEqual(self.poliza.estado, EstadoPoliza.VIGENTE)
+        self.assertEqual(otra_poliza.estado, EstadoPoliza.DADA_DE_BAJA)
+
+    def test_baja_rechaza_poliza_de_otro_cliente(self):
+        poliza_ajena = fabricas.crear_poliza(fabricas.crear_cliente())
+        accion = solicitar_accion(self.consulta.id, TipoAccion.BAJA_POLIZA, None)
+
+        with self.assertRaises(DatosInvalidos):
+            completar_parametros(
+                accion.id, self.aprobador.id, {"poliza": poliza_ajena.id}
+            )
+
+        accion.refresh_from_db()
+        self.assertIsNone(accion.poliza_id)
+        self.assertEqual(accion.estado, EstadoAccion.PENDIENTE)
+
+    def test_baja_rechaza_poliza_inexistente(self):
+        accion = solicitar_accion(self.consulta.id, TipoAccion.BAJA_POLIZA, None)
+
+        with self.assertRaises(NoEncontrado):
+            completar_parametros(
+                accion.id, self.aprobador.id, {"poliza": 999999}
+            )
+
+    def test_baja_rechaza_contacto_sin_vinculacion_validada(self):
+        self.contacto.cliente = None
+        self.contacto.save(update_fields=["cliente"])
+        accion = solicitar_accion(self.consulta.id, TipoAccion.BAJA_POLIZA, None)
+
+        with self.assertRaises(DatosInvalidos):
+            completar_parametros(
+                accion.id, self.aprobador.id, {"poliza": self.poliza.id}
+            )
+
+        accion.refresh_from_db()
+        self.assertIsNone(accion.poliza_id)
+
     # AC-T3-17
     def test_una_poliza_ya_dada_de_baja_es_estado_invalido(self):
         self.poliza.estado = EstadoPoliza.DADA_DE_BAJA
@@ -173,7 +225,9 @@ class AprobarAccionTests(BaseAccionesTests):
         self.assertFalse(ConductorPoliza.objects.exists())
 
     # AC-T3-18
-    def test_reembolso_y_modificacion_se_ejecutan_sin_cambiar_datos(self):
+    def test_reembolso_y_modificacion_quedan_aprobadas_pendientes_de_gestion_externa(
+        self,
+    ):
         cuota = fabricas.crear_cuota(self.poliza)
         casos = (
             (TipoAccion.REEMBOLSO, {"importe": "3200.00"}),
@@ -182,10 +236,23 @@ class AprobarAccionTests(BaseAccionesTests):
         for tipo, parametros in casos:
             with self.subTest(tipo=tipo):
                 consulta = fabricas.crear_consulta(self.conversacion)
-                accion = solicitar_accion(consulta.id, tipo, self.poliza.id, parametros)
+                accion = solicitar_accion(
+                    consulta.id, tipo, self.poliza.id, parametros
+                )
                 aprobar_accion(accion.id, self.aprobador.id)
                 accion.refresh_from_db()
-                self.assertEqual(accion.estado, EstadoAccion.EJECUTADA)
+                self.assertEqual(accion.estado, EstadoAccion.APROBADA)
+                self.assertEqual(accion.resuelta_por_id, self.aprobador.id)
+                self.assertIsNotNone(accion.resuelta_en)
+                aviso = Mensaje.objects.get(consulta=consulta, emisor="funcionario")
+                self.assertIn("fue aprobada", aviso.texto)
+                self.assertIn("todavía no fue realizada", aviso.texto)
+                self.assertIn("completará la gestión", aviso.texto)
+                self.assertNotIn("procesada", aviso.texto)
+                if tipo == TipoAccion.REEMBOLSO:
+                    self.assertIn("reembolso de $3.200", aviso.texto)
+                else:
+                    self.assertIn("modificación de la póliza", aviso.texto)
 
         self.poliza.refresh_from_db()
         cuota.refresh_from_db()
@@ -204,7 +271,8 @@ class AprobarAccionTests(BaseAccionesTests):
 
     # AC-T3-18
     def test_apertura_de_siniestro_numera_de_forma_secuencial(self):
-        anio = timezone.now().year
+        hoy = timezone.localdate()
+        anio = hoy.year
         for esperado in (1, 2):
             with self.subTest(esperado=esperado):
                 consulta = fabricas.crear_consulta(self.conversacion)
@@ -213,7 +281,7 @@ class AprobarAccionTests(BaseAccionesTests):
                     TipoAccion.APERTURA_SINIESTRO,
                     self.poliza.id,
                     {
-                        "fecha_ocurrencia": date(2025, 5, 1).isoformat(),
+                        "fecha_ocurrencia": hoy.isoformat(),
                         "descripcion": "Granizo",
                     },
                 )
@@ -245,8 +313,29 @@ class AprobarAccionTests(BaseAccionesTests):
         self.assertIn("fue aprobada y procesada", aviso.texto)
         self.assertEqual(aviso.estado_envio, "enviado")
 
+    def test_al_aprobar_una_accion_sin_efecto_implementado_no_dice_procesada(self):
+        for tipo, parametros, frase in (
+            (TipoAccion.REEMBOLSO, {"importe": "3200.00"}, "reembolso de $3.200"),
+            (
+                TipoAccion.MODIFICAR_POLIZA,
+                {"detalle": "cambio de cobertura"},
+                "modificación de la póliza",
+            ),
+        ):
+            with self.subTest(tipo=tipo):
+                consulta = fabricas.crear_consulta(self.conversacion)
+                accion = solicitar_accion(
+                    consulta.id, tipo, self.poliza.id, parametros
+                )
+                aprobar_accion(accion.id, self.aprobador.id)
+                aviso = Mensaje.objects.get(consulta=consulta, emisor="funcionario")
+                self.assertIn(frase, aviso.texto)
+                self.assertIn("fue aprobada", aviso.texto)
+                self.assertIn("todavía no fue realizada", aviso.texto)
+                self.assertNotIn("procesada", aviso.texto)
+
     # AC-T3-19
-    def test_el_aviso_de_reembolso_usa_el_formato_de_dinero(self):
+    def test_el_aviso_de_reembolso_aprobado_indica_que_sigue_pendiente(self):
         accion = solicitar_accion(
             self.consulta.id,
             TipoAccion.REEMBOLSO,
@@ -254,7 +343,9 @@ class AprobarAccionTests(BaseAccionesTests):
             {"importe": "3200.00"},
         )
         aprobar_accion(accion.id, self.aprobador.id)
-        self.assertIn("reembolso de $3.200", Mensaje.objects.get(emisor="funcionario").texto)
+        texto = Mensaje.objects.get(emisor="funcionario").texto
+        self.assertIn("reembolso de $3.200", texto)
+        self.assertIn("todavía no fue realizada", texto)
 
     # AC-T3-19
     def test_si_el_envio_falla_la_accion_queda_ejecutada_igual(self):
@@ -274,7 +365,7 @@ class AprobarAccionTests(BaseAccionesTests):
 
     # AC-T3-19
     def test_si_la_consulta_no_tiene_conversacion_no_se_envia_nada(self):
-        suelta = fabricas.crear_consulta(None)
+        suelta = fabricas.crear_consulta(None, contacto=self.consulta.contacto)
         accion = solicitar_accion(suelta.id, TipoAccion.BAJA_POLIZA, self.poliza.id)
         aprobar_accion(accion.id, self.aprobador.id)
         self.assertFalse(Mensaje.objects.filter(emisor="funcionario").exists())
@@ -311,11 +402,7 @@ class RechazarAccionTests(BaseAccionesTests):
         rechazar_accion(accion.id, self.aprobador.id, "No corresponde.")
 
         aviso = Mensaje.objects.get(emisor="funcionario")
-        self.assertEqual(
-            aviso.texto,
-            "No pudimos avanzar con tu solicitud. Un asesor se va a comunicar con vos"
-            " para contarte los detalles.",
-        )
+        self.assertEqual(aviso.texto, "No pudimos procesar tu solicitud. Un asesor se va a comunicar con vos.")
         self.assertEqual(aviso.estado_envio, "enviado")
 
 

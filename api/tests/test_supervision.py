@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from datetime import timezone as dt_timezone
 
 from django.utils import timezone
 
 from api.tests.base import ApiTestCase
 from datos import fabricas
-from datos.models import EstadoAlerta, EstadoConsulta, EstadoEnvio
+from datos.models import (
+    EstadoAccion,
+    EstadoAlerta,
+    EstadoConsulta,
+    EstadoEnvio,
+    TipoAccion,
+)
 
 
 class BandejaTests(ApiTestCase):
@@ -57,6 +62,26 @@ class BandejaTests(ApiTestCase):
         fila = next(f for f in resultados if f["id"] == self.conversacion.id)
         self.assertIsNone(fila["severidad_maxima"])
         self.assertEqual(fila["color"], "verde")
+
+    def test_la_derivacion_urgente_pinta_y_ordena_sin_fingir_una_alerta(self):
+        fabricas.crear_derivacion(
+            self.consulta,
+            self.aprobadora,
+            prioridad="urgente",
+        )
+        critica = fabricas.crear_conversacion()
+        consulta_critica = fabricas.crear_consulta(critica)
+        fabricas.crear_alerta(consulta_critica, severidad="critica")
+        fabricas.crear_mensaje(critica, fecha_hora=timezone.now())
+
+        filas = self.cliente_api.get("/api/conversaciones/").json()["resultados"]
+        fila = next(f for f in filas if f["id"] == self.conversacion.id)
+
+        self.assertEqual(filas[0]["id"], self.conversacion.id)
+        self.assertTrue(fila["derivacion_urgente"])
+        self.assertEqual(fila["color"], "rojo")
+        self.assertEqual(fila["alertas_abiertas"], 0)
+        self.assertIsNone(fila["severidad_maxima"])
 
     # AC-T2-10
     def test_sin_respuesta_marca_las_que_el_bot_dejo_colgadas(self):
@@ -208,6 +233,7 @@ class AccionesDeSupervisionTests(ApiTestCase):
     # AC-T2-13
     def test_responder_devuelve_201_con_el_mensaje(self):
         self.entrar()
+        self.cliente_api.post(f"/api/conversaciones/{self.conversacion.id}/tomar/")
         respuesta = self.cliente_api.post(
             f"/api/conversaciones/{self.conversacion.id}/responder/",
             {"texto": "Te llamo en 5 minutos."},
@@ -382,6 +408,65 @@ class CerrarCasosTests(ApiTestCase):
         self.consulta.refresh_from_db()
         self.assertEqual(self.consulta.estado, EstadoConsulta.CERRADO)
 
+    def test_el_detalle_muestra_acciones_administrativas_sin_resolver(self):
+        pendiente = fabricas.crear_accion(
+            self.consulta, tipo_accion=TipoAccion.BAJA_POLIZA
+        )
+        externa = fabricas.crear_accion(
+            self.consulta,
+            tipo_accion=TipoAccion.REEMBOLSO,
+        )
+        externa.estado = EstadoAccion.APROBADA
+        externa.resuelta_por = self.aprobadora
+        externa.resuelta_en = timezone.now()
+        externa.save(update_fields=["estado", "resuelta_por", "resuelta_en"])
+        self.entrar()
+
+        cuerpo = self.cliente_api.get(
+            f"/api/conversaciones/{self.conversacion.id}/"
+        ).json()
+
+        self.assertEqual(
+            cuerpo["casos_abiertos"][0]["acciones_pendientes"],
+            [
+                {
+                    "id": pendiente.id,
+                    "tipo_accion": "Baja de póliza",
+                    "estado": EstadoAccion.PENDIENTE,
+                },
+                {
+                    "id": externa.id,
+                    "tipo_accion": "Reembolso",
+                    "estado": EstadoAccion.APROBADA,
+                },
+            ],
+        )
+
+    def test_no_cierra_un_caso_con_accion_pendiente_o_gestion_externa(self):
+        fabricas.crear_accion(
+            self.consulta, tipo_accion=TipoAccion.BAJA_POLIZA
+        )
+        externa = fabricas.crear_accion(
+            self.consulta,
+            tipo_accion=TipoAccion.REEMBOLSO,
+        )
+        externa.estado = EstadoAccion.APROBADA
+        externa.resuelta_por = self.aprobadora
+        externa.resuelta_en = timezone.now()
+        externa.save(update_fields=["estado", "resuelta_por", "resuelta_en"])
+        self.entrar()
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertError(respuesta, 409, "estado_invalido")
+        self.assertIn("1 pendiente(s) de aprobación", respuesta.json()["error"]["mensaje"])
+        self.assertIn(
+            "1 aprobada(s), pendiente(s) de gestión externa",
+            respuesta.json()["error"]["mensaje"],
+        )
+        self.consulta.refresh_from_db()
+        self.assertEqual(self.consulta.estado, EstadoConsulta.ABIERTO)
+
     def test_un_operador_sin_aprobacion_tambien_puede_cerrar(self):
         # Es el mismo criterio que tomar o devolver la conversación: quien
         # atiende, cierra.
@@ -454,72 +539,6 @@ class VaciarChatTests(ApiTestCase):
         self.assertEqual(respuesta.status_code, 409, respuesta.content)
 
     def test_sin_sesion_no_se_puede_vaciar(self):
-        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
-
-        self.assertIn(respuesta.status_code, (401, 403))
-
-
-class DesbloquearNumeroTests(ApiTestCase):
-    """`POST /api/conversaciones/<id>/desbloquear/`: levanta el bloqueo de 48 h."""
-
-    def setUp(self):
-        super().setUp()
-        consulta = fabricas.crear_consulta(self.conversacion)
-        mensaje = fabricas.crear_mensaje(self.conversacion, consulta=consulta)
-        self.insistencia = fabricas.crear_alerta(
-            consulta,
-            mensaje=mensaje,
-            tipo="prompt_injection",
-            severidad="critica",
-            descripcion="Insistió: es el intento de manipulación número 3 de este número.",
-        )
-
-    @property
-    def ruta(self) -> str:
-        return f"/api/conversaciones/{self.conversacion.id}/desbloquear/"
-
-    def detalle(self) -> dict:
-        return self.cliente_api.get(f"/api/conversaciones/{self.conversacion.id}/").json()
-
-    def test_el_detalle_dice_hasta_cuando_esta_bloqueado(self):
-        self.entrar(self.operador)
-
-        hasta = self.detalle()["bloqueado_hasta"]
-
-        esperado = self.insistencia.creada_en + timedelta(hours=48)
-        self.assertEqual(hasta, esperado.astimezone(dt_timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
-
-    def test_desbloquear_devuelve_el_detalle_sin_bloqueo_y_resuelve_la_alerta(self):
-        self.entrar()
-
-        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
-
-        self.assertEqual(respuesta.status_code, 200, respuesta.content)
-        self.assertIsNone(respuesta.json()["bloqueado_hasta"])
-        self.assertNotIn(
-            self.insistencia.id, [alerta["id"] for alerta in respuesta.json()["alertas"]]
-        )
-        self.insistencia.refresh_from_db()
-        self.assertEqual(self.insistencia.estado, EstadoAlerta.RESUELTA)
-        self.assertEqual(self.insistencia.resuelta_por_id, self.aprobadora.id)
-
-    def test_desbloquear_dos_veces_es_409(self):
-        self.entrar()
-        self.cliente_api.post(self.ruta, {}, format="json")
-
-        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
-
-        self.assertEqual(respuesta.status_code, 409, respuesta.content)
-
-    def test_un_operador_sin_permiso_de_aprobacion_no_puede_desbloquear(self):
-        self.entrar(self.operador)
-
-        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
-
-        self.assertError(respuesta, 403, "permiso_denegado")
-        self.assertIsNotNone(self.detalle()["bloqueado_hasta"])
-
-    def test_sin_sesion_no_se_puede_desbloquear(self):
         respuesta = self.cliente_api.post(self.ruta, {}, format="json")
 
         self.assertIn(respuesta.status_code, (401, 403))

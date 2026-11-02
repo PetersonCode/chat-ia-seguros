@@ -120,14 +120,35 @@ class SelectorsTests(TestCase):
     # AC-T4-14
     def test_polizas_vigentes_y_resumen_de_cuotas(self):
         cliente = fabricas.crear_cliente()
-        vigente = fabricas.crear_poliza(cliente=cliente)
+        hoy = timezone.localdate()
+        vigente = fabricas.crear_poliza(
+            cliente=cliente,
+            fecha_inicio=hoy,
+            fecha_vencimiento=hoy + timedelta(days=1),
+        )
+        fabricas.crear_poliza(
+            cliente=cliente,
+            estado=EstadoPoliza.VIGENTE,
+            fecha_inicio=hoy - timedelta(days=10),
+            fecha_vencimiento=hoy - timedelta(days=1),
+        )
+        fabricas.crear_poliza(
+            cliente=cliente,
+            estado=EstadoPoliza.VIGENTE,
+            fecha_inicio=hoy + timedelta(days=1),
+            fecha_vencimiento=hoy + timedelta(days=365),
+        )
         fabricas.crear_poliza(
             cliente=cliente,
             estado=EstadoPoliza.VENCIDA,
+            fecha_inicio=hoy - timedelta(days=10),
+            fecha_vencimiento=hoy + timedelta(days=10),
         )
         fabricas.crear_poliza(
             cliente=cliente,
             estado=EstadoPoliza.DADA_DE_BAJA,
+            fecha_inicio=hoy - timedelta(days=10),
+            fecha_vencimiento=hoy + timedelta(days=10),
         )
         fabricas.crear_cuota(
             vigente,
@@ -288,6 +309,31 @@ class SelectorsTests(TestCase):
         self.assertEqual(consulta_retenida.conversacion_id, retenida.pk)
         self.assertEqual(consulta_normal.conversacion_id, normal.pk)
 
+    def test_bandeja_prioriza_derivaciones_urgentes_sin_alertas(self):
+        urgente = fabricas.crear_conversacion()
+        consulta_urgente = fabricas.crear_consulta(urgente)
+        fabricas.crear_mensaje(
+            urgente,
+            fecha_hora=timezone.now() - timedelta(days=1),
+        )
+        fabricas.crear_derivacion(
+            consulta_urgente,
+            fabricas.crear_funcionario(),
+            prioridad="urgente",
+        )
+
+        reciente = fabricas.crear_conversacion()
+        fabricas.crear_consulta(reciente)
+        fabricas.crear_mensaje(reciente, fecha_hora=timezone.now())
+
+        bandeja = list(selectors.bandeja())
+
+        self.assertEqual(bandeja[0], urgente)
+        self.assertTrue(bandeja[0].derivacion_urgente)
+        self.assertEqual(bandeja[0].alertas_abiertas, 0)
+        self.assertEqual(bandeja[0].severidad_rango, 0)
+        self.assertFalse(bandeja[1].derivacion_urgente)
+
     # AC-T4-17
     def test_listar_alertas_y_consultas_cerradas_con_alertas(self):
         conversacion = fabricas.crear_conversacion()
@@ -410,7 +456,12 @@ class SelectorsTests(TestCase):
             apellido="Fernández",
         )
         contacto = fabricas.crear_contacto(cliente)
-        poliza = fabricas.crear_poliza(cliente)
+        hoy = timezone.localdate()
+        poliza = fabricas.crear_poliza(
+            cliente,
+            fecha_inicio=hoy,
+            fecha_vencimiento=hoy + timedelta(days=365),
+        )
         fabricas.crear_cuota(poliza)
         fabricas.crear_conversacion(contacto)
         consulta = fabricas.crear_consulta()

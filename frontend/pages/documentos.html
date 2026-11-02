@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta documental | Seguros Castaño</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/app.css?v=20261026fix2">
+</head>
+<body>
+    <nav id="nav" aria-label="Navegación principal"></nav>
+    <main class="container-fluid px-3 px-lg-4 py-4">
+        <header class="mb-4">
+            <h1 class="h3 fw-bold mb-1">Consulta documental</h1>
+            <p class="text-muted mb-0">
+                Buscá en fuentes generales aprobadas. La búsqueda local compara palabras y muestra pasajes; no genera respuestas.
+            </p>
+        </header>
+        <p class="alert alert-info" role="note">
+            Si no hay coincidencias suficientes en documentos aprobados, la consulta se abstiene. Esta biblioteca no incluye documentación privada de clientes.
+        </p>
+        <p id="estado-documentos" class="alert d-none" role="status" aria-live="polite"></p>
+        <form id="buscar-documentos" class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <label class="form-label" for="consulta-documental">¿Qué necesitás consultar?</label>
+                <div class="input-group">
+                    <input id="consulta-documental" class="form-control" type="search" maxlength="300" required>
+                    <button id="buscar-documental" class="btn btn-primary" type="submit">Buscar fuentes</button>
+                </div>
+            </div>
+        </form>
+        <section aria-labelledby="titulo-resultados">
+            <h2 id="titulo-resultados" class="h5">Fuentes y pasajes</h2>
+            <div id="resultados-documentales" class="d-grid gap-3"></div>
+        </section>
+        <section class="mt-4 card border-0 shadow-sm" aria-labelledby="titulo-biblioteca">
+            <div class="card-body">
+                <h2 id="titulo-biblioteca" class="h5">Biblioteca de documentos</h2>
+                <div id="filtro-biblioteca-contenedor" class="mb-3" hidden>
+                    <label for="filtro-biblioteca" class="form-label">Estado del documento</label>
+                    <select id="filtro-biblioteca" class="form-select">
+                        <option value="">Todos</option><option value="borrador">Borradores</option>
+                        <option value="aprobado">Aprobados</option><option value="retirado">Retirados</option>
+                    </select>
+                </div>
+                <p id="estado-biblioteca" role="status" aria-live="polite"></p>
+                <div id="lista-biblioteca" class="d-grid gap-3"></div>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <button id="biblioteca-anterior" class="btn btn-outline-secondary btn-sm" type="button" disabled>Anterior</button>
+                    <span id="biblioteca-pagina" class="small"></span>
+                    <button id="biblioteca-siguiente" class="btn btn-outline-secondary btn-sm" type="button" disabled>Siguiente</button>
+                </div>
+                <section id="vista-documento" class="border-top mt-3 pt-3" hidden>
+                    <h3 id="vista-documento-titulo" class="h6"></h3>
+                    <pre id="vista-documento-texto" class="small" style="white-space: pre-wrap"></pre>
+                </section>
+            </div>
+        </section>
+        <section id="gestion-documentos" class="mt-4 card border-0 shadow-sm" hidden>
+            <div class="card-body">
+                <h2 class="h5">Cargar una nueva versión</h2>
+                <p class="small text-muted">Pegá texto general autorizado. El borrador no estará disponible para el bot hasta que un aprobador lo revise y apruebe. No incluyas datos privados de clientes.</p>
+                <form id="crear-documento" class="d-grid gap-3">
+                    <div><label for="documento-titulo" class="form-label">Título</label><input id="documento-titulo" name="titulo" class="form-control" maxlength="300" required></div>
+                    <div><label for="documento-version" class="form-label">Versión</label><input id="documento-version" name="version" class="form-control" maxlength="100" required></div>
+                    <div><label for="documento-referencia" class="form-label">Referencia de la fuente</label><input id="documento-referencia" name="referencia" class="form-control" maxlength="1000" required></div>
+                    <div><label for="documento-contenido" class="form-label">Contenido autorizado</label><textarea id="documento-contenido" name="contenido" class="form-control" rows="7" maxlength="500000" required></textarea></div>
+                    <button id="guardar-documento" class="btn btn-primary" type="submit">Guardar borrador</button>
+                </form>
+            </div>
+        </section>
+    </main>
+    <script type="module" src="/static/js/pages/documentos.js?v=20261026fix2"></script>
+</body>
+</html>

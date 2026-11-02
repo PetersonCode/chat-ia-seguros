@@ -16,6 +16,9 @@ _PAGINAS = {
     "/panel/derivaciones/": "derivaciones.html",
     "/panel/clientes/": "clientes.html",
     "/panel/cliente/": "cliente.html",
+    "/panel/siniestros/": "siniestros.html",
+    "/panel/reportes/": "reportes.html",
+    "/panel/documentos/": "documentos.html",
     "/panel/usuarios/": "usuarios.html",
     "/panel/metricas/": "panel.html",
 }
