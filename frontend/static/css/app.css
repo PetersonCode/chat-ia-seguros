@@ -15,9 +15,12 @@
     --sc-borde-fuerte: #d6dae5;
     --sc-texto: #1b2130;
     --sc-texto-suave: #697186;
-    --sc-acento: #2f5bd7;
-    --sc-acento-oscuro: #2447ab;
-    --sc-acento-suave: #eef2fe;
+    /* Azul marino: color de marca. Cambiando estos valores cambia todo el front. */
+    --sc-marino: #0a2342;
+    --sc-marino-hover: #14325c;
+    --sc-acento: #123a6f;
+    --sc-acento-oscuro: #0a2342;
+    --sc-acento-suave: #e8eef7;
 
     --sc-radio: 0.875rem;
     --sc-radio-chico: 0.5rem;
@@ -65,7 +68,7 @@ table,
 
 h1, h2, h3, h4, h5, h6 {
     letter-spacing: -0.015em;
-    color: var(--sc-texto);
+    color: var(--sc-marino);
 }
 
 .text-muted {
@@ -96,9 +99,8 @@ a:hover {
     position: sticky;
     top: 0;
     z-index: 1030;
-    background-color: rgb(255 255 255 / 88%) !important;
-    backdrop-filter: saturate(140%) blur(10px);
-    border-bottom: 1px solid var(--sc-borde) !important;
+    background-color: var(--sc-marino) !important;
+    border-bottom: 1px solid rgb(255 255 255 / 10%) !important;
     padding-block: 0.5rem;
 }
 
@@ -118,7 +120,7 @@ a:hover {
     font-size: 1rem;
     font-weight: 650;
     letter-spacing: -0.02em;
-    color: var(--sc-texto);
+    color: #fff;
 }
 
 /* El punto del logo: una marca mínima que da identidad sin pedir un archivo. */
@@ -127,8 +129,8 @@ a:hover {
     width: 0.625rem;
     height: 0.625rem;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--sc-acento), #6d8ef0);
-    box-shadow: 0 0 0 3px var(--sc-acento-suave);
+    background: linear-gradient(135deg, #7fa6e0, #c9dcf5);
+    box-shadow: 0 0 0 3px rgb(255 255 255 / 15%);
 }
 
 .navbar-brand:hover {
@@ -146,19 +148,19 @@ a:hover {
     border-radius: 999px;
     font-size: 0.9375rem;
     font-weight: 500;
-    color: var(--sc-texto-suave);
+    color: rgb(255 255 255 / 72%);
     transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .nav-principal .nav-link:hover {
-    background-color: #f1f3f8;
-    color: var(--sc-texto);
+    background-color: rgb(255 255 255 / 10%);
+    color: #fff;
     text-decoration: none;
 }
 
 .nav-principal .nav-link.activo {
-    background-color: var(--sc-acento-suave);
-    color: var(--sc-acento-oscuro);
+    background-color: rgb(255 255 255 / 16%);
+    color: #fff;
     font-weight: 600;
 }
 
@@ -183,27 +185,27 @@ a:hover {
     align-items: center;
     gap: 0.4375rem;
     padding: 0.3125rem 0.4375rem 0.3125rem 0.6875rem;
-    border: 1px solid var(--sc-borde);
+    border: 1px solid rgb(255 255 255 / 22%);
     border-radius: 999px;
-    background-color: #fcfdff;
+    background-color: transparent;
     font-size: 0.8125rem;
     font-weight: 500;
-    color: var(--sc-texto-suave);
+    color: rgb(255 255 255 / 80%);
     transition: background-color 0.15s ease, border-color 0.15s ease,
         color 0.15s ease;
 }
 
 .nav-chip:hover {
-    border-color: color-mix(in srgb, var(--sc-acento) 30%, transparent);
-    background-color: var(--sc-acento-suave);
-    color: var(--sc-acento-oscuro);
+    border-color: rgb(255 255 255 / 45%);
+    background-color: rgb(255 255 255 / 10%);
+    color: #fff;
     text-decoration: none;
 }
 
 .nav-chip.activo {
-    border-color: color-mix(in srgb, var(--sc-acento) 35%, transparent);
-    background-color: var(--sc-acento-suave);
-    color: var(--sc-acento-oscuro);
+    border-color: rgb(255 255 255 / 55%);
+    background-color: rgb(255 255 255 / 16%);
+    color: #fff;
     font-weight: 600;
 }
 
@@ -213,8 +215,8 @@ a:hover {
     min-width: 1.375rem;
     padding: 0.125rem 0.375rem;
     border-radius: 999px;
-    background-color: #eceff5;
-    color: var(--sc-texto-suave);
+    background-color: rgb(255 255 255 / 18%);
+    color: #fff;
     font-size: 0.6875rem;
     font-weight: 700;
     line-height: 1.45;
@@ -222,8 +224,8 @@ a:hover {
 }
 
 .nav-contador.hay {
-    background-color: var(--sc-acento);
-    color: #fff;
+    background-color: #fff;
+    color: var(--sc-marino);
 }
 
 .nav-contador.urgente {
@@ -234,7 +236,7 @@ a:hover {
 .nav-separador {
     width: 1px;
     height: 1.5rem;
-    background-color: var(--sc-borde);
+    background-color: rgb(255 255 255 / 20%);
 }
 
 /* Grupo 3 · identidad: el nombre es un dato, no un control. Sin borde ni
@@ -252,8 +254,8 @@ a:hover {
     width: 1.875rem;
     height: 1.875rem;
     border-radius: 50%;
-    background-color: var(--sc-acento-suave);
-    color: var(--sc-acento-oscuro);
+    background-color: rgb(255 255 255 / 16%);
+    color: #fff;
     font-size: 0.6875rem;
     font-weight: 700;
 }
@@ -261,8 +263,20 @@ a:hover {
 .nav-usuario-nombre {
     font-size: 0.875rem;
     font-weight: 600;
-    color: var(--sc-texto);
+    color: #fff;
     white-space: nowrap;
+}
+
+/* El botón Salir sobre fondo marino. */
+.navbar .btn-outline-secondary {
+    --bs-btn-color: #fff;
+    --bs-btn-border-color: rgb(255 255 255 / 35%);
+    --bs-btn-hover-bg: rgb(255 255 255 / 12%);
+    --bs-btn-hover-border-color: rgb(255 255 255 / 60%);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-bg: rgb(255 255 255 / 20%);
+    --bs-btn-active-border-color: #fff;
+    --bs-btn-active-color: #fff;
 }
 
 /* El aviso de error de la barra ocupa su propia línea, debajo de todo. */
@@ -770,8 +784,8 @@ main > header p {
     --bs-btn-hover-border-color: var(--sc-acento-oscuro);
     --bs-btn-active-bg: var(--sc-acento-oscuro);
     --bs-btn-active-border-color: var(--sc-acento-oscuro);
-    --bs-btn-disabled-bg: #9db0e6;
-    --bs-btn-disabled-border-color: #9db0e6;
+    --bs-btn-disabled-bg: #8da0bd;
+    --bs-btn-disabled-border-color: #8da0bd;
 }
 
 .btn-outline-secondary {
@@ -966,14 +980,54 @@ details[open] > .caja-nueva-poliza .caja-nueva-poliza-mas {
     display: flex;
     flex-direction: column;
     background:
-        radial-gradient(60rem 40rem at 50% -10%, #e7edfd 0%, transparent 60%),
-        var(--sc-fondo);
+        radial-gradient(60rem 40rem at 50% -10%, #1d4a85 0%, transparent 65%),
+        var(--sc-marino);
 }
 
 .login-card {
+    --bs-card-bg: #12315c;
+    --bs-card-color: #fff;
     max-width: 26rem;
     border-radius: var(--sc-radio);
-    box-shadow: var(--sc-sombra-alta) !important;
+    background-color: #12315c;
+    color: #fff;
+    border: 1px solid rgb(255 255 255 / 14%) !important;
+    box-shadow: 0 16px 48px rgb(0 0 0 / 35%) !important;
+}
+
+.login-card h1,
+.login-card .form-label {
+    color: #fff;
+}
+
+.login-card .text-muted {
+    color: rgb(255 255 255 / 70%) !important;
+}
+
+.login-card .form-control {
+    background-color: rgb(255 255 255 / 8%);
+    border-color: rgb(255 255 255 / 28%);
+    color: #fff;
+}
+
+.login-card .form-control:focus {
+    background-color: rgb(255 255 255 / 12%);
+    border-color: #8fb4ec;
+    box-shadow: 0 0 0 3px rgb(143 180 236 / 30%);
+}
+
+.login-card .form-control::placeholder {
+    color: rgb(255 255 255 / 45%);
+}
+
+/* El botón, en un azul más claro para que no se pierda contra la tarjeta. */
+.login-card .btn-primary {
+    --bs-btn-bg: #2f6fc4;
+    --bs-btn-border-color: #2f6fc4;
+    --bs-btn-hover-bg: #4a86d8;
+    --bs-btn-hover-border-color: #4a86d8;
+    --bs-btn-active-bg: #4a86d8;
+    --bs-btn-active-border-color: #4a86d8;
 }
 
 /* --- Movimiento -------------------------------------------------------- */
