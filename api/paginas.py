@@ -22,6 +22,8 @@ _PAGINAS = {
     "/panel/documentos/": "documentos.html",
     "/panel/usuarios/": "usuarios.html",
     "/panel/companias/": "companias.html",
+    "/panel/interesados/": "interesados.html",
+    "/panel/interesado/": "interesado.html",
     "/panel/metricas/": "panel.html",
 }
 

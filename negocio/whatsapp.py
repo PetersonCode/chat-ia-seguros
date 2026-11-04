@@ -470,7 +470,7 @@ def _enviar_por_api(mensaje: Mensaje) -> None:
 
 def mensaje_permitido_durante_atencion(mensaje: Mensaje) -> bool:
     """Avisos de derivación, respuestas liberadas explícitamente y texto humano."""
-    from negocio.bot.plantillas import DERIVACION, DERIVACION_URGENTE, AVISO_NEUTRO, DATOS_REGISTRADOS, SINIESTRO_INSTRUCCIONES, SIN_ASISTENCIA, SIN_POLIZAS, SIN_CLIENTE
+    from negocio.bot.plantillas import DERIVACION, DERIVACION_URGENTE, AVISO_NEUTRO, COTIZACION_REGISTRADA, DATOS_REGISTRADOS, SINIESTRO_INSTRUCCIONES, SIN_ASISTENCIA, SIN_POLIZAS, SIN_CLIENTE
     from datos.models import Derivacion
 
     if mensaje.emisor == Emisor.FUNCIONARIO:
@@ -482,7 +482,7 @@ def mensaje_permitido_durante_atencion(mensaje: Mensaje) -> bool:
     consulta = mensaje.consulta
     if (
         consulta
-        and mensaje.texto in (AVISO_NEUTRO, DATOS_REGISTRADOS, SINIESTRO_INSTRUCCIONES, SIN_ASISTENCIA, SIN_POLIZAS, SIN_CLIENTE)
+        and mensaje.texto in (AVISO_NEUTRO, DATOS_REGISTRADOS, COTIZACION_REGISTRADA, SINIESTRO_INSTRUCCIONES, SIN_ASISTENCIA, SIN_POLIZAS, SIN_CLIENTE)
         and (mensaje.payload or {}).get("aviso_derivacion") is True
         and Derivacion.objects.filter(consulta_id=consulta.id).exists()
     ):

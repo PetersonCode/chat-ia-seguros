@@ -1,5 +1,5 @@
-from datetime import datetime, time
 import re
+from datetime import date, datetime, time, timedelta
 
 from django.db.models import (
     Case,
@@ -31,15 +31,19 @@ from datos.models import (
     ContactoWhatsapp,
     Conversacion,
     ConsultaBot,
+    Cotizacion,
     Cuota,
     Derivacion,
     EstadoAccion,
     EstadoAlerta,
     EstadoConsulta,
     EstadoEnvio,
+    EstadoInteresado,
     EstadoPoliza,
     Funcionario,
     HistorialSiniestro,
+    Interesado,
+    InteresadoHistorial,
     Mensaje,
     Prioridad,
     Pago,
@@ -52,6 +56,8 @@ from datos.models import (
 )
 
 _ALERTAS_ABIERTAS = (EstadoAlerta.ABIERTA, EstadoAlerta.EN_REVISION)
+# Un interesado deja de estar abierto al emitirse la póliza o al perderse.
+_INTERESADO_CERRADO = (EstadoInteresado.EMITIDA, EstadoInteresado.PERDIDA)
 
 
 def reporte_gestion(desde, hasta) -> dict:
@@ -111,6 +117,11 @@ def reporte_gestion(desde, hasta) -> dict:
             "importe_total": cobros["importe_total"] or 0,
         },
     }
+
+
+def funcionarios_activos() -> QuerySet[Funcionario]:
+    """Quién puede ser responsable de algo: los funcionarios activos, por nombre."""
+    return Funcionario.objects.filter(activo=True).order_by(Lower("nombre"), "id")
 
 
 def funcionario_por_email(email: str) -> Funcionario | None:
@@ -501,6 +512,162 @@ def listar_companias(solo_activas: bool = True) -> QuerySet[Compania]:
     if solo_activas:
         companias = companias.filter(activa=True)
     return companias.order_by(Lower("nombre"), "id")
+
+
+def _condicion_de_busqueda_de_interesado(q: str) -> Q:
+    """Cada palabra tiene que aparecer en el nombre, el apellido, el teléfono o la patente.
+
+    «juan perez» encuentra a Juan Pérez aunque el nombre y el apellido estén en
+    columnas distintas. Una patente completa (con o sin espacios) también gana
+    por coincidencia exacta.
+    """
+    condicion = Q()
+    for palabra in q.split():
+        por_palabra = (
+            Q(nombre__icontains=palabra)
+            | Q(apellido__icontains=palabra)
+            | Q(datos__patente__icontains=palabra.upper())
+        )
+        digitos = "".join(c for c in palabra if c.isdigit())
+        if len(digitos) >= 3:
+            por_palabra |= Q(contacto__numero__contains=digitos)
+        condicion &= por_palabra
+    try:
+        condicion |= Q(datos__patente=normalizar_patente(q))
+    except ValueError:
+        pass
+    # Un teléfono escrito con espacios o guiones ("11 2691-4442") son varias
+    # palabras cortas: por palabra no se encontraría, así que se mira entero.
+    digitos = "".join(c for c in q if c.isdigit())
+    if len(digitos) >= 3 and re.fullmatch(r"[\d\s+()\-.]+", q):
+        condicion |= Q(contacto__numero__contains=digitos)
+    return condicion
+
+
+def listar_interesados(
+    estado: str | None = None,
+    responsable_id: int | None = None,
+    origen: str | None = None,
+    q: str | None = None,
+    seguimiento_vencido: bool = False,
+    hoy: date | None = None,
+) -> QuerySet[Interesado]:
+    """El tablero de venta nueva: primero los que había que llamar y no se llamó.
+
+    «Vencido» es un `proximo_contacto` anterior a hoy en un interesado todavía
+    abierto: uno emitido o perdido ya no espera ningún llamado. Dentro de cada
+    grupo, el que se tocó más recientemente va primero.
+    """
+    hoy = hoy or timezone.localdate()
+    vencido = Q(proximo_contacto__lt=hoy) & ~Q(estado__in=_INTERESADO_CERRADO)
+    interesados = Interesado.objects.select_related(
+        "responsable", "contacto", "cliente"
+    ).annotate(
+        orden_vencido=Case(
+            When(vencido, then=Value(0)),
+            default=Value(1),
+            output_field=IntegerField(),
+        )
+    )
+    if estado:
+        interesados = interesados.filter(estado=estado)
+    if responsable_id is not None:
+        interesados = interesados.filter(responsable_id=responsable_id)
+    if origen:
+        interesados = interesados.filter(origen=origen)
+    if q and q.strip():
+        interesados = interesados.filter(_condicion_de_busqueda_de_interesado(q.strip()))
+    if seguimiento_vencido:
+        interesados = interesados.filter(vencido)
+    return interesados.order_by("orden_vencido", "-actualizado_en", "-id")
+
+
+def contar_por_estado(responsable_id: int | None = None) -> dict[str, int]:
+    """Cuántos interesados hay en cada etapa. Siempre trae las cinco, aunque estén en cero."""
+    interesados = Interesado.objects.all()
+    if responsable_id is not None:
+        interesados = interesados.filter(responsable_id=responsable_id)
+    conteos = {estado: 0 for estado in EstadoInteresado.values}
+    for fila in interesados.values("estado").annotate(cantidad=Count("id")):
+        conteos[fila["estado"]] = fila["cantidad"]
+    return conteos
+
+
+def cierres_del_mes(
+    responsable_id: int | None = None, hoy: date | None = None
+) -> dict[str, int]:
+    """Cuántos interesados se emitieron y cuántos se perdieron en el mes de `hoy`.
+
+    Cuenta interesados distintos, por el cambio de etapa que quedó en el historial:
+    una gestión que no cambia la etapa (asignar, cargar datos) no suma, y uno que se
+    pierde, se reabre y se pierde otra vez en el mismo mes cuenta una vez.
+    """
+    hoy = hoy or timezone.localdate()
+    zona = timezone.get_current_timezone()
+    primero = hoy.replace(day=1)
+    siguiente = (primero.replace(day=28) + timedelta(days=4)).replace(day=1)
+    lineas = InteresadoHistorial.objects.filter(
+        fecha__gte=timezone.make_aware(datetime.combine(primero, time.min), zona),
+        fecha__lt=timezone.make_aware(datetime.combine(siguiente, time.min), zona),
+        estado_nuevo__in=_INTERESADO_CERRADO,
+    ).exclude(estado_anterior=F("estado_nuevo"))
+    if responsable_id is not None:
+        lineas = lineas.filter(interesado__responsable_id=responsable_id)
+    cuentas = {
+        fila["estado_nuevo"]: fila["cantidad"]
+        for fila in lineas.values("estado_nuevo").annotate(
+            cantidad=Count("interesado_id", distinct=True)
+        )
+    }
+    return {
+        "convertidos_mes": cuentas.get(EstadoInteresado.EMITIDA, 0),
+        "perdidos_mes": cuentas.get(EstadoInteresado.PERDIDA, 0),
+    }
+
+
+def interesado_abierto_de(contacto_id: int) -> Interesado | None:
+    """El interesado de ese número que todavía no se emitió ni se perdió, si lo hay."""
+    return (
+        Interesado.objects.filter(contacto_id=contacto_id)
+        .exclude(estado__in=_INTERESADO_CERRADO)
+        .first()
+    )
+
+
+def cotizaciones_de(
+    interesado_id: int | None = None, poliza_id: int | None = None
+) -> QuerySet[Cotizacion]:
+    """Las cotizaciones de un interesado o de una póliza, de la más barata a la más cara."""
+    if interesado_id is None and poliza_id is None:
+        return Cotizacion.objects.none()
+    cotizaciones = Cotizacion.objects.select_related("compania", "creada_por")
+    if interesado_id is not None:
+        cotizaciones = cotizaciones.filter(interesado_id=interesado_id)
+    if poliza_id is not None:
+        cotizaciones = cotizaciones.filter(poliza_id=poliza_id)
+    return cotizaciones.order_by("prima_mensual", "id")
+
+
+def detalle_interesado(interesado_id: int) -> Interesado:
+    """El interesado con su historial (viejo a nuevo), sus cotizaciones y su contacto.
+
+    Cuatro consultas fijas: el interesado con responsable, contacto y cliente en
+    el mismo JOIN, el historial con su autor, y las cotizaciones con compañía.
+    """
+    historial = InteresadoHistorial.objects.select_related("funcionario").order_by(
+        "fecha", "id"
+    )
+    cotizaciones = Cotizacion.objects.select_related("compania", "creada_por").order_by(
+        "prima_mensual", "id"
+    )
+    return (
+        Interesado.objects.select_related("responsable", "contacto", "cliente")
+        .prefetch_related(
+            Prefetch("historial", queryset=historial),
+            Prefetch("cotizaciones", queryset=cotizaciones),
+        )
+        .get(pk=interesado_id)
+    )
 
 
 def detalle_cliente(cliente_id: int) -> Cliente:

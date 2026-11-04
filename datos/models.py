@@ -52,6 +52,24 @@ class UsoVehiculo(models.TextChoices):
     CARGA = "carga", "Carga"
 
 
+class EstadoInteresado(models.TextChoices):
+    CONSULTA = "consulta", "Consulta"
+    COTIZANDO = "cotizando", "Cotizando"
+    DOCUMENTACION = "documentacion", "Documentación"
+    EMITIDA = "emitida", "Emitida"
+    PERDIDA = "perdida", "Perdida"
+
+
+class OrigenInteresado(models.TextChoices):
+    WHATSAPP = "whatsapp", "WhatsApp"
+    INSTAGRAM = "instagram", "Instagram"
+    FACEBOOK = "facebook", "Facebook"
+    WEB = "web", "Web"
+    RECOMENDACION = "recomendacion", "Recomendación"
+    LLAMADO = "llamado", "Llamado"
+    OTRO = "otro", "Otro"
+
+
 class EstadoCuota(models.TextChoices):
     PENDIENTE = "pendiente", "Pendiente"
     PAGADA = "pagada", "Pagada"
@@ -837,3 +855,99 @@ class RecordatorioPoliza(models.Model):
     class Meta:
         managed = False
         db_table = 'recordatorios_polizas'
+
+
+class Interesado(models.Model):
+    """Quien pidió precio o información y todavía no tiene póliza (P5).
+
+    `datos` guarda lo juntado para cotizar (dni, patente, marca, modelo, anio,
+    uso, localidad, tipo_seguro). Un contacto de WhatsApp tiene a lo sumo un
+    interesado abierto; lo hace cumplir un índice único parcial.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+    nombre = models.TextField()
+    apellido = models.TextField(null=True)
+    contacto = models.ForeignKey(
+        ContactoWhatsapp,
+        on_delete=models.DO_NOTHING,
+        null=True,
+        related_name="interesados",
+    )
+    cliente = models.ForeignKey(
+        Cliente,
+        on_delete=models.DO_NOTHING,
+        null=True,
+        related_name="interesados",
+    )
+    origen = models.TextField(choices=OrigenInteresado.choices)
+    estado = models.TextField(
+        choices=EstadoInteresado.choices, default=EstadoInteresado.CONSULTA
+    )
+    responsable = models.ForeignKey(
+        Funcionario,
+        on_delete=models.DO_NOTHING,
+        null=True,
+        related_name="interesados",
+    )
+    proximo_contacto = models.DateField(null=True)
+    motivo_perdida = models.TextField(null=True)
+    datos = models.JSONField(default=dict)
+    creado_en = models.DateTimeField(default=timezone.now)
+    actualizado_en = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "interesados"
+
+
+class InteresadoHistorial(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    interesado = models.ForeignKey(
+        Interesado, on_delete=models.DO_NOTHING, related_name="historial"
+    )
+    estado_anterior = models.TextField(null=True)
+    estado_nuevo = models.TextField(choices=EstadoInteresado.choices)
+    nota = models.TextField(null=True)
+    funcionario = models.ForeignKey(
+        Funcionario, on_delete=models.DO_NOTHING, null=True, related_name="+"
+    )
+    fecha = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "interesado_historial"
+
+
+class Cotizacion(models.Model):
+    """Lo que cotiza una compañía: para un interesado o para una póliza, no ambos."""
+
+    id = models.BigAutoField(primary_key=True)
+    interesado = models.ForeignKey(
+        Interesado,
+        on_delete=models.DO_NOTHING,
+        null=True,
+        related_name="cotizaciones",
+    )
+    poliza = models.ForeignKey(
+        Poliza,
+        on_delete=models.DO_NOTHING,
+        null=True,
+        related_name="cotizaciones",
+    )
+    compania = models.ForeignKey(
+        Compania, on_delete=models.DO_NOTHING, related_name="cotizaciones"
+    )
+    cobertura = models.TextField(choices=Cobertura.choices)
+    prima_mensual = models.DecimalField(max_digits=12, decimal_places=2)
+    vigencia_hasta = models.DateField(null=True)
+    elegida = models.BooleanField(default=False)
+    notas = models.TextField(null=True)
+    creada_por = models.ForeignKey(
+        Funcionario, on_delete=models.DO_NOTHING, related_name="+"
+    )
+    creada_en = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "cotizaciones"

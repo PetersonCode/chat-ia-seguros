@@ -27,7 +27,7 @@ Copy-Item .env.demo.example .env
 
 Editar `.env` con el secreto generado y la conexión de una base propia. Usar `.venv` para los comandos siguientes (activar el entorno o llamar su `python.exe`). No subir `.env` a GitHub.
 
-En una base nueva de demostración aplicar SQL **01 a 13 y luego 22, 23, 24 y 25 en orden**, incluyendo 02 para cargar funcionarios y catálogos ficticios. SQL 12 agrega la charla de tu compañero; SQL 13 (P1) agrega vehículos y compañías; SQL 22 incorpora el hardening y SQL 23 agrega los recordatorios de vencimiento y SQL 24 completa la cartera y evita superposiciones por vehículo; SQL 25 incorpora solicitudes de alta de póliza y avisos durables. Los números 14–21 están reservados para los planes P2–P9 y todavía no tienen scripts ni implementación. Nunca ejecutar 00 sobre datos que quieran conservar. Ejemplo PowerShell, adaptando la conexión a `.env`:
+En una base nueva de demostración aplicar SQL **01 a 13, 17, 22 y 23 en orden**, incluyendo 02 para cargar funcionarios y catálogos ficticios. SQL 12 agrega la charla de tu compañero; SQL 13 (P1) agrega vehículos y compañías; SQL 17 (P5) agrega el embudo de interesados y las cotizaciones; SQL 22 incorpora el hardening y SQL 23 agrega los recordatorios de vencimiento. Los números 14–16 y 18–21 están reservados para los planes P2–P4 y P6–P9 y todavía no tienen scripts ni implementación. Nunca ejecutar 00 sobre datos que quieran conservar. Ejemplo PowerShell, adaptando la conexión a `.env`:
 
 ```powershell
 Get-ChildItem .\SDD\sql\*.sql |
@@ -140,4 +140,4 @@ La suite crea y destruye `test_proyecto`, requiere CREATEDB y fuerza simulación
 - `docs/INTEGRACION.md`: cambios del segundo ZIP incorporados y planes aún pendientes.
 - `evidencia/RESULTADOS.md`: pruebas realmente ejecutadas y sus límites.
 
-Los SDD previos se conservan como antecedentes; README y `docs/` describen esta versión. P1–P9 son especificaciones futuras, no funcionalidades entregadas: el verificador SDD también cuenta sus criterios pendientes. Esto no constituye una certificación ISO ni un informe SOC 2. Repetir la exposición en la computadora del equipo y declarar la asistencia de IA conforme a la consigna.
+Los SDD previos se conservan como antecedentes; README y `docs/` describen esta versión. P1 y P5 están entregados (P5 sin el seguimiento automático ni el comparador de renovaciones, que esperan a P2 y P3); P2–P4 y P6–P9 son especificaciones futuras, no funcionalidades entregadas: el verificador SDD también cuenta sus criterios pendientes. Esto no constituye una certificación ISO ni un informe SOC 2. Repetir la exposición en la computadora del equipo y declarar la asistencia de IA conforme a la consigna.

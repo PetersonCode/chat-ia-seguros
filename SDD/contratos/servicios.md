@@ -30,6 +30,8 @@ def sin_respuesta(*, estado: str, modo: str, ultimo_emisor: str | None,
                   ultimo_fecha_hora: datetime | None, ahora: datetime) -> bool
     # True si estado 'abierta', modo 'bot', el último mensaje es del cliente y tiene más de 10 minutos
 def ventana_24h_abierta(ultimo_mensaje_cliente_en: datetime | None, ahora: datetime) -> bool
+UMBRAL_AUMENTO_SIGNIFICATIVO = Decimal("15")
+def aumento_significativo(actual, nueva, umbral=UMBRAL_AUMENTO_SIGNIFICATIVO) -> bool   # P5 · True si `nueva` supera a `actual` en `umbral` % o más; Decimal sin dividir; actual <= 0 -> False
 ```
 
 ## 4. WhatsApp (`negocio/whatsapp.py`)
@@ -131,6 +133,46 @@ def descripcion_de_vehiculo(vehiculo: Vehiculo) -> str
 ```
 Plantilla del bot `LINEA_VENCIMIENTO` (`negocio/bot/plantillas.py`): ahora termina en `{patente}`, que vale `" · <patente>"` si la póliza tiene vehículo y `""` si no. La patente va en `datos_verificados`.
 
+## 8 bis. Embudo de interesados y cotizaciones (P5: `negocio/interesados.py`, `negocio/cotizaciones.py`, `negocio/bot/cotizacion.py`)
+Cualquier funcionario **activo** puede todo, salvo `convertir_en_cliente` (aprobador). Un funcionario inactivo o inexistente es `PermisoDenegado`; un interesado, cotización o póliza inexistente, `NoEncontrado`.
+```python
+# negocio/interesados.py
+TRANSICIONES   # consulta→cotizando→documentacion→emitida (de a una) y una etapa atrás (cotizando→consulta, documentacion→cotizando); cualquiera abierta→perdida; perdida→consulta. emitida es final.
+def crear_interesado(funcionario_id, nombre, origen, telefono=None, apellido=None, datos=None) -> Interesado
+    # en `consulta`, el que lo crea es el responsable, primer historial con estado_anterior nulo. El teléfono pasa por normalizar_telefono y
+    # reutiliza el contacto (o lo crea sin cliente). Si el número ya tiene un interesado abierto devuelve ese. Si es de un cliente activo, nace con cliente_id.
+def mover_interesado(interesado_id, estado_nuevo, funcionario_id, nota=None, motivo_perdida=None) -> Interesado
+    # transición inválida / salir de emitida: EstadoInvalido. perdida sin motivo de 3+ caracteres: DatosInvalidos. emitida exige cliente y una póliza
+    # creada DESPUÉS del interesado (EstadoInvalido). Reabrir una perdida cuando el número ya tiene otro interesado abierto: EstadoInvalido.
+def convertir_en_cliente(interesado_id, funcionario_id, dni, nombre, apellido, email=None, telefono=None) -> Interesado
+    # aprobador; solo en `documentacion`. alta_cliente (adopta el contacto) o reutiliza al cliente de ese DNI. No cambia la etapa.
+    # `telefono` solo se usa si el interesado no tiene contacto de WhatsApp (alta_cliente lo exige).
+def asignar_interesado(interesado_id, responsable_id, funcionario_id) -> Interesado     # responsable inactivo o inexistente: DatosInvalidos
+def programar_contacto(interesado_id, fecha, funcionario_id) -> Interesado              # hoy o futura (date o "aaaa-mm-dd"); vacía/None la borra
+def actualizar_datos_interesado(interesado_id, datos: dict, funcionario_id) -> Interesado
+    # mezcla con lo existente; normaliza patente y dni, valida anio y uso; valor vacío/None borra la clave; solo escalares
+def datos_normalizados(datos: dict | None) -> dict
+def registrar_cotizacion_del_bot(contacto, datos: dict, *, responsable_id=None) -> Interesado
+    # lo usa el bot: suma los datos al interesado abierto de ese número o crea uno (origen whatsapp, historial sin autor).
+    # Si no tenía proximo_contacto, queda para hoy; si tenía, lo conserva.
+# Cada gestión (asignar, programar, datos, convertir) deja una línea de historial en la etapa actual (estado_anterior == estado_nuevo) con la nota de qué se hizo.
+
+# Seguimiento (se engancha al motor de avisos de P2; ver "Pendiente de P2" en SDD/entregas/P5.md)
+def seguimiento_interesados(hoy: date) -> list[dict]
+    # generador: por cada interesado en `cotizando` con WhatsApp, que lleva 2..4 días (tipo seguimiento_cotizacion_2d) o 5..11 días (…_5d)
+    # y cuyo contacto NO escribió desde que entró a esa etapa. Cada dict: {tipo, contacto_id, referencia: "interesado:<id>:<2d|5d>:<fecha de entrada>",
+    # datos: {"interesado_id"}, asignado_a_id: responsable}
+def texto_seguimiento_cotizacion(datos: dict) -> tuple[str, frozenset[str]]    # el texto de TEXTOS_AVISO para ambos tipos (datos = {"interesado_id"})
+
+# negocio/cotizaciones.py
+def cargar_cotizacion(funcionario_id, compania_id, cobertura, prima_mensual, interesado_id=None, poliza_id=None, vigencia_hasta=None, notas=None) -> Cotizacion
+    # exactamente uno de interesado_id / poliza_id; compañía activa (inexistente NoEncontrado, desactivada DatosInvalidos); prima > 0, 2 decimales, acepta coma
+def elegir_cotizacion(cotizacion_id, funcionario_id) -> Cotizacion      # desmarca la anterior del mismo destino en la misma transacción
+def quitar_cotizacion(cotizacion_id, funcionario_id) -> None            # borra una no elegida; la elegida: EstadoInvalido
+def variacion_renovacion(poliza_id) -> Decimal | None                   # % de la prima de la póliza a la cotización elegida (2 decimales); None sin elegida
+```
+**Bot (`negocio/bot/cotizacion.py`, `plantillas.py`, `orquestador.py`).** Una consulta `cotizacion` ya no deriva en seco: pide en orden patente, marca y modelo, año, uso y localidad (`PEDIDO_COTIZACION`; con un solo dato pendiente, `PEDIDO_COTIZACION_UNO`), hasta `registro.MAX_PEDIDOS` veces; lee las respuestas con expresiones regulares y **deja vacío lo que no puede leer con certeza**; guarda en `Interesado.datos`, responde `COTIZACION_REGISTRADA` y deriva a Graciela con `Interesado #<id>` en el motivo. Sin estado propio: el rastro es `MARCA_PEDIDO_COTIZACION` en el log (igual que el alta). `COTIZACION_REGISTRADA` está en la lista de mensajes permitidos durante la atención humana (`whatsapp.mensaje_permitido_durante_atencion`) y en el payload `aviso_derivacion`; sin eso se descartaba al derivar.
+
 ## 9. Qué excepción lanza cada caso (para que T2 la traduzca)
 | Situación | Excepción |
 |---|---|
@@ -138,4 +180,6 @@ Plantilla del bot `LINEA_VENCIMIENTO` (`negocio/bot/plantillas.py`): ahora termi
 | Id inexistente | `NoEncontrado` |
 | Mensaje que ya no está `retenido`; acción ya resuelta; derivación ya atendida; ventana de 24 h cerrada (`codigo="ventana_24h_cerrada"`) | `EstadoInvalido` |
 | Motivo vacío o corto, tipo de acción inválido, texto vacío | `DatosInvalidos` |
+| P5: transición de etapa inválida, interesado emitido, emitir sin cliente/póliza nueva, quitar la cotización elegida, convertir fuera de `documentacion` | `EstadoInvalido` |
+| P5: origen, nombre, teléfono, prima, cobertura, dato (patente, DNI, año, uso), fecha pasada o responsable inválidos; ambos o ninguno de interesado/póliza | `DatosInvalidos` |
 | Faltan parámetros para ejecutar una acción | `ParametrosIncompletos` |

@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 RANGO_SEVERIDAD = {"baja": 1, "media": 2, "alta": 3, "critica": 4}
 
@@ -40,3 +41,21 @@ def ventana_24h_abierta(ultimo_mensaje_cliente_en, ahora) -> bool:
     if ultimo_mensaje_cliente_en is None:
         return False
     return ahora - ultimo_mensaje_cliente_en < timedelta(hours=24)
+
+
+UMBRAL_AUMENTO_SIGNIFICATIVO = Decimal("15")
+
+
+def aumento_significativo(actual, nueva, umbral=UMBRAL_AUMENTO_SIGNIFICATIVO) -> bool:
+    """Si `nueva` supera a `actual` en `umbral` por ciento o más (P5).
+
+    Se compara con `Decimal` y sin dividir: `(nueva - actual) * 100 >= actual * umbral`
+    evita el redondeo binario de un `float` justo en el borde (15 % exacto cuenta).
+    Sin una prima actual positiva no hay contra qué comparar, y no se avisa nada.
+    """
+    actual = Decimal(str(actual))
+    nueva = Decimal(str(nueva))
+    umbral = Decimal(str(umbral))
+    if actual <= 0:
+        return False
+    return (nueva - actual) * 100 >= actual * umbral

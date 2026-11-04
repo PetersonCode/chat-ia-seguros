@@ -13,6 +13,7 @@ from datos.models import (
     ContactoWhatsapp,
     Conversacion,
     ConsultaBot,
+    Cotizacion,
     Cuota,
     Derivacion,
     EstadoAccion,
@@ -24,6 +25,7 @@ from datos.models import (
     EstadoPoliza,
     EstadoSiniestro,
     Funcionario,
+    Interesado,
     Mensaje,
     ModoConversacion,
     OrigenAlerta,
@@ -45,6 +47,7 @@ _mensajes = count(1)
 _consultas = count(1)
 _companias = count(1)
 _vehiculos = count(0)
+_interesados = count(1)
 
 _TIPOS_SEGURO = (
     ("automotor", "Automotor"),
@@ -288,3 +291,42 @@ def crear_derivacion(
     }
     valores.update(campos)
     return Derivacion.objects.create(**valores)
+
+
+def crear_interesado(**campos: Any) -> Interesado:
+    """Un interesado válido en `consulta`, sin contacto ni cliente.
+
+    No inventa el cliente de una `emitida` ni el motivo de una `perdida`: la base
+    los exige, y un test que arme esos estados tiene que decirlos.
+    """
+    numero = next(_interesados)
+    valores: dict[str, Any] = {
+        "nombre": "Interesado",
+        "apellido": f"De Prueba {numero}",
+        "origen": "whatsapp",
+        "estado": "consulta",
+        "datos": {},
+    }
+    valores.update(campos)
+    return Interesado.objects.create(**valores)
+
+
+def crear_cotizacion(
+    interesado: Interesado | None = None,
+    poliza: Poliza | None = None,
+    **campos: Any,
+) -> Cotizacion:
+    """Una cotización válida. Sin interesado ni póliza, crea un interesado."""
+    if interesado is None and poliza is None:
+        interesado = crear_interesado()
+    valores: dict[str, Any] = {
+        "interesado": interesado,
+        "poliza": poliza,
+        "compania": campos.pop("compania", None) or crear_compania(),
+        "cobertura": "intermedia",
+        "prima_mensual": "15000.00",
+        "elegida": False,
+        "creada_por": campos.pop("creada_por", None) or crear_funcionario("Cotizador"),
+    }
+    valores.update(campos)
+    return Cotizacion.objects.create(**valores)
