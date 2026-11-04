@@ -23,7 +23,7 @@ def polizas_por_vencer(dias=None, incluir_vencidas=False, q=''):
     polizas = Poliza.objects.filter(cliente__activo=True, tipo_seguro__codigo='automotor',
         estado__in=['vigente', 'vencida'] if incluir_vencidas else ['vigente'],
         fecha_vencimiento__gte=hoy-timedelta(days=30) if incluir_vencidas else hoy
-    ).select_related('cliente').annotate(
+    ).select_related('cliente', 'vehiculo', 'compania').annotate(
         saldo=Subquery(resumen.values('saldo_pendiente')[:1]),
         proxima_cuota=Subquery(resumen.values('proximo_vencimiento_pago')[:1]),
         ultimo_recordatorio=Subquery(ultimo.values('creado_en')[:1]),
@@ -34,8 +34,10 @@ def polizas_por_vencer(dias=None, incluir_vencidas=False, q=''):
     if dias is not None:
         polizas = polizas.filter(fecha_vencimiento__lte=hoy+timedelta(days=dias))
     if q:
-        polizas = polizas.filter(Q(numero_poliza__icontains=q) | Q(cliente__nombre__icontains=q)
-            | Q(cliente__apellido__icontains=q) | Q(bien_asegurado__icontains=q))
+        from datos.selectors import filtrar_cartera
+        polizas = filtrar_cartera(polizas, q, ('numero_poliza', 'cliente__nombre',
+            'cliente__apellido', 'bien_asegurado', 'vehiculo__patente', 'vehiculo__marca',
+            'vehiculo__modelo', 'vehiculo__chasis', 'vehiculo__clase', 'compania__nombre'))
     return polizas.annotate(prioridad_pago=Case(When(saldo_vencido__gt=0,then=Value(0)),
         default=Value(1),output_field=IntegerField())).order_by('prioridad_pago',
         F('primera_cuota_vencida').asc(nulls_last=True),'fecha_vencimiento','id')

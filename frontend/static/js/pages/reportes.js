@@ -1,5 +1,6 @@
-import { api } from "../api.js?v=20261104vencimientos2";
-import { inicializarNav } from "../nav.js?v=20261104vencimientos2";
+import { formatearMonto } from "../lib/formato.js?v=20261104altas1";
+import { api } from "../api.js?v=20261104altas1";
+import { inicializarNav } from "../nav.js?v=20261104altas1";
 
 const formulario = document.getElementById("filtros-reportes");
 const campoDesde = document.getElementById("reporte-desde");
@@ -12,6 +13,46 @@ const resumen = document.getElementById("resumen-reportes");
 const filasMotivos = document.getElementById("filas-motivos");
 const motivosVacios = document.getElementById("motivos-vacios");
 const listaDefiniciones = document.getElementById("definiciones-reportes");
+
+function renderizarComisiones(reporte) {
+    const seccion = document.getElementById("seccion-comisiones");
+    document.getElementById("totales-comisiones").replaceChildren(
+        crearIndicador("Comisión estimada", formatearMonto(reporte.totales.estimada), "Sobre cuotas del período."),
+        crearIndicador("Sobre cobros", formatearMonto(reporte.totales.sobre_cobros), "Sobre pagos registrados en el período."),
+    );
+    document.getElementById("aviso-comisiones").textContent = reporte.sin_porcentaje
+        ? `${reporte.sin_porcentaje} póliza(s) del período sin porcentaje: sus comisiones no se incluyen. Completalas desde la ficha del cliente.` : "";
+    for (const [destino, filas] of [["comisiones-companias", reporte.por_compania], ["comisiones-clientes", reporte.por_cliente]]) {
+        const cuerpo = document.getElementById(destino);
+        cuerpo.replaceChildren();
+        for (const datos of filas) {
+            const fila = document.createElement("tr");
+            const nombre = crearCelda("th", datos.nombre, "fw-normal");
+            nombre.scope = "row";
+            if (destino === "comisiones-clientes") {
+                const enlace = document.createElement("a");
+                enlace.href = `/panel/cliente/?id=${encodeURIComponent(datos.id)}`;
+                enlace.textContent = datos.nombre;
+                nombre.replaceChildren(enlace);
+            }
+            if (datos.sin_porcentaje) nombre.append(crearCelda("div",
+                `${datos.sin_porcentaje} póliza(s) sin porcentaje`, "small text-warning"));
+            fila.append(nombre, crearCelda("td", formatearMonto(datos.estimada), "text-end"),
+                crearCelda("td", formatearMonto(datos.sobre_cobros), "text-end"));
+            cuerpo.append(fila);
+        }
+        if (!filas.length) {
+            const fila = document.createElement("tr");
+            const celda = crearCelda("td", "No hay movimientos en el período.", "text-muted");
+            celda.colSpan = 3;
+            fila.append(celda);
+            cuerpo.append(fila);
+        }
+    }
+    seccion.hidden = false;
+    document.getElementById("exportar-comisiones").href = `/api/reportes/comisiones/?` +
+        new URLSearchParams({...reporte.periodo, formato: "csv"});
+}
 
 function fechaLocal(fecha) {
     const anio = fecha.getFullYear();
@@ -111,7 +152,13 @@ async function cargarReporte(evento) {
             desde: campoDesde.value,
             hasta: campoHasta.value,
         });
-        const reporte = await api.get(`/api/reportes/gestion/?${filtros}`);
+        document.getElementById("seccion-comisiones").hidden = true;
+        const usuario = await api.get("/api/auth/me/");
+        const [reporte, comisiones] = await Promise.all([
+            api.get(`/api/reportes/gestion/?${filtros}`),
+            usuario.puede_aprobar ? api.get(`/api/reportes/comisiones/?${filtros}`) : null,
+        ]);
+        if (comisiones) renderizarComisiones(comisiones);
         renderizarReporte(reporte);
         mostrarEstado("");
     } catch (error) {

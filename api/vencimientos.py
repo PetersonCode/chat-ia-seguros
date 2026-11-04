@@ -1,4 +1,5 @@
 from django.utils import timezone
+from negocio.polizas import descripcion_de_vehiculo
 from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -36,7 +37,8 @@ def vencimientos(request):
     p=Paginador();pagina=p.paginate_queryset(polizas_por_vencer(**datos),request)
     return p.get_paginated_response([{'id':poliza.pk,'numero_poliza':poliza.numero_poliza,
         'cliente':{'id':poliza.cliente_id,'nombre':poliza.cliente.nombre,'apellido':poliza.cliente.apellido},
-        'vehiculo':poliza.bien_asegurado,'estado':poliza.estado,
+        'vehiculo':descripcion_de_vehiculo(poliza.vehiculo) if poliza.vehiculo else poliza.bien_asegurado,
+        'compania':poliza.compania.nombre if poliza.compania else None,'estado':poliza.estado,
         'fecha_vencimiento':poliza.fecha_vencimiento.isoformat(),
         'dias_restantes':(poliza.fecha_vencimiento-timezone.localdate()).days,
         'saldo_pendiente':str(poliza.saldo or 0),

@@ -1,6 +1,6 @@
 # Seguros Castaño — MVP 2 final para la facultad
 
-Integra `chat-ia-seguros-daniel-orm-bdd (1).zip` y los cambios posteriores de `chat-ia-seguros-daniel-orm-bdd (2).zip`. Conserva el diseño y la gestión del equipo, incorpora hardening y un bot que consulta automáticamente al cliente reconocido por su número. El alcance actual es **solo automotor**.
+Integra el `main` del equipo al 4/11/2026, incluidos P1 (vehículos y compañías), vencimientos y recordatorios, y su ampliación de búsqueda, comisiones y control de duplicados. Conserva el diseño y la gestión del equipo, incorpora hardening y un bot que consulta automáticamente al cliente reconocido por su número. El alcance actual es **solo automotor**.
 
 ## Recorrido final
 
@@ -27,7 +27,7 @@ Copy-Item .env.demo.example .env
 
 Editar `.env` con el secreto generado y la conexión de una base propia. Usar `.venv` para los comandos siguientes (activar el entorno o llamar su `python.exe`). No subir `.env` a GitHub.
 
-En una base nueva de demostración aplicar SQL **01 a 13 y luego 22 y 23 en orden**, incluyendo 02 para cargar funcionarios y catálogos ficticios. SQL 12 agrega la charla de tu compañero; SQL 13 (P1) agrega vehículos y compañías; SQL 22 incorpora el hardening y SQL 23 agrega los recordatorios de vencimiento. Los números 14–21 están reservados para los planes P2–P9 y todavía no tienen scripts ni implementación. Nunca ejecutar 00 sobre datos que quieran conservar. Ejemplo PowerShell, adaptando la conexión a `.env`:
+En una base nueva de demostración aplicar SQL **01 a 13 y luego 22, 23, 24 y 25 en orden**, incluyendo 02 para cargar funcionarios y catálogos ficticios. SQL 12 agrega la charla de tu compañero; SQL 13 (P1) agrega vehículos y compañías; SQL 22 incorpora el hardening y SQL 23 agrega los recordatorios de vencimiento y SQL 24 completa la cartera y evita superposiciones por vehículo; SQL 25 incorpora solicitudes de alta de póliza y avisos durables. Los números 14–21 están reservados para los planes P2–P9 y todavía no tienen scripts ni implementación. Nunca ejecutar 00 sobre datos que quieran conservar. Ejemplo PowerShell, adaptando la conexión a `.env`:
 
 ```powershell
 Get-ChildItem .\SDD\sql\*.sql |
@@ -55,17 +55,32 @@ python manage.py reprocesar_pendientes --continuo
 
 ### Base existente del ZIP final recibido
 
-Respaldar. Si ya se aplicaron 01 a 11, aplicar **SQL 12 (charla), 22 (seguridad) y 23 (recordatorios)**, y ejecutar `migrate`. No volver a ejecutar el seed ni 00.
+Respaldar. Si ya se aplicaron 01 a 11, aplicar **SQL 12 (charla), 13 (vehículos/compañías), 22 (seguridad), 23 (recordatorios), 24 (cartera) y 25 (altas por chat)**, y ejecutar `migrate`. No volver a ejecutar el seed ni 00.
 
 ```powershell
 psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\12_tipos_de_charla.sql
+psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\13_vehiculos_companias.sql
 psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\22_seguridad_y_coberturas.sql
 psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\23_recordatorios_polizas.sql
+psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\24_cartera_vehiculos.sql
+psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\25_altas_por_chat.sql
 python manage.py migrate
 python manage.py check
 ```
 
 Instalar las nuevas dependencias, preparar el modelo y reiniciar web/worker. Django no crea las tablas del negocio con `migrate`, porque son `managed=False`.
+
+## Altas de clientes y pólizas por acciones
+
+El bot reúne los datos del chat y deja una solicitud preparada en la base. El asesor revisa y confirma el cliente; para una póliza ingresa únicamente la **prima mensual acordada** y confirma. El cliente no fija precios ni comisiones. Se crean los registros y sus cuotas al confirmar, y se prepara automáticamente el aviso al cliente, también ante rechazo o finalización de una gestión externa.
+
+[Flujo, datos solicitados, actualización SQL 25 y pruebas](docs/ALTAS-POR-CHAT.md). Se mantienen WhatsApp simulado para la exposición, la derivación inmediata de siniestros y la identidad visual del panel.
+
+## Vehículos, compañías y comisiones
+
+La ficha permite completar datos estructurados del vehículo y asociar la compañía emisora y su comisión. Clientes y Vencimientos buscan por patente, chasis, marca/modelo o «la camioneta de Pérez». Se impiden pólizas superpuestas para el mismo vehículo, incluso ante altas simultáneas. Reportes muestra comisión estimada y calculada sobre pagos registrados por compañía y cliente, con exportación CSV restringida a aprobadores.
+
+Para actualizar desde el `main` que ya tiene 13, 22 y 23, aplicar **SQL 24 y 25** y reiniciar web/worker. Después ejecutar `python manage.py auditar_cartera` y completar vínculos históricos desde la ficha. [Guía, fórmulas, permisos y recorrido para exponer](docs/VEHICULOS-Y-COMISIONES.md).
 
 ## Vencimientos y recordatorios
 

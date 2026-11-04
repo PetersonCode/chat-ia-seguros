@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20261104vencimientos2";
+import { api } from "./api.js?v=20261104altas1";
 
 const contadores = [
     { clave: "acciones", etiqueta: "Acciones", destino: "/panel/acciones/" },
