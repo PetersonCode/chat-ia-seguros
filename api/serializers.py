@@ -48,6 +48,11 @@ class ParametrosSerializer(serializers.Serializer):
     parametros = serializers.DictField(required=True)
 
 
+class AprobacionSerializer(serializers.Serializer):
+    motivo = serializers.CharField(required=False, allow_null=True, allow_blank=True, max_length=1000)
+    prima_mensual = serializers.DecimalField(required=False, max_digits=12, decimal_places=2, min_value=Decimal('0'))
+
+
 class ConsultaFiltroSerializer(serializers.Serializer):
     estado = serializers.CharField(required=False, allow_blank=True)
     con_alertas = serializers.BooleanField(required=False)
@@ -181,6 +186,7 @@ class VehiculoAltaSerializer(serializers.Serializer):
     modelo = serializers.CharField(allow_blank=True)
     anio = serializers.IntegerField()
     uso = serializers.CharField(required=False, allow_blank=True)
+    clase = serializers.ChoiceField(choices=("sin_especificar", "auto", "camioneta", "utilitario", "moto", "camion"), required=False)
     chasis = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     valor_asegurado = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
@@ -193,6 +199,7 @@ class VehiculoModificacionSerializer(serializers.Serializer):
     modelo = serializers.CharField(required=False, allow_blank=True)
     anio = serializers.IntegerField(required=False)
     uso = serializers.CharField(required=False, allow_blank=True)
+    clase = serializers.ChoiceField(choices=("sin_especificar", "auto", "camioneta", "utilitario", "moto", "camion"), required=False)
     chasis = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     valor_asegurado = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 

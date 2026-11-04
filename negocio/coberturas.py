@@ -66,7 +66,33 @@ def es_seleccion(texto, conversacion):
     if not contexto or not contexto.pregunta:
         return False
     # Solo respuestas breves que parecen una selección; no intercepta urgencias.
-    return len(texto) <= 100 and bool(re.search(r'\b(auto|automotor|coche|hogar|casa|moto|vida|comercio|pol-\d+)\b', _normalizar(texto)))
+    if len(texto) > 100:
+        return False
+    if re.search(r'\b(auto|automotor|coche|hogar|casa|moto|vida|comercio|pol-\d+)\b', _normalizar(texto)):
+        return True
+    propias = Poliza.objects.filter(cliente_id=contexto.cliente_id).select_related('vehiculo')
+    return _por_vehiculo(texto, propias) is not None
+
+
+def _por_vehiculo(texto, polizas):
+    """Referencias explícitas al vehículo; solo compara con pólizas del titular."""
+    from datos.limpieza import normalizar_patente
+    patentes = re.findall(r'\b(?:[A-Z]{2}[ -]?\d{3}[ -]?[A-Z]{2}|[A-Z]{3}[ -]?\d{3})\b', texto.upper())
+    if patentes:
+        buscadas = {normalizar_patente(p) for p in patentes}
+        return [p for p in polizas if p.vehiculo and p.vehiculo.patente in buscadas]
+    normalizado = _normalizar(texto)
+    coincidencias = []
+    for poliza in polizas:
+        if not poliza.vehiculo:
+            continue
+        v = poliza.vehiculo
+        etiquetas = [v.marca, v.modelo]
+        if v.clase != 'sin_especificar':
+            etiquetas.append(v.clase)
+        if any(re.search(r'\b' + re.escape(_normalizar(e)) + r'\b', normalizado) for e in etiquetas if e):
+            coincidencias.append(poliza)
+    return coincidencias or None
 
 
 def responder_cobertura(texto, conversacion):
@@ -82,7 +108,7 @@ def responder_cobertura(texto, conversacion):
         return ('No tengo una póliza automotor vinculada a este número. Puedo darte información general o registrar tu consulta; no envíes DNI ni contraseñas por el chat.', None)
     hoy = timezone.localdate()
     polizas = list(Poliza.objects.filter(cliente_id=contexto.cliente_id, tipo_seguro__codigo='automotor', estado='vigente',
-        fecha_inicio__lte=hoy, fecha_vencimiento__gte=hoy).select_related('tipo_seguro').order_by('id'))
+        fecha_inicio__lte=hoy, fecha_vencimiento__gte=hoy).select_related('tipo_seguro', 'vehiculo').order_by('id'))
     texto_norm = _normalizar(texto)
     numeros = re.findall(r'POL-\d+', texto.upper())
     tipos = {'auto': 'automotor', 'coche': 'automotor', 'vehiculo': 'automotor', 'automotor': 'automotor',
@@ -91,6 +117,8 @@ def responder_cobertura(texto, conversacion):
     opciones = polizas
     if numeros:
         opciones = [p for p in opciones if p.numero_poliza in numeros]
+    elif (por_vehiculo := _por_vehiculo(texto, opciones)) is not None:
+        opciones = por_vehiculo
     elif tipos_pedidos:
         opciones = [p for p in opciones if p.tipo_seguro.codigo in tipos_pedidos]
     elif contexto.poliza_id and not seguimiento:
@@ -100,8 +128,11 @@ def responder_cobertura(texto, conversacion):
     if len(opciones) != 1:
         contexto.pregunta = (contexto.pregunta or texto)[:300]
         contexto.save(update_fields=['pregunta'])
-        listado = '\n'.join(f'• {p.numero_poliza}: {p.tipo_seguro.nombre}' for p in opciones)
-        return (f'Tenés varias pólizas automotor. ¿Cuál querés consultar? Respondé con el tipo o el número:\n{listado}', None)
+        from negocio.polizas import descripcion_de_vehiculo
+        listado = '\n'.join(f'• {p.numero_poliza}: ' + (
+            descripcion_de_vehiculo(p.vehiculo) if p.vehiculo else p.bien_asegurado or p.tipo_seguro.nombre
+        ) for p in opciones)
+        return (f'Tenés varias pólizas automotor. ¿Cuál querés consultar? Respondé con la patente, el vehículo o el número:\n{listado}', None)
     poliza = opciones[0]
     pregunta = contexto.pregunta or texto
     contexto.poliza = poliza

@@ -73,11 +73,14 @@ from api.views import (
     siniestros_listar_o_crear,
 )
 from api.vencimientos import vencimientos, recordatorio
+from api.cartera import poliza_cartera, comisiones
 from api.webhook import webhook_whatsapp
 
 from api.views import poliza_vincular_documento
 
 urlpatterns = [
+    path("api/polizas/<int:id>/cartera/", poliza_cartera, name="api_poliza_cartera"),
+    path("api/reportes/comisiones/", comisiones, name="api_comisiones"),
     path("api/vencimientos/", vencimientos, name="api_vencimientos"),
     path("api/polizas/<int:id>/recordatorio/", recordatorio, name="api_recordatorio"),
     path("panel/vencimientos/", servir_pagina, name="pagina_vencimientos"),

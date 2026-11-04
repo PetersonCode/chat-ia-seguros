@@ -226,11 +226,9 @@ def bienes_asegurados(cliente_id: int) -> dict[str, str | None]:
     `v_polizas_resumen` no trae `bien_asegurado`, y el listado de pólizas lo
     necesita para contestar por el vehículo y no solo por el número.
     """
-    return dict(
-        Poliza.objects.filter(cliente_id=cliente_id).values_list(
-            "numero_poliza", "bien_asegurado"
-        )
-    )
+    from negocio.polizas import descripcion_de_vehiculo
+    return {p.numero_poliza: descripcion_de_vehiculo(p.vehiculo) if p.vehiculo else p.bien_asegurado
+            for p in Poliza.objects.filter(cliente_id=cliente_id).select_related('vehiculo')}
 
 
 def resumen_polizas(cliente_id: int) -> QuerySet[VPolizaResumen]:
@@ -436,7 +434,10 @@ def buscar_clientes(q: str | None = None) -> QuerySet[Cliente]:
         except ValueError:
             clientes = _filtrar_por_patente_o_nombre(clientes, q.strip())
         else:
-            clientes = clientes.filter(dni=dni)
+            # Algunos chasis antiguos son numéricos de 7/8 dígitos, igual que un DNI.
+            por_chasis = filtrar_cartera(Vehiculo.objects.filter(cliente_id=OuterRef('pk')),
+                                        q.strip(), ('chasis',))
+            clientes = clientes.filter(Q(dni=dni) | Exists(por_chasis))
     return clientes.order_by("apellido", "nombre", "id")
 
 
@@ -452,7 +453,42 @@ def _filtrar_por_patente_o_nombre(
         por_patente = clientes.filter(vehiculos__patente=patente)
         if por_patente.exists():
             return por_patente
-    return clientes.filter(Q(nombre__icontains=q) | Q(apellido__icontains=q))
+    # La subconsulta mantiene los términos del vehículo en una misma fila.
+    vehiculos = filtrar_cartera(Vehiculo.objects.filter(cliente_id=OuterRef('pk')), q,
+                               ('cliente__nombre', 'cliente__apellido', 'patente',
+                                'marca', 'modelo', 'chasis', 'clase', 'uso'))
+    propios = filtrar_cartera(clientes, q, ('nombre', 'apellido'))
+    return clientes.filter(Q(pk__in=propios.values('pk')) | Exists(vehiculos))
+
+
+ACENTOS = "ÁÉÍÓÚÜÑáéíóúüñ"
+SIMPLES = "AEIOUUNaeiouun"
+
+
+def filtrar_cartera(queryset, texto, campos):
+    """AND entre palabras; OR entre campos. Parámetros ORM, sin SQL interpolado."""
+    normalizado = texto.translate(str.maketrans(ACENTOS, SIMPLES)).lower()
+    terminos = re.findall(r'[a-z0-9]+', normalizado)
+    vacias = {'el', 'la', 'los', 'las', 'de', 'del', 'un', 'una', 'y'}
+    alias = {'pickup': 'camioneta', 'pickups': 'camioneta', 'camionetas': 'camioneta',
+             'autos': 'auto', 'automovil': 'auto', 'camiones': 'camion', 'motos': 'moto'}
+    terminos = [alias.get(t, t) for t in terminos if t not in vacias]
+    if not terminos:
+        return queryset.none()
+    anotaciones = {f'busqueda_{i}': Lower(Func(F(campo), Value(ACENTOS), Value(SIMPLES),
+                    function='TRANSLATE', output_field=TextField())) for i, campo in enumerate(campos)}
+    for i, campo in enumerate(campos):
+        if campo.endswith(('chasis', 'patente')):
+            anotaciones[f'compacto_{i}'] = Replace(Replace(anotaciones[f'busqueda_{i}'],
+                Value(' '), Value(''), output_field=TextField()),
+                Value('-'), Value(''), output_field=TextField())
+    queryset = queryset.alias(**anotaciones)
+    for termino in terminos[:16]:
+        condicion = Q()
+        for alias_campo in anotaciones:
+            condicion |= Q(**{alias_campo + '__contains': termino})
+        queryset = queryset.filter(condicion)
+    return queryset
 
 
 def vehiculo_por_patente(patente: str) -> Vehiculo | None:

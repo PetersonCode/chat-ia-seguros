@@ -86,6 +86,7 @@ class DatosRegistro:
     nombre_perfil: str | None = None
     dni: str | None = None
     intentos: int = 0
+    email: str | None = None
 
     @property
     def nombre(self) -> str | None:
@@ -113,7 +114,7 @@ class DatosRegistro:
     def completos(self) -> bool:
         """Alcanza para derivar: el DNI lo tiene que dar él, el nombre puede
         salir del perfil."""
-        return self.dni is not None and self.nombre is not None
+        return self.dni is not None and self.nombre is not None and len(self.nombre.split()) >= 2
 
     def texto_faltantes(self) -> str:
         return " y ".join(ETIQUETAS[campo] for campo in self.faltantes)
@@ -216,17 +217,31 @@ def datos_del_registro(conversacion_id: int, contacto) -> DatosRegistro:
 
     nombre: str | None = None
     dni: str | None = None
+    email: str | None = None
+    apellido: str | None = None
     for mensaje in mensajes[primer_pedido + 1 :]:
         if mensaje.direccion != Direccion.ENTRANTE or mensaje.emisor != Emisor.CLIENTE:
             continue
-        nombre = nombre or _nombre_en(mensaje.texto or "")
+        candidato = _nombre_en(mensaje.texto or "")
+        if candidato and (nombre is None or len(candidato.split()) > len(nombre.split())):
+            nombre = candidato
         dni = dni or _dni_en(mensaje.texto or "")
+        correo = re.search(r'[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}', mensaje.texto or '')
+        if correo:
+            email = correo.group()
+        paterno = re.search(r'(?im)\bapellido\s*:\s*([^\n,;]+)', mensaje.texto or '')
+        if paterno and RE_NOMBRE.fullmatch(paterno.group(1).strip()):
+            apellido = paterno.group(1).strip()
+
+    if apellido and nombre and len(nombre.split()) == 1:
+        nombre += ' ' + apellido
 
     return DatosRegistro(
         nombre_cliente=nombre,
         nombre_perfil=nombre_perfil,
         dni=dni,
         intentos=intentos,
+        email=email,
     )
 
 
@@ -249,9 +264,8 @@ def parametros_de_alta(datos: DatosRegistro, contacto) -> dict:
     """Los parámetros de la acción `alta_cliente`, con lo que se haya juntado.
 
     El apellido sale de partir el nombre por el primer espacio. Si el cliente
-    dio una sola palabra no se inventa nada: la acción nace sin apellido,
-    `_faltantes` lo reporta y el panel se lo pide a quien va a aprobar. Es
-    justamente para eso que existe `completar_parametros`.
+    dio una sola palabra no se inventa nada: el bot pide el nombre completo
+    antes de crear la solicitud para confirmación.
     """
     parametros: dict = {"telefono": getattr(contacto, "numero", "")}
     nombre = (datos.nombre or "").strip()
@@ -262,6 +276,8 @@ def parametros_de_alta(datos: DatosRegistro, contacto) -> dict:
             parametros["apellido"] = " ".join(partes[1:])
     if datos.dni:
         parametros["dni"] = datos.dni
+    if datos.email:
+        parametros['email'] = datos.email
     if datos.nombre_es_del_perfil:
         # Para que quien aprueba sepa que ese nombre no lo escribió el cliente.
         parametros["origen_nombre"] = "perfil de WhatsApp"

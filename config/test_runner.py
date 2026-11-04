@@ -58,6 +58,8 @@ class RunnerConEsquema(DiscoverRunner):
             "17_interesados.sql",
             "22_seguridad_y_coberturas.sql",
             "23_recordatorios_polizas.sql",
+            "24_cartera_vehiculos.sql",
+            "25_altas_por_chat.sql",
         )
         with connection.cursor() as cursor:
             for nombre in archivos_sql:

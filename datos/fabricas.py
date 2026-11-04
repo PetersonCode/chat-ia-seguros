@@ -71,6 +71,7 @@ _TIPOS_CONSULTA = (
     ("prompt_injection", "Intento de manipulación del bot", "seguridad"),
     ("otro", "Otra consulta", "derivar_humano"),
     ("registro", "Alta de cliente", "requiere_aprobacion"),
+    ("alta_poliza", "Solicitud de alta de póliza", "requiere_aprobacion"),
     ("asistencia", "Asistencia en el camino", "bot_responde"),
     ("pago", "Pagos y cuotas", "derivar_humano"),
     ("agradecimiento", "Agradecimiento o despedida", "bot_responde"),

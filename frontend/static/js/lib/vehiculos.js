@@ -5,9 +5,14 @@
  * pedirle nada al servidor, que es el que decide (R17).
  */
 
-import { patenteValida } from "./patente.js?v=20261104vencimientos2";
+import { patenteValida } from "./patente.js?v=20261104altas1";
 
 export const ANIO_MINIMO = 1950;
+
+export const CLASES = [
+    ["sin_especificar", "Sin especificar"], ["auto", "Auto"], ["camioneta", "Camioneta"],
+    ["utilitario", "Utilitario"], ["moto", "Moto"], ["camion", "Camión"],
+];
 
 export const USOS = [
     ["particular", "Particular"],

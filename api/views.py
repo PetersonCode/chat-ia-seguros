@@ -10,6 +10,8 @@ traduce `api.errores.manejar` (configurado en `EXCEPTION_HANDLER`), que es el
 
 from __future__ import annotations
 
+from negocio.comisiones import importe_comision
+
 import csv
 import datetime as dt
 from decimal import Decimal, InvalidOperation
@@ -497,6 +499,7 @@ def _vehiculo(vehiculo: Vehiculo | None) -> dict | None:
         "modelo": vehiculo.modelo,
         "anio": vehiculo.anio,
         "uso": vehiculo.uso,
+        "clase": vehiculo.clase,
         "chasis": vehiculo.chasis,
         "valor_asegurado": _dinero(vehiculo.valor_asegurado),
         "activo": vehiculo.activo,
@@ -533,6 +536,8 @@ def _poliza_con_bien(poliza: Poliza, ver_comision: bool) -> dict:
             "vehiculo": _vehiculo(poliza.vehiculo),
             "compania": _compania(poliza.compania, ver_comision),
             "comision_pct": _comision(poliza.comision_pct, ver_comision),
+            "comision_mensual_estimada": _comision(
+                importe_comision(poliza.prima_mensual, poliza.comision_pct), ver_comision),
         }
     )
     return payload
@@ -1017,8 +1022,10 @@ def accion_parametros(request, id):
 @authentication_classes([SessionAuthentication])
 @permission_classes([EsAprobador])
 def accion_aprobar(request, id):
-    motivo = (request.data or {}).get("motivo")
-    accion = aprobar_accion(id, request.funcionario.id, motivo)
+    from api.serializers import AprobacionSerializer
+    datos = AprobacionSerializer(data=request.data or {})
+    datos.is_valid(raise_exception=True)
+    accion = aprobar_accion(id, request.funcionario.id, **datos.validated_data)
     return Response(_accion(accion))
 
 

@@ -1,21 +1,84 @@
-import { api } from "../api.js?v=20261104vencimientos2";
-import { inicializarNav } from "../nav.js?v=20261104vencimientos2";
-import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261104vencimientos2";
+import { api } from "../api.js?v=20261104altas1";
+import { inicializarNav } from "../nav.js?v=20261104altas1";
+import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261104altas1";
 import {
     etiquetaEstadoPoliza,
     mesesDeCobertura,
     ordenarPolizas,
     validarPoliza,
-} from "../lib/polizas.js?v=20261104vencimientos2";
-import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261104vencimientos2";
-import { normalizarPatente } from "../lib/patente.js?v=20261104vencimientos2";
+} from "../lib/polizas.js?v=20261104altas1";
+import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261104altas1";
+import { normalizarPatente } from "../lib/patente.js?v=20261104altas1";
 import {
     USOS,
+    CLASES,
     descripcionVehiculo,
     etiquetaUso,
     validarVehiculo,
-} from "../lib/vehiculos.js?v=20261104vencimientos2";
-import { formatearPorcentaje } from "../lib/companias.js?v=20261104vencimientos2";
+} from "../lib/vehiculos.js?v=20261104altas1";
+import { formatearPorcentaje } from "../lib/companias.js?v=20261104altas1";
+
+const dialogoCartera = document.getElementById("dialog-cartera");
+const formularioCartera = document.getElementById("formulario-cartera");
+const errorCartera = document.getElementById("cartera-error");
+const guardarCartera = document.getElementById("cartera-guardar");
+let polizaEnCartera = null;
+
+async function abrirCartera(poliza) {
+    errorCartera.textContent = "";
+    polizaEnCartera = poliza;
+    document.getElementById("cartera-titulo").textContent = `Completar ${poliza.numero_poliza}`;
+    try {
+        const companias = (await api.get("/api/companias/?activas=1")).resultados ?? [];
+        if (poliza.compania && !companias.some(c => c.id === poliza.compania.id)) companias.push(poliza.compania);
+        const vehiculos = [...vehiculosDelCliente];
+        if (poliza.vehiculo && !vehiculos.some(v => v.id === poliza.vehiculo.id)) vehiculos.push(poliza.vehiculo);
+        llenarSelect(formularioCartera.elements.vehiculo_id, [["", "Sin vehículo"],
+            ...vehiculos.map(v => [String(v.id), descripcionVehiculo(v)])]);
+        llenarSelect(formularioCartera.elements.compania_id, [["", "Sin compañía"],
+            ...companias.map(c => [String(c.id), c.nombre])]);
+        formularioCartera.elements.vehiculo_id.value = poliza.vehiculo?.id ?? "";
+        formularioCartera.elements.compania_id.value = poliza.compania?.id ?? "";
+        formularioCartera.elements.comision_pct.value = poliza.comision_pct ?? "";
+        dialogoCartera.showModal();
+    } catch (error) {
+        mostrarEstado(error.mensaje ?? error.message ?? "No se pudo abrir la póliza.", true);
+    }
+}
+
+document.getElementById("cartera-cancelar").addEventListener("click", () => dialogoCartera.close());
+formularioCartera.elements.compania_id.addEventListener("change", () => {
+    formularioCartera.elements.comision_pct.value = "";
+});
+formularioCartera.addEventListener("submit", async evento => {
+    evento.preventDefault();
+    if (!formularioCartera.reportValidity()) return;
+    guardarCartera.disabled = true;
+    errorCartera.textContent = "";
+    const campos = formularioCartera.elements;
+    const cuerpo = {};
+    // No reenviar vínculos que siguen iguales: una compañía histórica inactiva
+    // debe conservarse al completar, por ejemplo, solo el vehículo.
+    if (String(campos.vehiculo_id.value) !== String(polizaEnCartera.vehiculo?.id ?? "")) {
+        cuerpo.vehiculo_id = campos.vehiculo_id.value ? Number(campos.vehiculo_id.value) : null;
+    }
+    if (String(campos.compania_id.value) !== String(polizaEnCartera.compania?.id ?? "")) {
+        cuerpo.compania_id = campos.compania_id.value ? Number(campos.compania_id.value) : null;
+    }
+    if (campos.comision_pct.value !== String(polizaEnCartera.comision_pct ?? "")) {
+        cuerpo.comision_pct = campos.comision_pct.value || null;
+    }
+    try {
+        await api.patch(`/api/polizas/${polizaEnCartera.id}/cartera/`, cuerpo);
+        dialogoCartera.close();
+        await cargarFicha();
+        mostrarEstado("Datos de la póliza actualizados.");
+    } catch (error) {
+        errorCartera.textContent = error.mensaje ?? error.message ?? "No se pudo guardar.";
+    } finally {
+        guardarCartera.disabled = false;
+    }
+});
 
 const idCliente = new URLSearchParams(globalThis.location.search).get("id");
 const nombreCliente = document.getElementById("nombre-cliente");
@@ -172,10 +235,15 @@ function renderizarPoliza(poliza) {
     if (poliza.comision_pct !== null && poliza.comision_pct !== undefined) {
         // La API manda null a quien no puede verla: acá simplemente no hay fila.
         agregarDato(cuerpo, "Comisión", formatearPorcentaje(poliza.comision_pct));
+        agregarDato(cuerpo, "Comisión mensual estimada", formatearMonto(poliza.comision_mensual_estimada));
     }
     agregarDato(cuerpo, "Saldo pendiente", formatearMonto(poliza.saldo_pendiente));
     agregarDato(cuerpo, "Próximo vencimiento de pago", formatearFecha(poliza.proximo_vencimiento_pago));
     renderizarCuotas(cuerpo, poliza.cuotas);
+    if (esAprobador) {
+        cuerpo.append(botonDeVehiculo("Completar vehículo y compañía", "btn-outline-primary mt-3",
+            () => abrirCartera(poliza)));
+    }
     tarjeta.append(encabezado, cuerpo);
     columna.append(tarjeta);
     return columna;
@@ -227,7 +295,10 @@ function filaDeVehiculo(vehiculo) {
         crearElemento("td", "", vehiculo.marca),
         crearElemento("td", "", vehiculo.modelo),
         crearElemento("td", "", String(vehiculo.anio)),
+        crearElemento("td", "", CLASES.find(([c]) => c === vehiculo.clase)?.[1] ?? "Sin especificar"),
         crearElemento("td", "", etiquetaUso(vehiculo.uso)),
+        crearElemento("td", "", vehiculo.chasis ?? "—"),
+        crearElemento("td", "text-end", formatearMonto(vehiculo.valor_asegurado)),
     );
     if (esAprobador) {
         const acciones = crearElemento("td", "text-end text-nowrap");
@@ -251,7 +322,7 @@ function renderizarVehiculos(vehiculos) {
     const tabla = crearElemento("table", "table table-sm align-middle mb-0");
     const cabecera = document.createElement("thead");
     const encabezado = document.createElement("tr");
-    const titulos = ["Patente", "Marca", "Modelo", "Año", "Uso"];
+    const titulos = ["Patente", "Marca", "Modelo", "Año", "Clase", "Uso", "Chasis", "Valor asegurado"];
     for (const texto of titulos) {
         const th = crearElemento("th", "", texto);
         th.scope = "col";
@@ -293,6 +364,7 @@ function abrirFormularioVehiculo(vehiculo = null) {
     elementos.modelo.value = vehiculo?.modelo ?? "";
     elementos.anio.value = vehiculo ? String(vehiculo.anio) : "";
     elementos.uso.value = vehiculo?.uso ?? "particular";
+    elementos.clase.value = vehiculo?.clase ?? "sin_especificar";
     elementos.chasis.value = vehiculo?.chasis ?? "";
     elementos.valor_asegurado.value = vehiculo?.valor_asegurado ?? "";
     pintarErroresVehiculo({});
@@ -317,6 +389,7 @@ function cuerpoDeVehiculo() {
         modelo: elementos.modelo.value.trim(),
         anio: elementos.anio.value.trim(),
         uso: elementos.uso.value,
+        clase: elementos.clase.value,
         chasis: elementos.chasis.value.trim(),
         valor_asegurado: elementos.valor_asegurado.value.trim(),
     };
@@ -386,6 +459,9 @@ formularioBajaVehiculo.addEventListener("submit", async (evento) => {
 botonNuevoVehiculo.addEventListener("click", () => abrirFormularioVehiculo(null));
 document.getElementById("vehiculo-cancelar").addEventListener("click", () => dialogoVehiculo.close());
 document.getElementById("baja-vehiculo-cancelar").addEventListener("click", () => dialogoBajaVehiculo.close());
+for (const [codigo, texto] of CLASES) {
+    formularioVehiculo.elements.clase.add(new Option(texto, codigo));
+}
 for (const [codigo, texto] of USOS) {
     const opcion = document.createElement("option");
     opcion.value = codigo;
@@ -630,7 +706,7 @@ function actualizarPrevioCuotas() {
     const meses = mesesDeCobertura(inicio, vencimiento);
     const plural = meses === 1 ? "cuota" : "cuotas";
     previoCuotas.textContent = `Se van a generar ${meses} ${plural} de ${formatearMonto(prima)}, `
-        + "con vencimiento el 15 de cada mes.";
+        + "con vencimiento al inicio de cada ciclo mensual desde la fecha de inicio.";
 }
 
 formularioPoliza.addEventListener("input", actualizarPrevioCuotas);

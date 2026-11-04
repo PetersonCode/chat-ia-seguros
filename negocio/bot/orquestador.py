@@ -216,7 +216,7 @@ def _respuesta_vencimiento(cliente_id: int) -> _Respuesta:
                     else ""
                 ),
                 patente=(
-                    plantillas.MARCA_PATENTE.format(patente=patente) if patente else ""
+                    plantillas.MARCA_PATENTE.format(patente=patente) if patente and patente not in bien else ""
                 ),
             )
         )
@@ -796,9 +796,8 @@ def _respuesta_de_alta(
 
     Con los datos completos deja además la acción `alta_cliente` armada: quien
     atiende la aprueba y el cliente queda creado, en vez de copiar el nombre y
-    el DNI a mano desde el motivo de la derivación. Si falta el apellido —dio
-    una sola palabra— la acción nace incompleta y el panel se lo pide: para eso
-    existe `completar_parametros`.
+    el DNI a mano desde el motivo de la derivación. Si falta el apellido, el
+    bot vuelve a pedir nombre completo al cliente antes de armar la acción.
 
     `derivar=False` es el alta que pidió el cliente ("quiero registrarme"): ahí
     la acción es todo lo que hay que hacer y no hay nada más que atender.
@@ -819,6 +818,8 @@ def _respuesta_de_alta(
             accion=accion,
             datos_registro=datos,
         )
+    if datos.dni and datos.nombre and len(datos.nombre.split()) < 2:
+        return _Respuesta(plantillas.PEDIDO_DATOS.format(faltantes='tu nombre y apellido completos'))
     if datos.intentos >= registro.MAX_PEDIDOS:
         # Ya se le insistió lo pactado: se deriva con lo que haya y el asesor le
         # pide el resto. Seguir pidiendo sería dejarlo sin atención.
@@ -1016,13 +1017,19 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
     ][-MAX_HISTORIAL:]
 
     tipo_por_reglas = clasificar_por_reglas(texto)
+    alta_preparada = None
+    from negocio.bot.alta_poliza import preparar_turno, quiere_alta
+    if not alertas_entrada and tipo_por_reglas not in {'siniestro_urgente','siniestro','baja','reclamo'} and (tipo_por_reglas != 'modificacion' or quiere_alta(texto)) and not pide_un_humano(texto):
+        alta_preparada = preparar_turno(texto, conversacion, max(previo.id for previo in agrupados))
+        if alta_preparada:
+            tipo_por_reglas = 'alta_poliza'
     from negocio.coberturas import es_seleccion
-    if not alertas_entrada and tipo_por_reglas not in {"siniestro_urgente", "siniestro", "baja", "modificacion", "reclamo"} and es_seleccion(texto, conversacion):
+    if not alta_preparada and not alertas_entrada and tipo_por_reglas not in {"siniestro_urgente", "siniestro", "baja", "modificacion", "reclamo"} and es_seleccion(texto, conversacion):
         tipo_por_reglas = "consulta_cobertura"
     if alertas_entrada:
         # AC-T3-32: con inyección no se llama al LLM y se responde el rechazo.
         tipo = "prompt_injection"
-    elif tipo_por_reglas in {"siniestro_urgente", "siniestro", "consulta_cobertura", "agradecimiento", "ajeno"}:
+    elif tipo_por_reglas in {"alta_poliza", "siniestro_urgente", "siniestro", "consulta_cobertura", "agradecimiento", "ajeno"}:
         # Un modelo generativo no puede ocultar un incidente ni cambiar un cierre cordial.
         tipo = tipo_por_reglas
     else:
@@ -1047,6 +1054,9 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
         # Nunca se deriva: a la tercera, el número queda ignorado (ver
         # `ignorar_si_bloqueado`), pero no pasa a una persona.
         respuesta = _Respuesta(plantillas.RECHAZO_SEGURIDAD)
+    elif alta_preparada:
+        respuesta = _Respuesta(alta_preparada['texto'], accion=alta_preparada.get('accion'),
+            derivar_a=DERIVACION_POR_DEFECTO if alta_preparada.get('derivar') else None)
     else:
         respuesta = _continuar_cotizacion(
             tipo=tipo,
@@ -1175,7 +1185,11 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
 
         if respuesta.accion is not None:
             tipo_accion, poliza_id, parametros = respuesta.accion
-            solicitar_accion(consulta.id, tipo_accion, poliza_id, parametros)
+            accion = solicitar_accion(consulta.id, tipo_accion, poliza_id, parametros)
+            if tipo_accion == TipoAccion.ALTA_POLIZA and parametros.get('borrador_alta_id'):
+                from datos.models import BorradorPoliza
+                BorradorPoliza.objects.filter(pk=parametros['borrador_alta_id'],
+                    conversacion=conversacion).update(accion=accion)
 
         destino = respuesta.derivar_a or (
             DERIVACION_POR_DEFECTO if retenido else None

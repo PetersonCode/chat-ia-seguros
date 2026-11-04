@@ -211,6 +211,10 @@ class Command(BaseCommand):
             )
             .filter(
                 Q(estado_envio=EstadoEnvio.PENDIENTE_ENVIO)
+                  | Q(estado_envio=EstadoEnvio.FALLIDO, error='ventana_24h_cerrada',
+                      payload__has_key='resolucion_accion',
+                      conversacion__ultimo_mensaje_cliente_en__gte=ahora-timedelta(hours=24),
+                      intentos_envio__lt=MAX_INTENTOS_ENVIO)
                 | Q(
                     estado_envio=EstadoEnvio.FALLIDO,
                     proximo_intento_envio__lte=ahora,

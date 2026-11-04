@@ -1115,7 +1115,7 @@ class RegistroAntesDeDerivarTests(BaseBotTests):
         self.assertNotIn("30111222", self._respuesta(resultado).texto)
         self.assertEqual(self._respuesta(resultado).estado_envio, EstadoEnvio.ENVIADO)
 
-    def test_si_da_solo_el_dni_se_usa_el_nombre_del_perfil_y_queda_avisado(self):
+    def test_un_apodo_del_perfil_no_deja_el_apellido_para_el_asesor(self):
         contacto = self.escenario.contacto("1005")
         contacto.nombre_perfil = "Dani"
         contacto.save(update_fields=["nombre_perfil"])
@@ -1124,12 +1124,11 @@ class RegistroAntesDeDerivarTests(BaseBotTests):
 
         resultado = self._turno(conversacion, "30999888")
 
-        self.assertEqual(
-            self._respuesta(resultado).texto, plantillas.DATOS_REGISTRADOS
-        )
+        self.assertIn('nombre y apellido completos', self._respuesta(resultado).texto)
+        self.assertFalse(AccionPendiente.objects.exists())
+        self._turno(conversacion, 'Dani Pérez')
         motivo = Derivacion.objects.get().motivo
-        self.assertIn("Dani", motivo)
-        self.assertIn("perfil de WhatsApp", motivo)
+        self.assertIn("Dani Pérez", motivo)
 
     def test_sigue_el_alta_aunque_conteste_con_un_saludo_adelante(self):
         """El clasificador ve "hola" y dice saludo; el alta en curso igual manda."""
@@ -1626,9 +1625,7 @@ class AccionesQueArmaElBotTests(BaseBotTests):
         # El alta es todo lo que había que hacer: nadie tiene que atender nada.
         self.assertFalse(Derivacion.objects.exists())
 
-    def test_con_una_sola_palabra_el_alta_nace_sin_apellido(self):
-        """No se inventa un apellido: la acción queda incompleta y el panel se
-        lo pide a quien aprueba."""
+    def test_con_una_sola_palabra_el_bot_pide_el_apellido_antes_de_crear_la_accion(self):
         contacto = self.escenario.contacto("1005")
         contacto.nombre_perfil = "Dani"
         contacto.save(update_fields=["nombre_perfil"])
@@ -1637,10 +1634,11 @@ class AccionesQueArmaElBotTests(BaseBotTests):
 
         self._turno(conversacion, "30999888")
 
+        self.assertFalse(AccionPendiente.objects.exists())
+        self._turno(conversacion, 'Dani Pérez')
         accion = AccionPendiente.objects.get()
         self.assertEqual(accion.parametros["nombre"], "Dani")
-        self.assertNotIn("apellido", accion.parametros)
-        self.assertEqual(accion.parametros["origen_nombre"], "perfil de WhatsApp")
+        self.assertEqual(accion.parametros['apellido'], 'Pérez')
 
     def test_a_quien_ya_es_cliente_no_se_lo_registra_de_nuevo(self):
         _, _, resultado = self._procesar("1001", "quiero registrarme")

@@ -389,7 +389,8 @@ class PlantillaVencimientoConPatenteTests(_Base):
         }
         fecha_con = con.fecha_vencimiento.strftime("%d/%m/%Y")
         fecha_sin = sin.fecha_vencimiento.strftime("%d/%m/%Y")
-        self.assertTrue(lineas[con.numero_poliza].endswith(f"vence el {fecha_con} · AB123CD"))
+        self.assertTrue(lineas[con.numero_poliza].endswith(f"vence el {fecha_con}"))
+        self.assertEqual(lineas[con.numero_poliza].count("AB123CD"), 1)
         self.assertTrue(lineas[sin.numero_poliza].endswith(f"vence el {fecha_sin}"))
         self.assertNotIn("·", lineas[sin.numero_poliza])
         # La patente sale de la base: va en lo verificado para que el guardrail no la objete.

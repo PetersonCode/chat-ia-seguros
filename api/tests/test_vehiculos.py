@@ -14,7 +14,7 @@ from datos import fabricas
 
 CLAVES_VEHICULO = {
     "id", "cliente", "patente", "marca", "modelo", "anio",
-    "uso", "chasis", "valor_asegurado", "activo",
+    "uso", "clase", "chasis", "valor_asegurado", "activo",
 }
 CLAVES_COMPANIA = {"id", "nombre", "comision_pct", "activa"}
 
