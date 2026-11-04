@@ -6,10 +6,29 @@ from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.utils import timezone
 from datos.models import (ContextoCobertura, Conversacion, DocumentoPoliza,
-                          DocumentoGeneral, EstadoDocumento, Poliza)
-from negocio.documentos import _aprobador, _normalizar, buscar_fragmentos
+    DocumentoGeneral, EstadoDocumento, Poliza, FragmentoDocumento, CondicionesPoliza)
+from negocio.documentos import _aprobador, _normalizar, _terminos, buscar_fragmentos, puntuar_fragmento
 from negocio.errores import DatosInvalidos, NoEncontrado, EstadoInvalido
 from negocio.seguridad import registrar
+
+SIN_CLIENTE = 'No tengo una póliza automotor vinculada a este número. Puedo darte información general o registrar tu consulta; no envíes DNI ni contraseñas por el chat.'
+SIN_POLIZA = 'No encuentro una póliza automotor vigente tuya que coincida. Un asesor debe revisar la consulta.'
+SIN_CONDICIONES = 'La póliza seleccionada no tiene condiciones aprobadas vinculadas. Un asesor debe revisarlas; no puedo confirmar coberturas con documentos generales.'
+SIN_PASAJE = 'No encuentro un pasaje suficiente en las condiciones de tu póliza. Un asesor debe confirmar esa consulta.'
+AVISOS_COBERTURA = (SIN_CLIENTE, SIN_POLIZA, SIN_CONDICIONES, SIN_PASAJE)
+
+# Se quita la formulación de la pregunta, no el tema del contrato. Así
+# «cubre inundación» exige un pasaje sobre inundación, no la palabra «cubre».
+FORMULACION = frozenset('''cobertura automotor plan contratada contratado tiene
+    estoy esta ante contra frente pasa pasaria puede podria ser tener entrada entra
+    dano danos daño daños danio danios pagan paga pagado cae caen delantero trasero
+    mostrame mostra mostrar contame contar explica explicame saber queria favor
+    hola buenas buen dia amigo denunciar nada solo dice lo al me prestacion
+    tu tus esa ese del vehicular tipo tipos cuales son'''.split())
+
+
+def _tema_consultado(texto):
+    return _terminos(texto) - FORMULACION
 
 
 @transaction.atomic
@@ -58,7 +77,7 @@ def contexto_automatico(conversacion):
 
 
 def es_personal(texto):
-    return bool(re.search(r'\b(mi|mis|tengo|me cubre|estoy asegurad[oa]|pol-\d+)\b', _normalizar(texto)))
+    return bool(re.search(r'\b(mi|mis|tengo|me cubre|me ampara|me pagan|estoy cubiert[oa]|estoy asegurad[oa]|pol-\d+)\b', _normalizar(texto)))
 
 
 def es_seleccion(texto, conversacion):
@@ -77,7 +96,7 @@ def es_seleccion(texto, conversacion):
 def _por_vehiculo(texto, polizas):
     """Referencias explícitas al vehículo; solo compara con pólizas del titular."""
     from datos.limpieza import normalizar_patente
-    patentes = re.findall(r'\b(?:[A-Z]{2}[ -]?\d{3}[ -]?[A-Z]{2}|[A-Z]{3}[ -]?\d{3})\b', texto.upper())
+    patentes = re.findall(r'\b(?:[A-Z]{2}[ -]?\d{3}[ -]?[A-Z]{2}|[A-Z]{3}[ -]?\d{3}|[A-Z][ -]?\d{3}[ -]?[A-Z]{3}|\d{3}[ -]?[A-Z]{3})\b', texto.upper())
     if patentes:
         buscadas = {normalizar_patente(p) for p in patentes}
         return [p for p in polizas if p.vehiculo and p.vehiculo.patente in buscadas]
@@ -100,15 +119,19 @@ def responder_cobertura(texto, conversacion):
     contexto = contexto_vigente(conversacion)
     seguimiento = bool(contexto and contexto.pregunta)
     general = bool(re.search(r'\b(?:en general|informacion general|tipos de seguros)\b', _normalizar(texto)))
-    if general or (not es_personal(texto) and not seguimiento and not (contexto and contexto.poliza_id)):
+    # Una pregunta breve «¿cubre granizo?» puede omitir «mi». Las preguntas
+    # generales («qué documentación necesito», «el seguro cubre...») conservan
+    # la biblioteca general sin asumir un contrato del cliente.
+    implicita = bool(cliente_reconocido(conversacion) and re.match(r'^[¿\s]*(?:cubre|incluye|protege)\b', _normalizar(texto)))
+    if general or (not implicita and not es_personal(texto) and not seguimiento and not (contexto and contexto.poliza_id)):
         return None
     if contexto is None:
         contexto = contexto_automatico(conversacion)
     if contexto is None:
-        return ('No tengo una póliza automotor vinculada a este número. Puedo darte información general o registrar tu consulta; no envíes DNI ni contraseñas por el chat.', None)
+        return (SIN_CLIENTE, None)
     hoy = timezone.localdate()
     polizas = list(Poliza.objects.filter(cliente_id=contexto.cliente_id, tipo_seguro__codigo='automotor', estado='vigente',
-        fecha_inicio__lte=hoy, fecha_vencimiento__gte=hoy).select_related('tipo_seguro', 'vehiculo').order_by('id'))
+        fecha_inicio__lte=hoy, fecha_vencimiento__gte=hoy).select_related('tipo_seguro', 'vehiculo', 'compania').order_by('id'))
     texto_norm = _normalizar(texto)
     numeros = re.findall(r'POL-\d+', texto.upper())
     tipos = {'auto': 'automotor', 'coche': 'automotor', 'vehiculo': 'automotor', 'automotor': 'automotor',
@@ -124,7 +147,7 @@ def responder_cobertura(texto, conversacion):
     elif contexto.poliza_id and not seguimiento:
         opciones = [p for p in opciones if p.pk == contexto.poliza_id]
     if not opciones:
-        return ('No encuentro una póliza automotor vigente tuya que coincida. Un asesor debe revisar la consulta.', None)
+        return (SIN_POLIZA, None)
     if len(opciones) != 1:
         contexto.pregunta = (contexto.pregunta or texto)[:300]
         contexto.save(update_fields=['pregunta'])
@@ -140,14 +163,38 @@ def responder_cobertura(texto, conversacion):
     contexto.save(update_fields=['poliza', 'pregunta'])
     ids = list(DocumentoPoliza.objects.filter(poliza=poliza,
         documento__estado=EstadoDocumento.APROBADO).values_list('documento_id', flat=True))
+    directas = CondicionesPoliza.objects.filter(poliza=poliza,documento__estado=EstadoDocumento.APROBADO).select_related('plan').first()
+    if directas and directas.plan_id and directas.plan.compania_id != poliza.compania_id:
+        return (SIN_CONDICIONES, None)
+    if directas and directas.documento_id in ids:
+        ids = [directas.documento_id]
     if not ids:
-        return ('La póliza seleccionada no tiene condiciones aprobadas vinculadas. Un asesor debe revisarlas; no puedo confirmar coberturas con documentos generales.', None)
+        return (SIN_CONDICIONES, None)
     # La pregunta general pide un extracto; nunca se usa una fuente ajena.
-    consulta = pregunta
-    if re.fullmatch(r'(?:que (?:cubre|incluye|protege) (?:mi |el |la )?(?:poliza|seguro|cobertura)|cual es mi cobertura|mi cobertura)[?¿ ]*', _normalizar(pregunta).lstrip('¿')):
-        consulta = 'cobertura'
-    encontrado = buscar_fragmentos(consulta, documentos_ids=ids, incluir_vinculados=True)
+    # El número identifica el contrato; no es un término de sus coberturas.
+    consulta = re.sub(r'\bPOL-\d+\b', '', pregunta, flags=re.I)
+    temas = _tema_consultado(consulta)
+    resumen = not temas
+    consulta = ' '.join(sorted(temas)) if temas else 'cobertura'
+    encontrado = buscar_fragmentos(consulta, documentos_ids=ids, incluir_vinculados=True,
+        exigir_todos=not resumen)
+    if not resumen:
+        # Todos los conceptos específicos deben estar respaldados. Un pasaje
+        # parecido sobre otro riesgo no responde esta consulta particular.
+        resultados = [r for r in encontrado['resultados']
+            if puntuar_fragmento(consulta,r['pasaje'])[0] == len(temas)]
+        encontrado = {**encontrado,'resultados':resultados,'respaldo_suficiente':bool(resultados)}
+    if resumen and not encontrado['respaldo_suficiente'] and len(set(ids)) == 1:
+        # Un resumen explícito puede mostrar las condiciones de su único documento
+        # aunque no contengan la palabra «cobertura». No aplica a preguntas específicas.
+        f = FragmentoDocumento.objects.filter(documento_id=ids[0], documento__estado=EstadoDocumento.APROBADO).select_related('documento').order_by('orden','id').first()
+        if f:
+            encontrado = {'respaldo_suficiente': True, 'resultados': [{'titulo':f.documento.titulo,
+                'version':f.documento.version,'pasaje':f.texto,'fragmento_id':f.id}]}
     if not encontrado['respaldo_suficiente']:
-        return ('No encuentro un pasaje suficiente en las condiciones de tu póliza. Un asesor debe confirmar esa consulta.', None)
+        return (SIN_PASAJE, None)
     fuente = encontrado['resultados'][0]
+    if directas and fuente.get('fragmento_id'):
+        compania = f' — {poliza.compania.nombre}' if poliza.compania else ''
+        return (f'Tu póliza {poliza.numero_poliza}{compania}. Condiciones registradas por la agencia:\n“{fuente["pasaje"]}”\nEste es un extracto; aplican los límites y exclusiones indicados.', fuente['fragmento_id'])
     return (f'Condiciones vinculadas a tu póliza {poliza.numero_poliza}. Fuente: {fuente["titulo"]}, versión {fuente["version"]}.\n“{fuente["pasaje"]}”\nEste es un extracto de tus condiciones. Aplican los límites y exclusiones indicados; si querés denunciar un hecho, contame qué ocurrió.', fuente['fragmento_id'])

@@ -1,6 +1,6 @@
-import { formatearMonto } from "../lib/formato.js?v=20261104altas1";
-import { api } from "../api.js?v=20261104altas1";
-import { inicializarNav } from "../nav.js?v=20261104altas1";
+import { formatearMonto } from "../lib/formato.js?v=20261104bot2";
+import { api } from "../api.js?v=20261104bot2";
+import { inicializarNav } from "../nav.js?v=20261104bot2";
 
 const formulario = document.getElementById("filtros-reportes");
 const campoDesde = document.getElementById("reporte-desde");

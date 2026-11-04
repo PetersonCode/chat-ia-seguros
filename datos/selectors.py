@@ -522,10 +522,10 @@ def _condicion_de_busqueda_de_interesado(q: str) -> Q:
     por coincidencia exacta.
     """
     condicion = Q()
-    for palabra in q.split():
+    for palabra in q.translate(str.maketrans(ACENTOS, SIMPLES)).lower().split():
         por_palabra = (
-            Q(nombre__icontains=palabra)
-            | Q(apellido__icontains=palabra)
+            Q(nombre_busqueda__contains=palabra)
+            | Q(apellido_busqueda__contains=palabra)
             | Q(datos__patente__icontains=palabra.upper())
         )
         digitos = "".join(c for c in palabra if c.isdigit())
@@ -576,6 +576,11 @@ def listar_interesados(
     if origen:
         interesados = interesados.filter(origen=origen)
     if q and q.strip():
+        interesados = interesados.alias(**{
+            campo + '_busqueda': Lower(Func(F(campo), Value(ACENTOS), Value(SIMPLES),
+                function='TRANSLATE', output_field=TextField()))
+            for campo in ('nombre','apellido')
+        })
         interesados = interesados.filter(_condicion_de_busqueda_de_interesado(q.strip()))
     if seguimiento_vencido:
         interesados = interesados.filter(vencido)

@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261104altas1";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261104altas1";
-import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261104altas1";
-import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261104altas1";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261104altas1";
-import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261104altas1";
+import { api } from "../api.js?v=20261104bot2";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261104bot2";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261104bot2";
+import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261104bot2";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261104bot2";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261104bot2";
 
 const idConversacion = new URLSearchParams(globalThis.location.search).get("id");
 const tituloChat = document.getElementById("titulo-chat");

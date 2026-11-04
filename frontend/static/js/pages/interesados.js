@@ -1,7 +1,7 @@
-import { api } from "../api.js?v=20261104vencimientos2";
-import { inicializarNav } from "../nav.js?v=20261104vencimientos2";
-import { armarQuery } from "../lib/consulta.js?v=20261104vencimientos2";
-import { debounce } from "../lib/debounce.js?v=20261104vencimientos2";
+import { api } from "../api.js?v=20261104bot2";
+import { inicializarNav } from "../nav.js?v=20261104bot2";
+import { armarQuery } from "../lib/consulta.js?v=20261104bot2";
+import { debounce } from "../lib/debounce.js?v=20261104bot2";
 import {
     ETAPAS,
     ORIGENES,
@@ -9,7 +9,7 @@ import {
     etiquetaOrigen,
     nombreCompleto,
     validarInteresado,
-} from "../lib/embudo.js?v=20261104vencimientos2";
+} from "../lib/embudo.js?v=20261104bot2";
 
 const $ = (id) => document.getElementById(id);
 const tablero = $("tablero");

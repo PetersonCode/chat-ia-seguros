@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20261104altas1";
+import { api } from "./api.js?v=20261104bot2";
 
 const contadores = [
     { clave: "acciones", etiqueta: "Acciones", destino: "/panel/acciones/" },
@@ -13,10 +13,10 @@ const LOGO = "/static/img/logo-castano.png?v=1";
 const destinos = [
     { etiqueta: "Bandeja", destino: "/panel/" },
     { etiqueta: "Clientes", destino: "/panel/clientes/" },
+    { etiqueta: "Pólizas", destino: "/panel/polizas/" },
     { etiqueta: "Interesados", destino: "/panel/interesados/" },
     { etiqueta: "Compañías", destino: "/panel/companias/" },
     { etiqueta: "Vencimientos", destino: "/panel/vencimientos/" },
-    { etiqueta: "Documentos", destino: "/panel/documentos/" },
     { etiqueta: "Siniestros", destino: "/panel/siniestros/" },
     { etiqueta: "Reportes", destino: "/panel/reportes/" },
     { etiqueta: "Casos cerrados", destino: "/panel/cerrados/" },

@@ -172,6 +172,7 @@ PATRONES: dict[str, tuple[str, ...]] = {
     # Asistencia en el camino: es lo único de esta tanda que el bot contesta
     # solo, porque el teléfono sale de la cobertura de la póliza del cliente.
     "asistencia": (
+        "estoy varado", "estoy varada", "quede varada",
         "grua",
         "remolque",
         "auxilio",
@@ -218,6 +219,9 @@ PATRONES: dict[str, tuple[str, ...]] = {
         "contratar un seguro",
     ),
     "consulta_cobertura": (
+        "ampara", "protege", "protegido", "protegida", "proteccion", "prestaciones",
+        "contempla", "incluye", "estoy cubierto", "estoy cubierta", "responsabilidad civil",
+        "mi poliza me paga", "me pagan",
         "parabrisas", "cristales", "ventanilla", "luneta", "pedrisco", "vidrio",
         "que pasa si",
         "que incluye", "que protege", "que cubre mi",
@@ -303,6 +307,7 @@ def normalizar(texto: str) -> str:
 # Señales de que el mensaje **pregunta** por la cobertura en vez de contar algo
 # que pasó. Van sin acentos, como el resto.
 PREGUNTA_COBERTURA = (
+    "ampara", "protege", "protegido", "protegida", "contempla", "incluye", "me pagan",
     "cubre",
     "cubierto",
     "cubierta",
@@ -348,15 +353,18 @@ def _esta_negado(prefijo: str) -> bool:
 def relata_siniestro(texto: str) -> bool:
     normalizado=normalizar(texto)
     for frase in re.split(r'[.!?;,]|\bpero\b',normalizado):
-        if re.search(r'\b(si|podria|puede pasar|en caso de)\b',frase):
-            continue
+        condicional = re.search(r'\b(si|podria|puede pasar|en caso de)\b',frase)
         for hecho in re.finditer(
             r'\b(?:se (?:me |nos )?(?:rompio|astillo|rajo)|'
             r'(?:me|nos) (?:rompieron|rayaron|abollaron)|'
             r'(?:sufri|tuve|tuvimos) un siniestro|denunciar un siniestro|ya ocurrio|'
+            r'(?:me|nos) (?:cayo|agarro) (?:el )?(?:granizo|pedrisco)|'
+            r'(?:hubo|sufri) una granizada|'
             r'(?:mi|el) (?:parabrisas|vidrio|auto|coche|vehiculo) '
             r'(?:esta|quedo|amanecio) (?:roto|rajado|danado|abollado))\b', frase
         ):
+            if condicional and condicional.start() < hecho.start():
+                continue
             if not _esta_negado(frase[:hecho.start()]):
                 return True
     return False

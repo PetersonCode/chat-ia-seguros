@@ -74,11 +74,20 @@ from api.views import (
 )
 from api.vencimientos import vencimientos, recordatorio
 from api.cartera import poliza_cartera, comisiones
+from api.diagnostico_bot import diagnostico
+from api.condiciones_poliza import condiciones, listar as polizas_listar
+from api.planes_cobertura import listar_o_crear as planes_listar, detalle as plan_detalle
 from api.webhook import webhook_whatsapp
 
 from api.views import poliza_vincular_documento
 
 urlpatterns = [
+    path('api/polizas/',polizas_listar),
+    path('api/planes-cobertura/',planes_listar),
+    path('api/planes-cobertura/<int:id>/',plan_detalle),
+    path('api/polizas/<int:id>/condiciones/',condiciones),
+    path('panel/polizas/',servir_pagina),
+    path('api/polizas/<int:id>/diagnostico-bot/', diagnostico),
     path("api/polizas/<int:id>/cartera/", poliza_cartera, name="api_poliza_cartera"),
     path("api/reportes/comisiones/", comisiones, name="api_comisiones"),
     path("api/vencimientos/", vencimientos, name="api_vencimientos"),

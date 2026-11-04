@@ -1,5 +1,5 @@
-import { api } from "../api.js?v=20261104altas1";
-import { inicializarNav } from "../nav.js?v=20261104altas1";
+import { api } from "../api.js?v=20261104bot2";
+import { inicializarNav } from "../nav.js?v=20261104bot2";
 
 const formulario = document.getElementById("buscar-documentos");
 const campoConsulta = document.getElementById("consulta-documental");

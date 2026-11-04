@@ -1,7 +1,7 @@
-import { api } from "../api.js?v=20261104altas1";
-import { inicializarNav } from "../nav.js?v=20261104altas1";
-import { formatearMonto, formatearFecha, formatearFechaHora } from "../lib/formato.js?v=20261104altas1";
-import { plazoVencimiento, enlaceRecordatorio } from "../lib/vencimientos.js?v=20261104altas1";
+import { api } from "../api.js?v=20261104bot2";
+import { inicializarNav } from "../nav.js?v=20261104bot2";
+import { formatearMonto, formatearFecha, formatearFechaHora } from "../lib/formato.js?v=20261104bot2";
+import { plazoVencimiento, enlaceRecordatorio } from "../lib/vencimientos.js?v=20261104bot2";
 
 const $ = (id) => document.getElementById(id);
 const dialogo = $("recordatorio");

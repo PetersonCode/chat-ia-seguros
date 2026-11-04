@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261104altas1";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261104altas1";
-import { armarQuery } from "../lib/consulta.js?v=20261104altas1";
-import { describirAccion, faltantes } from "../lib/acciones.js?v=20261104altas1";
-import { formatearFechaHora } from "../lib/formato.js?v=20261104altas1";
-import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261104altas1";
+import { api } from "../api.js?v=20261104bot2";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261104bot2";
+import { armarQuery } from "../lib/consulta.js?v=20261104bot2";
+import { describirAccion, faltantes } from "../lib/acciones.js?v=20261104bot2";
+import { formatearFechaHora } from "../lib/formato.js?v=20261104bot2";
+import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261104bot2";
 
 const estado = document.getElementById("estado-acciones");
 const carga = document.getElementById("carga-acciones");
