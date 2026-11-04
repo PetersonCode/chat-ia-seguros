@@ -1,4 +1,5 @@
 import re
+from decimal import Decimal
 
 from django.db import models as django_models
 from django.db import connection
@@ -9,6 +10,8 @@ from datos import models
 
 
 TABLAS = (
+    (models.Compania, "companias"),
+    (models.Vehiculo, "vehiculos"),
     (models.FinalizacionAccion, "acciones_finalizaciones"),
     (models.AdjuntoSiniestro, "siniestro_adjuntos"),
     (models.TrabajoWhatsApp, "trabajos_whatsapp"),
@@ -43,6 +46,7 @@ CHOICES_BD = (
     (models.TipoConsulta, "politica", models.Politica),
     (models.Poliza, "cobertura", models.Cobertura),
     (models.Poliza, "estado", models.EstadoPoliza),
+    (models.Vehiculo, "uso", models.UsoVehiculo),
     (models.ConductorPoliza, "relacion", models.Relacion),
     (models.Cuota, "estado", models.EstadoCuota),
     (models.Siniestro, "estado", models.EstadoSiniestro),
@@ -65,7 +69,7 @@ CHOICES_BD = (
 class ModelDefinitionTests(SimpleTestCase):
     # AC-T4-05
     def test_modelos_de_tabla_mapean_las_tablas_no_administradas(self):
-        self.assertEqual(len(TABLAS), 21)
+        self.assertEqual(len(TABLAS), 23)
         for model, table in TABLAS:
             with self.subTest(model=model.__name__):
                 self.assertEqual(model._meta.db_table, table)
@@ -79,6 +83,9 @@ class ModelDefinitionTests(SimpleTestCase):
         relaciones = (
             (models.ContactoWhatsapp, "cliente", "contactos"),
             (models.Poliza, "cliente", "polizas"),
+            (models.Poliza, "vehiculo", "polizas"),
+            (models.Poliza, "compania", "polizas"),
+            (models.Vehiculo, "cliente", "vehiculos"),
             (models.ConductorPoliza, "poliza", "conductores"),
             (models.Cuota, "poliza", "cuotas"),
             (models.Siniestro, "poliza", "siniestros"),
@@ -140,6 +147,10 @@ class ModelDefinitionTests(SimpleTestCase):
             (models.ContactoWhatsapp, "creado_en", timezone.now),
             (models.Poliza, "estado", models.EstadoPoliza.VIGENTE),
             (models.Poliza, "creado_en", timezone.now),
+            (models.Compania, "activa", True),
+            (models.Vehiculo, "uso", models.UsoVehiculo.PARTICULAR),
+            (models.Vehiculo, "activo", True),
+            (models.Vehiculo, "creado_en", timezone.now),
             (models.ConductorPoliza, "activo", True),
             (models.Cuota, "estado", models.EstadoCuota.PENDIENTE),
             (models.ConsultaBot, "estado", models.EstadoConsulta.PENDIENTE_REVISION),
@@ -237,6 +248,11 @@ class DatabaseModelTests(TestCase):
             ("contactos_whatsapp", "creado_en"): timezone.now,
             ("polizas", "estado"): models.EstadoPoliza.VIGENTE,
             ("polizas", "creado_en"): timezone.now,
+            ("companias", "activa"): True,
+            ("companias", "comision_pct"): Decimal("0"),
+            ("vehiculos", "uso"): models.UsoVehiculo.PARTICULAR,
+            ("vehiculos", "activo"): True,
+            ("vehiculos", "creado_en"): timezone.now,
             ("conductores_poliza", "activo"): True,
             ("cuotas", "estado"): models.EstadoCuota.PENDIENTE,
             ("consultas_bot", "estado"): models.EstadoConsulta.PENDIENTE_REVISION,

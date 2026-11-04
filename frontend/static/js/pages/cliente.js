@@ -8,6 +8,14 @@ import {
     validarPoliza,
 } from "../lib/polizas.js?v=20261104integrado1";
 import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261104integrado1";
+import { normalizarPatente } from "../lib/patente.js?v=20261104integrado1";
+import {
+    USOS,
+    descripcionVehiculo,
+    etiquetaUso,
+    validarVehiculo,
+} from "../lib/vehiculos.js?v=20261104integrado1";
+import { formatearPorcentaje } from "../lib/companias.js?v=20261104integrado1";
 
 const idCliente = new URLSearchParams(globalThis.location.search).get("id");
 const nombreCliente = document.getElementById("nombre-cliente");
@@ -31,6 +39,22 @@ const estadoNuevaPoliza = document.getElementById("estado-nueva-poliza");
 const previoCuotas = document.getElementById("previo-cuotas-poliza");
 const botonCrearPoliza = document.getElementById("poliza-crear");
 
+const estadoVehiculos = document.getElementById("estado-vehiculos");
+const vehiculosCliente = document.getElementById("vehiculos-cliente");
+const botonNuevoVehiculo = document.getElementById("boton-nuevo-vehiculo");
+const dialogoVehiculo = document.getElementById("dialog-vehiculo");
+const formularioVehiculo = document.getElementById("formulario-vehiculo");
+const tituloVehiculo = document.getElementById("vehiculo-titulo");
+const errorVehiculo = document.getElementById("vehiculo-error");
+const botonGuardarVehiculo = document.getElementById("vehiculo-guardar");
+const dialogoBajaVehiculo = document.getElementById("dialog-baja-vehiculo");
+const formularioBajaVehiculo = document.getElementById("formulario-baja-vehiculo");
+const textoBajaVehiculo = document.getElementById("baja-vehiculo-texto");
+const errorBajaVehiculo = document.getElementById("baja-vehiculo-error");
+const botonConfirmarBaja = document.getElementById("baja-vehiculo-confirmar");
+const campoComisionPoliza = document.getElementById("campo-comision-poliza");
+
+const CAMPOS_VEHICULO = ["patente", "marca", "modelo", "anio", "valor_asegurado"];
 const CAMPOS_EDICION = ["dni", "nombre", "apellido", "telefono", "email"];
 const CAMPOS_POLIZA = [
     "numero_poliza",
@@ -41,6 +65,25 @@ const CAMPOS_POLIZA = [
     "fecha_vencimiento",
     "bien_asegurado",
 ];
+
+/** Solo comodidad: la API es la que niega escribir y la que oculta la comisión (R17). */
+let esAprobador = false;
+let vehiculosDelCliente = [];
+let clienteActivo = true;
+let funcionarioConsultado = false;
+
+async function saberSiAprueba() {
+    if (funcionarioConsultado) {
+        return;
+    }
+    try {
+        const me = await api.get("/api/auth/me/");
+        esAprobador = Boolean(me?.puede_aprobar);
+    } catch {
+        esAprobador = false;
+    }
+    funcionarioConsultado = true;
+}
 
 function crearElemento(etiqueta, clase, texto) {
     const elemento = document.createElement(etiqueta);
@@ -124,6 +167,12 @@ function renderizarPoliza(poliza) {
     agregarDato(cuerpo, "Tipo", poliza.tipo_seguro);
     agregarDato(cuerpo, "Cobertura", poliza.cobertura);
     agregarDato(cuerpo, "Vencimiento de póliza", formatearFecha(poliza.fecha_vencimiento));
+    agregarDato(cuerpo, "Vehículo", poliza.vehiculo ? descripcionVehiculo(poliza.vehiculo) : poliza.bien_asegurado);
+    agregarDato(cuerpo, "Compañía", poliza.compania?.nombre);
+    if (poliza.comision_pct !== null && poliza.comision_pct !== undefined) {
+        // La API manda null a quien no puede verla: acá simplemente no hay fila.
+        agregarDato(cuerpo, "Comisión", formatearPorcentaje(poliza.comision_pct));
+    }
     agregarDato(cuerpo, "Saldo pendiente", formatearMonto(poliza.saldo_pendiente));
     agregarDato(cuerpo, "Próximo vencimiento de pago", formatearFecha(poliza.proximo_vencimiento_pago));
     renderizarCuotas(cuerpo, poliza.cuotas);
@@ -151,6 +200,197 @@ function renderizarSiniestros(siniestros) {
         lista.append(item);
     }
     siniestrosCliente.append(lista);
+}
+
+// --- Vehículos ------------------------------------------------------------
+
+function mostrarEstadoVehiculos(mensaje, error = false) {
+    estadoVehiculos.textContent = mensaje;
+    estadoVehiculos.classList.toggle("d-none", !mensaje);
+    estadoVehiculos.classList.toggle("alert-danger", error);
+    estadoVehiculos.classList.toggle("alert-success", Boolean(mensaje) && !error);
+}
+
+function botonDeVehiculo(texto, clase, alHacerClic) {
+    const elemento = crearElemento("button", `btn btn-sm ${clase}`, texto);
+    elemento.type = "button";
+    elemento.addEventListener("click", alHacerClic);
+    return elemento;
+}
+
+function filaDeVehiculo(vehiculo) {
+    const fila = document.createElement("tr");
+    const patente = crearElemento("th", "fw-semibold", vehiculo.patente);
+    patente.scope = "row";
+    fila.append(
+        patente,
+        crearElemento("td", "", vehiculo.marca),
+        crearElemento("td", "", vehiculo.modelo),
+        crearElemento("td", "", String(vehiculo.anio)),
+        crearElemento("td", "", etiquetaUso(vehiculo.uso)),
+    );
+    if (esAprobador) {
+        const acciones = crearElemento("td", "text-end text-nowrap");
+        acciones.append(
+            botonDeVehiculo("Editar", "btn-outline-primary me-2", () => abrirFormularioVehiculo(vehiculo)),
+            botonDeVehiculo("Dar de baja", "btn-outline-danger", () => abrirBajaVehiculo(vehiculo)),
+        );
+        fila.append(acciones);
+    }
+    return fila;
+}
+
+function renderizarVehiculos(vehiculos) {
+    vehiculosCliente.replaceChildren();
+    botonNuevoVehiculo.classList.toggle("d-none", !esAprobador || !clienteActivo);
+    if (vehiculos.length === 0) {
+        vehiculosCliente.append(crearElemento("p", "text-muted mb-0", "No hay vehículos registrados."));
+        return;
+    }
+    const envoltorio = crearElemento("div", "table-responsive");
+    const tabla = crearElemento("table", "table table-sm align-middle mb-0");
+    const cabecera = document.createElement("thead");
+    const encabezado = document.createElement("tr");
+    const titulos = ["Patente", "Marca", "Modelo", "Año", "Uso"];
+    for (const texto of titulos) {
+        const th = crearElemento("th", "", texto);
+        th.scope = "col";
+        encabezado.append(th);
+    }
+    if (esAprobador) {
+        const th = document.createElement("th");
+        th.scope = "col";
+        th.append(crearElemento("span", "visually-hidden", "Acciones"));
+        encabezado.append(th);
+    }
+    cabecera.append(encabezado);
+    const cuerpo = document.createElement("tbody");
+    cuerpo.append(...vehiculos.map(filaDeVehiculo));
+    tabla.append(cabecera, cuerpo);
+    envoltorio.append(tabla);
+    vehiculosCliente.append(envoltorio);
+}
+
+function pintarErroresVehiculo(errores) {
+    for (const campo of CAMPOS_VEHICULO) {
+        const entrada = formularioVehiculo.elements[campo];
+        const aviso = formularioVehiculo.querySelector(`[data-error="${campo}"]`);
+        entrada.classList.toggle("is-invalid", Boolean(errores[campo]));
+        if (aviso) {
+            aviso.textContent = errores[campo] ?? "";
+        }
+    }
+}
+
+let vehiculoEnEdicion = null;
+
+function abrirFormularioVehiculo(vehiculo = null) {
+    vehiculoEnEdicion = vehiculo;
+    tituloVehiculo.textContent = vehiculo ? `Editar ${vehiculo.patente}` : "Agregar vehículo";
+    const elementos = formularioVehiculo.elements;
+    elementos.patente.value = vehiculo?.patente ?? "";
+    elementos.marca.value = vehiculo?.marca ?? "";
+    elementos.modelo.value = vehiculo?.modelo ?? "";
+    elementos.anio.value = vehiculo ? String(vehiculo.anio) : "";
+    elementos.uso.value = vehiculo?.uso ?? "particular";
+    elementos.chasis.value = vehiculo?.chasis ?? "";
+    elementos.valor_asegurado.value = vehiculo?.valor_asegurado ?? "";
+    pintarErroresVehiculo({});
+    errorVehiculo.textContent = "";
+    dialogoVehiculo.showModal();
+}
+
+function abrirBajaVehiculo(vehiculo) {
+    vehiculoEnEdicion = vehiculo;
+    textoBajaVehiculo.textContent = `${descripcionVehiculo(vehiculo)} deja de figurar entre los vehículos del cliente. `
+        + "Su historial se conserva. Si todavía tiene una póliza vigente, la baja se rechaza.";
+    errorBajaVehiculo.textContent = "";
+    dialogoBajaVehiculo.showModal();
+}
+
+/** Lo que viaja: en la edición, solo lo que tiene valor (chasis y valor vacíos lo borran). */
+function cuerpoDeVehiculo() {
+    const elementos = formularioVehiculo.elements;
+    const cuerpo = {
+        patente: normalizarPatente(elementos.patente.value),
+        marca: elementos.marca.value.trim(),
+        modelo: elementos.modelo.value.trim(),
+        anio: elementos.anio.value.trim(),
+        uso: elementos.uso.value,
+        chasis: elementos.chasis.value.trim(),
+        valor_asegurado: elementos.valor_asegurado.value.trim(),
+    };
+    if (!vehiculoEnEdicion) {
+        // En el alta, vacío es «sin dato»: no se manda.
+        for (const clave of ["chasis", "valor_asegurado"]) {
+            if (!cuerpo[clave]) {
+                delete cuerpo[clave];
+            }
+        }
+    }
+    return cuerpo;
+}
+
+formularioVehiculo.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const cuerpo = cuerpoDeVehiculo();
+    const errores = validarVehiculo(cuerpo);
+    pintarErroresVehiculo(errores);
+    if (Object.keys(errores).length > 0) {
+        errorVehiculo.textContent = "Revisá los campos marcados.";
+        return;
+    }
+    botonGuardarVehiculo.disabled = true;
+    errorVehiculo.textContent = "";
+    try {
+        if (vehiculoEnEdicion) {
+            const guardado = await api.patch(`/api/vehiculos/${vehiculoEnEdicion.id}/`, {
+                ...cuerpo,
+                anio: Number(cuerpo.anio),
+            });
+            mostrarEstadoVehiculos(`Se actualizó ${guardado.patente}.`);
+        } else {
+            const guardado = await api.post("/api/vehiculos/", {
+                ...cuerpo,
+                anio: Number(cuerpo.anio),
+                cliente: Number(idCliente),
+            });
+            mostrarEstadoVehiculos(`Se agregó ${guardado.patente}.`);
+        }
+        dialogoVehiculo.close();
+        await cargarFicha();
+    } catch (error) {
+        errorVehiculo.textContent = error.mensaje ?? error.message ?? "No se pudo guardar el vehículo.";
+    } finally {
+        botonGuardarVehiculo.disabled = false;
+    }
+});
+
+formularioBajaVehiculo.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    botonConfirmarBaja.disabled = true;
+    errorBajaVehiculo.textContent = "";
+    try {
+        await api.post(`/api/vehiculos/${vehiculoEnEdicion.id}/baja/`, {});
+        dialogoBajaVehiculo.close();
+        mostrarEstadoVehiculos(`${vehiculoEnEdicion.patente} quedó dado de baja.`);
+        await cargarFicha();
+    } catch (error) {
+        // El 409 de «tiene una póliza vigente» llega acá con el mensaje de la API.
+        errorBajaVehiculo.textContent = error.mensaje ?? error.message ?? "No se pudo dar de baja.";
+    } finally {
+        botonConfirmarBaja.disabled = false;
+    }
+});
+
+botonNuevoVehiculo.addEventListener("click", () => abrirFormularioVehiculo(null));
+document.getElementById("vehiculo-cancelar").addEventListener("click", () => dialogoVehiculo.close());
+document.getElementById("baja-vehiculo-cancelar").addEventListener("click", () => dialogoBajaVehiculo.close());
+for (const [codigo, texto] of USOS) {
+    const opcion = document.createElement("option");
+    opcion.value = codigo;
+    opcion.textContent = texto;
+    formularioVehiculo.elements.uso.append(opcion);
 }
 
 // --- ABM ------------------------------------------------------------------
@@ -253,6 +493,7 @@ async function cargarFicha() {
 
     mostrarEstado("Cargando ficha…");
     try {
+        await saberSiAprueba();
         const cliente = await api.get(`/api/clientes/${idCliente}/`);
         const polizasOrdenadas = ordenarPolizas(cliente.polizas ?? []);
         const polizasDetalladas = await Promise.all(polizasOrdenadas.map(
@@ -263,6 +504,9 @@ async function cargarFicha() {
         datosCliente.textContent = `DNI: ${cliente.dni} · Correo: ${cliente.email ?? "—"}`;
         prepararAbm(cliente);
         renderizarContactos(cliente);
+        clienteActivo = cliente.activo !== false;
+        vehiculosDelCliente = cliente.vehiculos ?? [];
+        renderizarVehiculos(vehiculosDelCliente);
         polizasCliente.replaceChildren();
         if (polizasDetalladas.length === 0) {
             polizasCliente.append(crearElemento("p", "col-12 text-muted", "No hay pólizas registradas."));
@@ -341,9 +585,36 @@ async function cargarOpcionesPoliza() {
     }
 }
 
-panelNuevaPoliza.addEventListener("toggle", () => {
+/** Compañías activas y vehículos del cliente para los dos selects opcionales. */
+async function cargarCompaniasDePoliza() {
+    campoComisionPoliza.classList.toggle("d-none", !esAprobador);
+    let companias = [];
+    try {
+        companias = (await api.get("/api/companias/?activas=1")).resultados ?? [];
+    } catch (error) {
+        mostrarEstadoNuevaPoliza(
+            error.mensaje ?? error.message ?? "No se pudieron cargar las compañías.",
+            true,
+        );
+    }
+    llenarSelect(
+        formularioPoliza.elements.compania_id,
+        [["", "Sin compañía"], ...companias.map((compania) => [String(compania.id), compania.nombre])],
+    );
+    llenarSelect(
+        formularioPoliza.elements.vehiculo_id,
+        [["", "Sin vehículo"], ...vehiculosDelCliente.map((vehiculo) => [
+            String(vehiculo.id),
+            descripcionVehiculo(vehiculo),
+        ])],
+    );
+}
+
+panelNuevaPoliza.addEventListener("toggle", async () => {
     if (panelNuevaPoliza.open) {
-        cargarOpcionesPoliza();
+        await cargarOpcionesPoliza();
+        // Cada vez que se abre: los vehículos pudieron cambiar desde la última vez.
+        await cargarCompaniasDePoliza();
     }
 });
 
@@ -380,6 +651,17 @@ function datosDelFormularioPoliza() {
     const cuerpo = {};
     for (const campo of CAMPOS_POLIZA) {
         cuerpo[campo] = formularioPoliza.elements[campo].value.trim();
+    }
+    // Opcionales: lo vacío no viaja (la API entiende su ausencia como «ninguno»).
+    for (const campo of ["vehiculo_id", "compania_id"]) {
+        const valor = formularioPoliza.elements[campo].value;
+        if (valor) {
+            cuerpo[campo] = Number(valor);
+        }
+    }
+    const comision = formularioPoliza.elements.comision_pct.value.trim();
+    if (comision) {
+        cuerpo.comision_pct = comision;
     }
     return cuerpo;
 }

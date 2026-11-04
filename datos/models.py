@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 from django.utils import timezone
 
@@ -32,6 +34,13 @@ class Relacion(models.TextChoices):
     CONYUGE = "conyuge", "Cónyuge"
     HIJO = "hijo", "Hijo"
     OTRO = "otro", "Otro"
+
+
+class UsoVehiculo(models.TextChoices):
+    PARTICULAR = "particular", "Particular"
+    COMERCIAL = "comercial", "Comercial"
+    REMIS_TAXI = "remis_taxi", "Remis o taxi"
+    CARGA = "carga", "Carga"
 
 
 class EstadoCuota(models.TextChoices):
@@ -226,6 +235,41 @@ class ContactoWhatsapp(models.Model):
         db_table = "contactos_whatsapp"
 
 
+class Compania(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    nombre = models.TextField()
+    comision_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal("0")
+    )
+    activa = models.BooleanField(default=True)
+
+    class Meta:
+        managed = False
+        db_table = "companias"
+
+
+class Vehiculo(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    cliente = models.ForeignKey(
+        Cliente, on_delete=models.DO_NOTHING, related_name="vehiculos"
+    )
+    patente = models.TextField()
+    marca = models.TextField()
+    modelo = models.TextField()
+    anio = models.SmallIntegerField()
+    uso = models.TextField(choices=UsoVehiculo.choices, default=UsoVehiculo.PARTICULAR)
+    chasis = models.TextField(null=True)
+    valor_asegurado = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True
+    )
+    activo = models.BooleanField(default=True)
+    creado_en = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "vehiculos"
+
+
 class Poliza(models.Model):
     id = models.BigAutoField(primary_key=True)
     numero_poliza = models.TextField()
@@ -242,6 +286,15 @@ class Poliza(models.Model):
     prima_mensual = models.DecimalField(max_digits=12, decimal_places=2)
     bien_asegurado = models.TextField(null=True)
     creado_en = models.DateTimeField(default=timezone.now)
+    vehiculo = models.ForeignKey(
+        Vehiculo, on_delete=models.DO_NOTHING, null=True, related_name="polizas"
+    )
+    compania = models.ForeignKey(
+        Compania, on_delete=models.DO_NOTHING, null=True, related_name="polizas"
+    )
+    comision_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True
+    )
 
     class Meta:
         managed = False

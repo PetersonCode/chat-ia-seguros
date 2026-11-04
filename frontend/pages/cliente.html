@@ -68,6 +68,14 @@
             </div>
             <div id="contactos-cliente" class="card-body"></div>
         </section>
+        <section class="card shadow-sm border-0 mb-3" aria-labelledby="titulo-vehiculos">
+            <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <h2 id="titulo-vehiculos" class="h5 mb-0">Vehículos</h2>
+                <button id="boton-nuevo-vehiculo" class="btn btn-primary btn-sm d-none" type="button">Agregar vehículo</button>
+            </div>
+            <p id="estado-vehiculos" class="alert d-none m-3 mb-0" role="status" aria-live="polite"></p>
+            <div id="vehiculos-cliente" class="card-body"></div>
+        </section>
         <section class="mb-4" aria-labelledby="titulo-polizas">
             <h2 id="titulo-polizas" class="h4 mb-3">Pólizas</h2>
             <div id="polizas-cliente" class="row g-3"></div>
@@ -115,6 +123,20 @@
                                 <input id="poliza-vencimiento" name="fecha_vencimiento" class="form-control" type="date">
                                 <p class="invalid-feedback mb-0" data-error="fecha_vencimiento"></p>
                             </div>
+                            <div class="col-sm-6">
+                                <label class="form-label" for="poliza-vehiculo">Vehículo <span class="text-muted">(opcional)</span></label>
+                                <select id="poliza-vehiculo" name="vehiculo_id" class="form-select"></select>
+                                <p class="form-text mb-0">Si lo elegís y dejás vacío el bien asegurado, se completa solo.</p>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label" for="poliza-compania">Compañía <span class="text-muted">(opcional)</span></label>
+                                <select id="poliza-compania" name="compania_id" class="form-select"></select>
+                            </div>
+                            <div class="col-sm-6" id="campo-comision-poliza">
+                                <label class="form-label" for="poliza-comision">Comisión (%) <span class="text-muted">(opcional)</span></label>
+                                <input id="poliza-comision" name="comision_pct" class="form-control" inputmode="decimal" autocomplete="off" placeholder="la de la compañía">
+                                <p class="form-text mb-0">Vacío usa la comisión de la compañía en este momento.</p>
+                            </div>
                             <div class="col-12">
                                 <label class="form-label" for="poliza-bien">Bien asegurado <span class="text-muted">(opcional)</span></label>
                                 <input id="poliza-bien" name="bien_asegurado" class="form-control" autocomplete="off" placeholder="Ford Fiesta 2019 AB123CD">
@@ -137,6 +159,64 @@
             <div id="siniestros-cliente" class="card-body"></div>
         </section>
     </main>
+    <dialog id="dialog-vehiculo" class="dialog-accion">
+        <form id="formulario-vehiculo" class="p-4" method="dialog" novalidate>
+            <h2 id="vehiculo-titulo" class="h5"></h2>
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <label class="form-label" for="vehiculo-patente">Patente</label>
+                    <input id="vehiculo-patente" name="patente" class="form-control" autocomplete="off" placeholder="AB 123 CD">
+                    <p class="invalid-feedback mb-0" data-error="patente"></p>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label" for="vehiculo-uso">Uso</label>
+                    <select id="vehiculo-uso" name="uso" class="form-select"></select>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label" for="vehiculo-marca">Marca</label>
+                    <input id="vehiculo-marca" name="marca" class="form-control" autocomplete="off">
+                    <p class="invalid-feedback mb-0" data-error="marca"></p>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label" for="vehiculo-modelo">Modelo</label>
+                    <input id="vehiculo-modelo" name="modelo" class="form-control" autocomplete="off">
+                    <p class="invalid-feedback mb-0" data-error="modelo"></p>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label" for="vehiculo-anio">Año</label>
+                    <input id="vehiculo-anio" name="anio" class="form-control" inputmode="numeric" autocomplete="off">
+                    <p class="invalid-feedback mb-0" data-error="anio"></p>
+                </div>
+                <div class="col-sm-8">
+                    <label class="form-label" for="vehiculo-valor">Valor asegurado <span class="text-muted">(opcional)</span></label>
+                    <input id="vehiculo-valor" name="valor_asegurado" class="form-control" inputmode="decimal" autocomplete="off">
+                    <p class="invalid-feedback mb-0" data-error="valor_asegurado"></p>
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="vehiculo-chasis">Chasis <span class="text-muted">(opcional)</span></label>
+                    <input id="vehiculo-chasis" name="chasis" class="form-control" autocomplete="off">
+                </div>
+            </div>
+            <p id="vehiculo-error" class="small text-danger my-2" role="alert"></p>
+            <div class="d-flex justify-content-end gap-2 mt-3">
+                <button id="vehiculo-cancelar" class="btn btn-outline-secondary" type="button">Cancelar</button>
+                <button id="vehiculo-guardar" class="btn btn-primary" type="submit">Guardar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="dialog-baja-vehiculo" class="dialog-accion">
+        <form id="formulario-baja-vehiculo" class="p-4" method="dialog">
+            <h2 class="h5">Dar de baja el vehículo</h2>
+            <p id="baja-vehiculo-texto"></p>
+            <p id="baja-vehiculo-error" class="small text-danger mb-2" role="alert"></p>
+            <div class="d-flex justify-content-end gap-2">
+                <button id="baja-vehiculo-cancelar" class="btn btn-outline-secondary" type="button">Cancelar</button>
+                <button id="baja-vehiculo-confirmar" class="btn btn-danger" type="submit">Dar de baja</button>
+            </div>
+        </form>
+    </dialog>
+
     <script type="module" src="/static/js/pages/cliente.js?v=20261104integrado1"></script>
 </body>
 </html>

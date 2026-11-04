@@ -27,7 +27,7 @@ Copy-Item .env.demo.example .env
 
 Editar `.env` con el secreto generado y la conexión de una base propia. Usar `.venv` para los comandos siguientes (activar el entorno o llamar su `python.exe`). No subir `.env` a GitHub.
 
-En una base nueva de demostración aplicar SQL **01 a 12 y luego 22 en orden**, incluyendo 02 para cargar funcionarios y catálogos ficticios. SQL 12 agrega la charla de tu compañero; SQL 22 incorpora el hardening. Los números 13–21 están reservados para los planes P1–P9 y todavía no tienen scripts ni implementación. Nunca ejecutar 00 sobre datos que quieran conservar. Ejemplo PowerShell, adaptando la conexión a `.env`:
+En una base nueva de demostración aplicar SQL **01 a 13 y luego 22 en orden**, incluyendo 02 para cargar funcionarios y catálogos ficticios. SQL 12 agrega la charla de tu compañero; SQL 13 (P1) agrega vehículos y compañías; SQL 22 incorpora el hardening. Los números 14–21 están reservados para los planes P2–P9 y todavía no tienen scripts ni implementación. Nunca ejecutar 00 sobre datos que quieran conservar. Ejemplo PowerShell, adaptando la conexión a `.env`:
 
 ```powershell
 Get-ChildItem .\SDD\sql\*.sql |

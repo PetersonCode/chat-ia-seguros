@@ -17,14 +17,15 @@ Los archivos Docker se mantienen versionables en la entrega porque forman parte 
 
 - `01` a `11`: esquema anterior.
 - `12_tipos_de_charla.sql`: incremento del compañero; permite volver a ejecutarlo.
-- `13` a `21`: reservas de planes futuros, sin implementación en esta entrega.
+- `13_vehiculos_companias.sql` (P1): tablas `companias` y `vehiculos` y tres columnas nuevas en `polizas`; aditivo e idempotente, se puede repetir. Aplicarlo a la base real **antes** de levantar esta versión, porque los modelos ya leen esas columnas.
+- `14` a `21`: reservas de los planes P2–P9, sin implementación.
 - `22_seguridad_y_coberturas.sql`: incremento de esta revisión, aditivo y transaccional. Aplicarlo una sola vez.
 
-Si ya estaba aplicado el 12 del compañero, no hay que rehacer los datos: agregar 22 y ejecutar `migrate`. Si la base solo llegaba a 11, agregar 12 y 22. Nunca utilizar `00_drop_all.sql` para actualizar una base con datos a conservar.
+Si ya estaba aplicado el 12 del compañero, no hay que rehacer los datos: agregar 13 y 22 y ejecutar `migrate`. Si la base solo llegaba a 11, agregar 12 y 22. Nunca utilizar `00_drop_all.sql` para actualizar una base con datos a conservar.
 
 ## Lo que son planes y aún no está desarrollado
 
-`SDD/paquetes/` contiene las especificaciones P1–P9: vehículos/compañías, avisos, renovaciones, mora, embudo comercial, credenciales, ampliación de siniestros, tareas/reportes y fidelización. Se conservaron íntegramente como planificación. No existen sus incrementos SQL 13–21 ni los módulos completos descritos allí. No presentarlos como funcionalidades implementadas.
+`SDD/paquetes/` contiene las especificaciones P1–P9: vehículos/compañías, avisos, renovaciones, mora, embudo comercial, credenciales, ampliación de siniestros, tareas/reportes y fidelización. Se conservaron íntegramente como planificación. Solo P1 (vehículos y compañías, SQL 13) está implementado; de P2–P9 no existen sus incrementos SQL 14–21 ni los módulos descritos. No presentarlos como funcionalidades implementadas.
 
 El verificador SDD del compañero cuenta también esos criterios futuros; sus pendientes no son el resultado de la suite funcional del MVP actual. README, `docs/` y la evidencia indican qué se implementó y probó realmente.
 

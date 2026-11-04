@@ -189,11 +189,17 @@ def _respuesta_vencimiento(cliente_id: int) -> _Respuesta:
     if not resumen:
         return _Respuesta(plantillas.SIN_POLIZAS, derivar_a=DERIVACION_POR_DEFECTO)
     bienes = bienes_asegurados(cliente_id)
+    patentes = dict(
+        Poliza.objects.filter(cliente_id=cliente_id, vehiculo__isnull=False).values_list(
+            "numero_poliza", "vehiculo__patente"
+        )
+    )
     lineas: list[str] = []
     verificados: set[str] = set()
     for fila in resumen:
         fecha = formatear_fecha(fila.fecha_vencimiento)
         bien = (bienes.get(fila.numero_poliza) or "").strip()
+        patente = patentes.get(fila.numero_poliza)
         lineas.append(
             plantillas.LINEA_VENCIMIENTO.format(
                 numero_poliza=fila.numero_poliza,
@@ -205,9 +211,14 @@ def _respuesta_vencimiento(cliente_id: int) -> _Respuesta:
                     if fila.estado == EstadoPoliza.VENCIDA
                     else ""
                 ),
+                patente=(
+                    plantillas.MARCA_PATENTE.format(patente=patente) if patente else ""
+                ),
             )
         )
         verificados.update({fila.numero_poliza, fecha})
+        if patente:
+            verificados.add(patente)
         if bien:
             # Salió de la base: no es un dato que el bot se haya inventado.
             verificados.add(bien)

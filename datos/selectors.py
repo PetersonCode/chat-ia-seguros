@@ -21,11 +21,12 @@ from django.db.models import (
 from django.db.models.functions import Lower, Replace
 from django.utils import timezone
 
-from datos.limpieza import normalizar_dni
+from datos.limpieza import normalizar_dni, normalizar_patente
 from datos.models import (
     AccionPendiente,
     Alerta,
     Cliente,
+    Compania,
     ContactoWhatsapp,
     Conversacion,
     ConsultaBot,
@@ -46,6 +47,7 @@ from datos.models import (
     Siniestro,
     TipoConsulta,
     VPolizaResumen,
+    Vehiculo,
 )
 
 _ALERTAS_ABIERTAS = (EstadoAlerta.ABIERTA, EstadoAlerta.EN_REVISION)
@@ -420,22 +422,58 @@ def buscar_clientes(q: str | None = None) -> QuerySet[Cliente]:
         try:
             dni = normalizar_dni(q.strip())
         except ValueError:
-            clientes = clientes.filter(
-                Q(nombre__icontains=q.strip())
-                | Q(apellido__icontains=q.strip())
-            )
+            clientes = _filtrar_por_patente_o_nombre(clientes, q.strip())
         else:
             clientes = clientes.filter(dni=dni)
     return clientes.order_by("apellido", "nombre", "id")
 
 
+def _filtrar_por_patente_o_nombre(
+    clientes: QuerySet[Cliente], q: str
+) -> QuerySet[Cliente]:
+    """Una patente exacta (con o sin espacios) gana; si nadie la tiene, nombre o apellido."""
+    try:
+        patente = normalizar_patente(q)
+    except ValueError:
+        patente = None
+    if patente is not None:
+        por_patente = clientes.filter(vehiculos__patente=patente)
+        if por_patente.exists():
+            return por_patente
+    return clientes.filter(Q(nombre__icontains=q) | Q(apellido__icontains=q))
+
+
+def vehiculo_por_patente(patente: str) -> Vehiculo | None:
+    """Normaliza la patente y devuelve el vehículo, o None si no existe o no es válida."""
+    try:
+        normalizada = normalizar_patente(patente)
+    except ValueError:
+        return None
+    return Vehiculo.objects.select_related("cliente").filter(patente=normalizada).first()
+
+
+def vehiculos_de(cliente_id: int, solo_activos: bool = True) -> QuerySet[Vehiculo]:
+    vehiculos = Vehiculo.objects.filter(cliente_id=cliente_id)
+    if solo_activos:
+        vehiculos = vehiculos.filter(activo=True)
+    return vehiculos.order_by("patente", "id")
+
+
+def listar_companias(solo_activas: bool = True) -> QuerySet[Compania]:
+    companias = Compania.objects.all()
+    if solo_activas:
+        companias = companias.filter(activa=True)
+    return companias.order_by(Lower("nombre"), "id")
+
+
 def detalle_cliente(cliente_id: int) -> Cliente:
-    polizas = Poliza.objects.select_related("tipo_seguro").prefetch_related(
-        "siniestros"
-    )
+    polizas = Poliza.objects.select_related(
+        "tipo_seguro", "vehiculo", "compania"
+    ).prefetch_related("siniestros")
     return Cliente.objects.prefetch_related(
         "contactos",
         Prefetch("polizas", queryset=polizas),
+        Prefetch("vehiculos", queryset=Vehiculo.objects.order_by("patente", "id")),
     ).get(pk=cliente_id)
 
 
@@ -452,7 +490,9 @@ def detalle_poliza(poliza_id: int) -> Poliza:
     poliza = (
         # La vista entra por el mismo JOIN: es `OneToOne` con `polizas`, así que
         # no agrega una consulta y AC-T4-19 sigue cerrando en cuatro.
-        Poliza.objects.select_related("cliente", "tipo_seguro", "vpolizaresumen")
+        Poliza.objects.select_related(
+            "cliente", "tipo_seguro", "vpolizaresumen", "vehiculo", "compania"
+        )
         .prefetch_related(
             Prefetch("cuotas", queryset=cuotas),
             "conductores",

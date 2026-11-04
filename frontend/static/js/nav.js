@@ -13,6 +13,7 @@ const LOGO = "/static/img/logo-castano.png?v=1";
 const destinos = [
     { etiqueta: "Bandeja", destino: "/panel/" },
     { etiqueta: "Clientes", destino: "/panel/clientes/" },
+    { etiqueta: "Compañías", destino: "/panel/companias/" },
     { etiqueta: "Documentos", destino: "/panel/documentos/" },
     { etiqueta: "Siniestros", destino: "/panel/siniestros/" },
     { etiqueta: "Reportes", destino: "/panel/reportes/" },

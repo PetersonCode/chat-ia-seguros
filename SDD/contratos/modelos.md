@@ -16,7 +16,9 @@ Los campos que en la base tienen `DEFAULT` llevan el mismo default en Django (`t
 | `TipoConsulta` | `tipos_consulta` | codigo, nombre, politica | |
 | `Cliente` | `clientes` | dni, nombre, apellido, email, activo, creado_en | |
 | `ContactoWhatsapp` | `contactos_whatsapp` | numero, cliente→Cliente (null), nombre_perfil, creado_en | `cliente.contactos` |
-| `Poliza` | `polizas` | numero_poliza, cliente→Cliente, tipo_seguro→TipoSeguro, cobertura, estado, fecha_inicio, fecha_vencimiento, prima_mensual, bien_asegurado, creado_en | `cliente.polizas` |
+| `Compania` (P1) | `companias` | nombre, comision_pct, activa | |
+| `Vehiculo` (P1) | `vehiculos` | cliente→Cliente, patente, marca, modelo, anio, uso, chasis (null), valor_asegurado (null), activo, creado_en | `cliente.vehiculos` |
+| `Poliza` | `polizas` | numero_poliza, cliente→Cliente, tipo_seguro→TipoSeguro, cobertura, estado, fecha_inicio, fecha_vencimiento, prima_mensual, bien_asegurado, creado_en, **P1:** vehiculo→Vehiculo (null), compania→Compania (null), comision_pct (null) | `cliente.polizas`, `vehiculo.polizas`, `compania.polizas` |
 | `ConductorPoliza` | `conductores_poliza` | poliza→Poliza, nombre, dni, relacion, activo | `poliza.conductores` |
 | `Cuota` | `cuotas` | poliza→Poliza, periodo, importe, vencimiento, estado, fecha_pago, importe_pagado | `poliza.cuotas` |
 | `Siniestro` | `siniestros` | numero_siniestro, poliza→Poliza, consulta→ConsultaBot (null), fecha_ocurrencia, descripcion, estado, creado_en | `poliza.siniestros` |
@@ -43,6 +45,7 @@ Mismos valores que las restricciones `CHECK` de la base (T4 lo verifica con un t
 | `Cobertura` | basica, intermedia, total |
 | `EstadoPoliza` | vigente, vencida, dada_de_baja |
 | `Relacion` | titular, conyuge, hijo, otro |
+| `UsoVehiculo` (P1) | particular, comercial, remis_taxi, carga |
 | `EstadoCuota` | pendiente, pagada, vencida |
 | `EstadoSiniestro` | denunciado, en_evaluacion, aprobado, rechazado, cerrado |
 | `EstadoConversacion` | abierta, cerrada |
@@ -96,9 +99,14 @@ def derivaciones_de(funcionario_id: int, *, incluir_atendidas: bool = False) -> 
     # urgentes primero, luego más antiguas
 def buscar_clientes(q: str | None = None) -> QuerySet[Cliente]
     # anota polizas_vigentes (int). q: si normalizar_dni(q) funciona, busca por dni exacto;
+    # P1: si no, y normalizar_patente(q) funciona y algún vehículo (activo o no) la tiene, devuelve a su dueño;
     # si no, nombre o apellido que contengan q (sin distinguir mayúsculas). Orden apellido, nombre.
-def detalle_cliente(cliente_id: int) -> Cliente                      # prefetch contactos, polizas, siniestros de sus pólizas
-def detalle_poliza(poliza_id: int) -> Poliza                         # prefetch cuotas (más reciente primero), conductores, siniestros
+def detalle_cliente(cliente_id: int) -> Cliente                      # prefetch contactos, polizas (con tipo_seguro, vehiculo, compania), siniestros, vehiculos (todos, por patente); 5 consultas
+def detalle_poliza(poliza_id: int) -> Poliza                         # prefetch cuotas (más reciente primero), conductores, siniestros; vehiculo y compania por JOIN; 4 consultas
+# P1 · Vehículos y compañías
+def vehiculo_por_patente(patente: str) -> Vehiculo | None            # normaliza; None si no existe o no es una patente
+def vehiculos_de(cliente_id: int, solo_activos: bool = True) -> QuerySet[Vehiculo]   # orden por patente
+def listar_companias(solo_activas: bool = True) -> QuerySet[Compania]                # orden por nombre (sin distinguir mayúsculas)
 def contar_pendientes(funcionario_id: int) -> dict[str, int]
     # {"acciones": pendientes, "derivaciones": sin atender de ese funcionario, "alertas_criticas": abiertas y críticas}
 ```
@@ -112,6 +120,8 @@ def crear_cliente(**campos) -> Cliente
 def crear_contacto(cliente: Cliente | None = None, **campos) -> ContactoWhatsapp
 def crear_poliza(cliente: Cliente | None = None, **campos) -> Poliza                 # tipo automotor, vigente
 def crear_cuota(poliza: Poliza, **campos) -> Cuota                                    # pendiente
+def crear_compania(**campos) -> Compania                                              # P1 · nombre único, 10 %, activa
+def crear_vehiculo(cliente: Cliente | None = None, **campos) -> Vehiculo             # P1 · patente única (AA000ZZ, AA001ZZ…), particular, activo
 def crear_conversacion(contacto: ContactoWhatsapp | None = None, **campos) -> Conversacion   # abierta, modo bot
 def crear_mensaje(conversacion: Conversacion, **campos) -> Mensaje                    # entrante del cliente, 'recibido'
 def crear_consulta(conversacion: Conversacion | None = None, tipo: str = "saludo", **campos) -> ConsultaBot
@@ -127,5 +137,6 @@ def normalizar_dni(raw: str) -> str            # '28.111.222' -> '28111222'; Val
 def normalizar_telefono(raw: str) -> str       # -> '+549' + 10 dígitos; ValueError si no se puede
 def parsear_fecha_hora(raw: str) -> FechaParseada   # dataclass (fecha: date, hora: time | None); ValueError si inválida
 def normalizar_tipo_seguro(raw: str) -> str    # 'AUTO' -> 'automotor'; ValueError si desconocido
+def normalizar_patente(raw: str) -> str        # P1 · 'ab 123 cd' / 'AB-123-CD' -> 'AB123CD'; ValueError si no es ABC123, AB123CD, 123ABC ni A123BCD
 ```
 Ejemplos exactos en la spec T4.

@@ -58,6 +58,16 @@ Cambiar un endpoint o una forma de respuesta requiere acuerdo de las 4 personas.
 | `POST /api/clientes/{id}/baja/` | aprobador | → `200 cliente_detalle` (baja lógica) |
 | `POST /api/clientes/{id}/reactivar/` | aprobador | → `200 cliente_detalle` |
 | `GET /api/polizas/{id}/` | sesión | → `poliza_detalle` |
+| `POST /api/clientes/{id}/polizas/` | aprobador | `{tipo_seguro, cobertura, fecha_inicio, fecha_vencimiento, prima_mensual, bien_asegurado?, numero_poliza?, vehiculo_id?, compania_id?, comision_pct?}` → `201 poliza_detalle` (P1 agregó los tres últimos) |
+| `GET /api/vehiculos/` | sesión | `?cliente=N` (obligatorio) → `{"resultados": [vehiculo…]}` (solo activos, por patente) |
+| `POST /api/vehiculos/` | aprobador | `{cliente, patente, marca, modelo, anio, uso?, chasis?, valor_asegurado?}` → `201 vehiculo`. Patente repetida o inválida, año, marca/modelo vacíos, valor ≤ 0 o cliente inactivo → `400`; cliente inexistente → `404` |
+| `PATCH /api/vehiculos/{id}/` | aprobador | cualquiera de los campos anteriores (menos `cliente`) → `200 vehiculo`. Ausente = no cambia; `chasis`/`valor_asegurado` vacíos o `null` lo borran |
+| `POST /api/vehiculos/{id}/baja/` | aprobador | → `200 vehiculo` (baja lógica). `409` si tiene una póliza vigente o ya estaba de baja |
+| `GET /api/companias/` | sesión | `?activas=1` → `{"resultados": [compania…]}` (por nombre; sin el filtro, también las desactivadas) |
+| `POST /api/companias/` | aprobador | `{nombre, comision_pct}` → `201 compania`. Nombre repetido (sin distinguir mayúsculas ni espacios) o comisión fuera de 0–100 → `400` |
+| `PATCH /api/companias/{id}/` | aprobador | `{nombre?, comision_pct?, activa?}` → `200 compania` (`activa` activa o desactiva) |
+
+`PUT` y `DELETE` sobre `/api/vehiculos/…` y `/api/companias/…` → `405`.
 
 **No son de la API JSON pero también los hace T2:** `GET /webhook/whatsapp/` (verificación de Meta, responde el `hub.challenge` como texto) y `POST /webhook/whatsapp/` (mensajes entrantes); y las páginas del front (ver spec T2).
 
@@ -112,13 +122,28 @@ Cambiar un endpoint o una forma de respuesta requiere acuerdo de las 4 personas.
 
 // cliente_detalle
 {"id": 1, "dni": "…", "nombre": "…", "apellido": "…", "email": "…", "activo": true,
- "contactos": ["+5491155551001"], "polizas": [poliza_resumen…], "siniestros": [siniestro…]}
+ "contactos": ["+5491155551001"], "polizas": [poliza_resumen + vehiculo/compania/comision_pct…],   // P1: ver más abajo
+ "vehiculos": [vehiculo…],                                                                          // P1: solo los activos
+ "siniestros": [siniestro…]}
 
 // poliza_detalle = poliza_resumen + 
 {"cliente": {"id","nombre","apellido"}, "fecha_inicio": "2023-06-01", "prima_mensual": "8000.00", "bien_asegurado": "…",
  "conductores": [{"nombre": "…", "dni": "…", "relacion": "titular"}],
  "cuotas": [{"periodo": "2024-04-01", "importe": "8000.00", "vencimiento": "2024-04-15", "estado": "pendiente"}],
  "siniestros": [siniestro…]}
+
+// vehiculo (P1)
+{"id": 3, "cliente": 1, "patente": "AB123CD", "marca": "Toyota", "modelo": "Corolla", "anio": 2020,
+ "uso": "particular",            // particular | comercial | remis_taxi | carga
+ "chasis": null, "valor_asegurado": "15000000.00" /* o null */, "activo": true}
+
+// compania (P1)
+{"id": 2, "nombre": "La Caja", "comision_pct": "12.50", "activa": true}   // comision_pct es null para un operador
+
+// P1: toda póliza de cliente_detalle y de poliza_detalle suma
+//   "vehiculo": vehiculo | null, "compania": compania | null, "comision_pct": "12.50" | null
+// y `comision_pct` (el de la póliza y el de la compañía) es null si quien consulta no es aprobador: la comisión es del dueño.
+// `GET /api/clientes/?q=` también encuentra por patente (con o sin espacios).
 
 // siniestro
 {"numero_siniestro": "SIN-2024-00001", "fecha_ocurrencia": "2024-03-31", "descripcion": "…", "estado": "denunciado"}
