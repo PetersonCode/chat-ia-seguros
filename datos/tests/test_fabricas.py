@@ -55,6 +55,7 @@ class FabricasTests(TestCase):
             ("prompt_injection", "Intento de manipulación del bot", "seguridad"),
             ("otro", "Otra consulta", "derivar_humano"),
             ("registro", "Alta de cliente", "requiere_aprobacion"),
+            ("alta_poliza", "Solicitud de alta de póliza", "requiere_aprobacion"),
             ("asistencia", "Asistencia en el camino", "bot_responde"),
             ("pago", "Pagos y cuotas", "derivar_humano"),
             ("agradecimiento", "Agradecimiento o despedida", "bot_responde"),
@@ -77,7 +78,7 @@ class FabricasTests(TestCase):
         self.assertEqual(TipoSeguro.objects.count(), 5)
         # Los doce del seed original más registro, asistencia, pago,
         # agradecimiento y fuera de tema.
-        self.assertEqual(TipoConsulta.objects.count(), 17)
+        self.assertEqual(TipoConsulta.objects.count(), 18)
 
     # AC-T4-11
     def test_fabricas_crean_registros_validos_con_defaults_unicos(self):

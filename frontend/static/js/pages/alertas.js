@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261104vencimientos2";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261104vencimientos2";
-import { inicializarNav } from "../nav.js?v=20261104vencimientos2";
-import { claseTarjetaSeveridad, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261104vencimientos2";
-import { armarQuery } from "../lib/consulta.js?v=20261104vencimientos2";
-import { formatearFechaHora } from "../lib/formato.js?v=20261104vencimientos2";
+import { api } from "../api.js?v=20261104altas1";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261104altas1";
+import { inicializarNav } from "../nav.js?v=20261104altas1";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261104altas1";
+import { armarQuery } from "../lib/consulta.js?v=20261104altas1";
+import { formatearFechaHora } from "../lib/formato.js?v=20261104altas1";
 
 const formulario = document.getElementById("filtros-alertas");
 const campoTipo = document.getElementById("filtro-tipo");

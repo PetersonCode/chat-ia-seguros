@@ -531,6 +531,11 @@ def enviar_pendientes(conversacion_id: int) -> int:
             return 0
 
         ahora = timezone.now()
+        if ventana_24h_abierta(conversacion.ultimo_mensaje_cliente_en, ahora):
+            Mensaje.objects.filter(conversacion_id=conversacion_id, direccion=Direccion.SALIENTE,
+                estado_envio=EstadoEnvio.FALLIDO, error='ventana_24h_cerrada',
+                payload__has_key='resolucion_accion', intentos_envio__lt=MAX_INTENTOS_ENVIO).update(
+                    estado_envio=EstadoEnvio.PENDIENTE_ENVIO, error=None, proximo_intento_envio=None)
         Mensaje.objects.filter(
             conversacion_id=conversacion_id,
             direccion=Direccion.SALIENTE,

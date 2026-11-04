@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261104vencimientos2";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261104vencimientos2";
-import { armarQuery } from "../lib/consulta.js?v=20261104vencimientos2";
-import { describirAccion, faltantes } from "../lib/acciones.js?v=20261104vencimientos2";
-import { formatearFechaHora } from "../lib/formato.js?v=20261104vencimientos2";
-import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261104vencimientos2";
+import { api } from "../api.js?v=20261104altas1";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261104altas1";
+import { armarQuery } from "../lib/consulta.js?v=20261104altas1";
+import { describirAccion, faltantes } from "../lib/acciones.js?v=20261104altas1";
+import { formatearFechaHora } from "../lib/formato.js?v=20261104altas1";
+import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261104altas1";
 
 const estado = document.getElementById("estado-acciones");
 const carga = document.getElementById("carga-acciones");
@@ -48,10 +48,19 @@ let vista = "pendiente";
 
 // Solo estas acciones se gestionan por fuera del sistema y se pueden finalizar.
 const tiposGestionExterna = new Set(["reembolso", "modificar_poliza"]);
+const campoPrimaAlta = document.getElementById('campo-prima-alta');
+const primaAlta = document.getElementById('prima-alta');
 
 const etiquetasParametros = {
-    nombre: "Nombre del conductor",
-    dni: "DNI del conductor",
+    nombre: "Nombre",
+    apellido: "Apellido",
+    dni: "DNI",
+    telefono: "Teléfono del chat",
+    patente: "Patente", marca: "Marca", modelo: "Modelo", anio: "Año",
+    clase: "Clase", uso: "Uso", chasis: "Chasis", valor_asegurado: "Valor asegurado solicitado",
+    compania_nombre: "Compañía solicitada", cobertura: "Cobertura solicitada",
+    fecha_inicio: "Inicio solicitado", fecha_vencimiento: "Vencimiento solicitado",
+    prima_mensual: "Prima mensual acordada (ARS)",
     importe: "Importe del reembolso",
     detalle: "Detalle de la modificación",
     fecha_ocurrencia: "Fecha de ocurrencia",
@@ -211,6 +220,7 @@ function renderizarDetalle(accion) {
 
     listaParametros.replaceChildren();
     for (const [clave, valor] of Object.entries(accion.parametros ?? {})) {
+        if (['borrador_alta_id', 'cliente_id', 'compania_id'].includes(clave)) continue;
         const termino = document.createElement("dt");
         termino.className = "col-sm-5";
         termino.textContent = etiquetasParametros[clave] ?? clave;
@@ -230,7 +240,7 @@ function renderizarDetalle(accion) {
     }
 
     const esPendiente = accion.estado === "pendiente";
-    const campos = esPendiente ? faltantes(accion) : [];
+    const campos = esPendiente ? faltantes(accion).filter(c => !(accion.tipo_accion === 'alta_poliza' && c === 'prima_mensual')) : [];
     camposFaltantes.replaceChildren(...campos.map(crearCampoParametro));
     formularioParametros.hidden = campos.length === 0 || !funcionario.puede_aprobar;
     avisoParametros.hidden = campos.length === 0 || funcionario.puede_aprobar;
@@ -313,6 +323,10 @@ function abrirDialogoResolucion(resolucion) {
         descripcionDialogo.textContent = "Indicá el motivo del rechazo.";
         labelMotivo.textContent = "Motivo";
     }
+    const esAlta = resolucion === 'aprobar' && accionSeleccionada?.tipo_accion === 'alta_poliza';
+    campoPrimaAlta.hidden = !esAlta;
+    primaAlta.required = esAlta;
+    primaAlta.value = esAlta ? accionSeleccionada.parametros?.prima_mensual ?? '' : '';
     dialogo.showModal();
 }
 
@@ -321,6 +335,8 @@ async function confirmarResolucion() {
         return;
     }
     const motivo = motivoResolucion.value.trim();
+    const esAlta = resolucionSeleccionada === 'aprobar' && accionSeleccionada.tipo_accion === 'alta_poliza';
+    if (esAlta && !primaAlta.reportValidity()) return;
     if (resolucionSeleccionada === "rechazar" && !motivo) {
         errorResolucion.textContent = "El motivo del rechazo es obligatorio.";
         return;
@@ -331,7 +347,9 @@ async function confirmarResolucion() {
     const id = accionSeleccionada.id;
     try {
         const ruta = `/api/acciones/${id}/${resolucionSeleccionada}/`;
-        if (resolucionSeleccionada === "aprobar" && !motivo) {
+        if (esAlta) {
+            await api.post(ruta, {motivo, prima_mensual: primaAlta.value});
+        } else if (resolucionSeleccionada === "aprobar" && !motivo) {
             await api.post(ruta);
         } else {
             await api.post(ruta, { motivo });

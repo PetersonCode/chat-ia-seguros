@@ -1,4 +1,4 @@
-import { inicializarNav } from "../nav.js?v=20261104vencimientos2";
+import { inicializarNav } from "../nav.js?v=20261104altas1";
 
 document.addEventListener('DOMContentLoaded', () => {
     const filtroPeriodo = document.getElementById('filtro-periodo');

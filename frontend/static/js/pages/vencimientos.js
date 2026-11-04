@@ -1,7 +1,7 @@
-import { api } from "../api.js?v=20261104vencimientos2";
-import { inicializarNav } from "../nav.js?v=20261104vencimientos2";
-import { formatearMonto, formatearFecha, formatearFechaHora } from "../lib/formato.js?v=20261104vencimientos2";
-import { plazoVencimiento, enlaceRecordatorio } from "../lib/vencimientos.js?v=20261104vencimientos2";
+import { api } from "../api.js?v=20261104altas1";
+import { inicializarNav } from "../nav.js?v=20261104altas1";
+import { formatearMonto, formatearFecha, formatearFechaHora } from "../lib/formato.js?v=20261104altas1";
+import { plazoVencimiento, enlaceRecordatorio } from "../lib/vencimientos.js?v=20261104altas1";
 
 const $ = (id) => document.getElementById(id);
 const dialogo = $("recordatorio");
@@ -37,6 +37,7 @@ async function cargar() {
             const fila = nodo("tr");
             const cliente = nodo("td");
             cliente.append(nodo("div", `${p.cliente.nombre} ${p.cliente.apellido}`, "fw-semibold"), nodo("div", p.vehiculo || "Vehículo sin descripción", "small text-muted"));
+            if (p.compania) cliente.append(nodo("div", p.compania, "small text-muted"));
             const plazo = nodo("td");
             plazo.append(nodo("span", plazoVencimiento(p.dias_restantes), `sev ${p.dias_restantes <= 7 ? "sev-critica" : p.dias_restantes <= 30 ? "sev-media" : "sev-baja"}`));
             const accion = nodo("td");

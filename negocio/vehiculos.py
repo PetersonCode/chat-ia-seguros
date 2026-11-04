@@ -12,6 +12,7 @@ vehículo y el historial se conserva.
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
+import re
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -19,6 +20,7 @@ from django.utils import timezone
 from datos.limpieza import normalizar_patente
 from datos.models import (
     Cliente,
+    ClaseVehiculo,
     EstadoPoliza,
     Funcionario,
     Poliza,
@@ -49,7 +51,7 @@ def _aprobador(funcionario_id: int) -> Funcionario:
 
 
 def _vehiculo(vehiculo_id: int) -> Vehiculo:
-    vehiculo = Vehiculo.objects.filter(pk=vehiculo_id).first()
+    vehiculo = Vehiculo.objects.select_for_update().filter(pk=vehiculo_id).first()
     if vehiculo is None:
         raise NoEncontrado("El vehículo no existe.")
     return vehiculo
@@ -95,6 +97,12 @@ def _uso_validado(valor: str) -> str:
     return uso
 
 
+def _clase_validada(valor):
+    if valor not in ClaseVehiculo.values:
+        raise DatosInvalidos("La clase de vehículo no es válida.")
+    return valor
+
+
 def _valor_validado(valor) -> Decimal | None:
     """`None` o vacío = sin valor asegurado. Si viene, tiene que ser mayor que cero."""
     if valor is None or (isinstance(valor, str) and not valor.strip()):
@@ -118,7 +126,9 @@ def _valor_validado(valor) -> Decimal | None:
 
 
 def _chasis_validado(valor: str | None) -> str | None:
-    texto = (valor or "").strip()
+    texto = re.sub(r'[\s-]+', '', valor or '').upper()
+    if texto and not re.fullmatch(r'[A-Z0-9]{1,100}', texto):
+        raise DatosInvalidos('El chasis admite hasta 100 letras y números, sin símbolos.')
     return texto or None
 
 
@@ -129,6 +139,8 @@ def _guardar(vehiculo: Vehiculo, campos: list[str] | None = None) -> None:
         with transaction.atomic():
             vehiculo.save(update_fields=campos)
     except IntegrityError as error:
+        if getattr(getattr(error.__cause__, 'diag', None), 'constraint_name', '') == 'vehiculo_chasis_unico':
+            raise DatosInvalidos('Ya existe un vehículo con ese chasis. Buscalo antes de cargarlo otra vez.') from error
         raise DatosInvalidos(
             f"Ya existe un vehículo con la patente {vehiculo.patente}."
         ) from error
@@ -146,6 +158,7 @@ def alta_vehiculo(
     valor_asegurado=None,
     *,
     funcionario_id: int,
+    clase: str = "sin_especificar",
 ) -> Vehiculo:
     """Crea el vehículo con la patente normalizada, o no crea nada."""
     _aprobador(funcionario_id)
@@ -162,6 +175,7 @@ def alta_vehiculo(
         modelo=_texto_obligatorio(modelo, MODELO_OBLIGATORIO),
         anio=_anio_validado(anio),
         uso=_uso_validado(uso),
+        clase=_clase_validada(clase),
         chasis=_chasis_validado(chasis),
         valor_asegurado=_valor_validado(valor_asegurado),
         activo=True,
@@ -180,6 +194,7 @@ def modificar_vehiculo(
     modelo: str | None = None,
     anio=None,
     uso: str | None = None,
+    clase: str | None = None,
     chasis: str | None | object = SIN_CAMBIO,
     valor_asegurado: object = SIN_CAMBIO,
 ) -> Vehiculo:
@@ -204,6 +219,9 @@ def modificar_vehiculo(
     if anio is not None:
         vehiculo.anio = _anio_validado(anio)
         campos.append("anio")
+    if clase is not None:
+        vehiculo.clase = _clase_validada(clase)
+        campos.append("clase")
     if uso is not None:
         vehiculo.uso = _uso_validado(uso)
         campos.append("uso")

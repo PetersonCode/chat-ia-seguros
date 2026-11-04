@@ -36,6 +36,15 @@ class Relacion(models.TextChoices):
     OTRO = "otro", "Otro"
 
 
+class ClaseVehiculo(models.TextChoices):
+    SIN_ESPECIFICAR = "sin_especificar", "Sin especificar"
+    AUTO = "auto", "Auto"
+    CAMIONETA = "camioneta", "Camioneta"
+    UTILITARIO = "utilitario", "Utilitario"
+    MOTO = "moto", "Moto"
+    CAMION = "camion", "Camión"
+
+
 class UsoVehiculo(models.TextChoices):
     PARTICULAR = "particular", "Particular"
     COMERCIAL = "comercial", "Comercial"
@@ -160,6 +169,7 @@ class TipoAccion(models.TextChoices):
     REEMBOLSO = "reembolso", "Reembolso"
     APERTURA_SINIESTRO = "apertura_siniestro", "Apertura de siniestro"
     ALTA_CLIENTE = "alta_cliente", "Alta de cliente"
+    ALTA_POLIZA = "alta_poliza", "Alta de póliza"
 
 
 class EstadoAccion(models.TextChoices):
@@ -257,6 +267,7 @@ class Vehiculo(models.Model):
     marca = models.TextField()
     modelo = models.TextField()
     anio = models.SmallIntegerField()
+    clase = models.TextField(choices=ClaseVehiculo.choices, default=ClaseVehiculo.SIN_ESPECIFICAR)
     uso = models.TextField(choices=UsoVehiculo.choices, default=UsoVehiculo.PARTICULAR)
     chasis = models.TextField(null=True)
     valor_asegurado = models.DecimalField(
@@ -793,6 +804,22 @@ class ContextoCobertura(models.Model):
     class Meta:
         managed = False
         db_table = "contextos_cobertura"
+
+
+class BorradorPoliza(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    conversacion = models.OneToOneField(Conversacion, on_delete=models.CASCADE)
+    datos = models.JSONField(default=dict)
+    campo = models.TextField(default='')
+    activo = models.BooleanField(default=True)
+    ultimo_mensaje = models.ForeignKey(Mensaje, null=True, on_delete=models.SET_NULL)
+    respuesta = models.JSONField(default=dict)
+    accion = models.ForeignKey('AccionPendiente', null=True, on_delete=models.SET_NULL)
+    actualizado_en = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = 'borradores_poliza'
 
 
 class RecordatorioPoliza(models.Model):

@@ -147,12 +147,27 @@ def _prima_validada(valor) -> Decimal:
 def _vehiculo_del_cliente(vehiculo_id: int | None, cliente: Cliente) -> Vehiculo | None:
     if vehiculo_id is None:
         return None
-    vehiculo = Vehiculo.objects.filter(pk=vehiculo_id).first()
+    vehiculo = Vehiculo.objects.select_for_update().filter(pk=vehiculo_id).first()
     if vehiculo is None or vehiculo.cliente_id != cliente.id:
         raise DatosInvalidos("El vehículo tiene que ser del cliente de la póliza.")
     if not vehiculo.activo:
         raise DatosInvalidos("El vehículo está dado de baja.")
     return vehiculo
+
+
+def validar_solapamiento(vehiculo, inicio, vencimiento, *, excluir_id=None, estado=None):
+    # La fila del vehículo ya está bloqueada; la comprobación y el alta son atómicas.
+    if vehiculo is None or estado == EstadoPoliza.DADA_DE_BAJA:
+        return
+    conflictos = Poliza.objects.filter(vehiculo=vehiculo, fecha_inicio__lte=vencimiento,
+                                      fecha_vencimiento__gte=inicio).exclude(estado=EstadoPoliza.DADA_DE_BAJA)
+    if excluir_id is not None:
+        conflictos = conflictos.exclude(pk=excluir_id)
+    existente = conflictos.order_by('fecha_inicio', 'id').first()
+    if existente:
+        raise DatosInvalidos(
+            f"El vehículo {vehiculo.patente} ya está asegurado por {existente.numero_poliza} "
+            "en ese período. Revisá las fechas antes de emitir otra póliza.")
 
 
 def _compania_activa(compania_id: int | None) -> Compania | None:
@@ -265,6 +280,7 @@ def alta_poliza(
 
     inicio, vencimiento = _fechas_validadas(fecha_inicio, fecha_vencimiento)
     vehiculo = _vehiculo_del_cliente(vehiculo_id, cliente)
+    validar_solapamiento(vehiculo, inicio, vencimiento)
     compania = _compania_activa(compania_id)
     if comision_pct is not None:
         comision = porcentaje_validado(comision_pct)

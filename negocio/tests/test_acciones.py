@@ -306,7 +306,8 @@ class AprobarAccionTests(BaseAccionesTests):
         accion = solicitar_accion(
             self.consulta.id, TipoAccion.BAJA_POLIZA, self.poliza.id
         )
-        aprobar_accion(accion.id, self.aprobador.id)
+        with self.captureOnCommitCallbacks(execute=True):
+            aprobar_accion(accion.id, self.aprobador.id)
 
         aviso = Mensaje.objects.get(emisor="funcionario")
         self.assertIn(f"baja de la póliza {self.poliza.numero_poliza}", aviso.texto)
@@ -355,7 +356,7 @@ class AprobarAccionTests(BaseAccionesTests):
         with patch(
             "negocio.acciones.enviar_pendientes", side_effect=OSError("sin red")
         ):
-            with self.assertRaises(OSError):
+            with self.captureOnCommitCallbacks(execute=True):
                 aprobar_accion(accion.id, self.aprobador.id)
 
         accion.refresh_from_db()
@@ -399,7 +400,8 @@ class RechazarAccionTests(BaseAccionesTests):
     # AC-T3-19
     def test_al_rechazar_tambien_se_avisa_al_cliente(self):
         accion = solicitar_accion(self.consulta.id, TipoAccion.BAJA_POLIZA, self.poliza.id)
-        rechazar_accion(accion.id, self.aprobador.id, "No corresponde.")
+        with self.captureOnCommitCallbacks(execute=True):
+            rechazar_accion(accion.id, self.aprobador.id, "No corresponde.")
 
         aviso = Mensaje.objects.get(emisor="funcionario")
         self.assertEqual(aviso.texto, "No pudimos procesar tu solicitud. Un asesor se va a comunicar con vos.")

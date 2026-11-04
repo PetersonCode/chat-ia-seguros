@@ -251,6 +251,7 @@ class DatabaseModelTests(TestCase):
             ("companias", "activa"): True,
             ("companias", "comision_pct"): Decimal("0"),
             ("vehiculos", "uso"): models.UsoVehiculo.PARTICULAR,
+            ("vehiculos", "clase"): models.ClaseVehiculo.SIN_ESPECIFICAR,
             ("vehiculos", "activo"): True,
             ("vehiculos", "creado_en"): timezone.now,
             ("conductores_poliza", "activo"): True,

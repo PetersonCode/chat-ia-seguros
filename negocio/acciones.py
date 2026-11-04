@@ -13,6 +13,7 @@ una resolución firmada por alguien sin permiso.
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
+import logging
 
 from django.db import transaction
 from django.utils import timezone
@@ -54,6 +55,7 @@ from negocio.whatsapp import enviar_pendientes
 from negocio.siniestros import registrar_denuncia_desde_accion
 
 MOTIVO_MINIMO = 3
+logger = logging.getLogger(__name__)
 
 # Qué parámetros necesita cada acción para poder ejecutarse.
 PARAMETROS_REQUERIDOS = {
@@ -61,10 +63,10 @@ PARAMETROS_REQUERIDOS = {
     TipoAccion.MODIFICAR_POLIZA: ("detalle",),
     TipoAccion.REEMBOLSO: ("importe",),
     TipoAccion.APERTURA_SINIESTRO: ("fecha_ocurrencia", "descripcion"),
-    # El bot junta nombre, DNI y teléfono de la conversación. El apellido puede
-    # faltar —si la persona escribió una sola palabra— y entonces el panel se
-    # lo pide a quien va a aprobar antes de dejarla ejecutar.
+    # El bot reúne nombre completo, DNI y teléfono del chat antes de solicitar el alta.
     TipoAccion.ALTA_CLIENTE: ("nombre", "apellido", "dni", "telefono"),
+    TipoAccion.ALTA_POLIZA: ('patente', 'marca', 'modelo', 'anio', 'clase', 'uso',
+        'compania_id', 'cobertura', 'fecha_inicio', 'fecha_vencimiento', 'prima_mensual'),
 }
 # Acciones que no se pueden ejecutar sin una póliza concreta.
 REQUIEREN_POLIZA = {TipoAccion.BAJA_POLIZA, TipoAccion.AGREGAR_CONDUCTOR}
@@ -133,6 +135,8 @@ def solicitar_accion(
         existentes = existentes.filter(
             consulta__conversacion_id=consulta.conversacion_id
         )
+        if tipo == TipoAccion.ALTA_POLIZA:
+            existentes = existentes.filter(parametros__borrador_alta_id=(parametros or {}).get('borrador_alta_id'))
     else:
         existentes = existentes.filter(consulta_id=consulta_id)
     repetida = existentes.order_by("id").first()
@@ -303,6 +307,10 @@ def _ejecutar(accion: AccionPendiente, funcionario: Funcionario) -> bool:
             email=(parametros.get("email") or None),
         )
 
+    elif tipo == TipoAccion.ALTA_POLIZA:
+        from negocio.altas_chat import ejecutar_alta_poliza
+        ejecutar_alta_poliza(accion, funcionario)
+
     elif tipo in (TipoAccion.REEMBOLSO, TipoAccion.MODIFICAR_POLIZA):
         return False
 
@@ -329,6 +337,8 @@ def _descripcion(accion: AccionPendiente) -> str:
         # Sin nombre ni DNI: este texto se le manda al cliente y no hay por qué
         # devolverle sus propios datos personales por WhatsApp.
         return "alta como cliente"
+    if accion.tipo_accion == TipoAccion.ALTA_POLIZA:
+        return f'alta de la póliza {numero}'
     if accion.tipo_accion == TipoAccion.APERTURA_SINIESTRO:
         return (
             "denuncia de siniestro "
@@ -342,7 +352,9 @@ def _avisar_al_cliente(accion: AccionPendiente, texto: str, funcionario: Funcion
     conversacion = accion.consulta.conversacion
     if conversacion is None:
         return
-    Mensaje.objects.create(
+    Mensaje.objects.get_or_create(
+        payload__accion_id=accion.id, payload__resolucion_accion=accion.estado,
+        defaults=dict(
         conversacion=conversacion,
         consulta=accion.consulta,
         direccion=Direccion.SALIENTE,
@@ -351,8 +363,17 @@ def _avisar_al_cliente(accion: AccionPendiente, texto: str, funcionario: Funcion
         texto=texto,
         estado_envio=EstadoEnvio.PENDIENTE_ENVIO,
         fecha_hora=timezone.now(),
+        payload={'accion_id': accion.id, 'resolucion_accion': accion.estado},
+        ),
     )
-    enviar_pendientes(conversacion.id)
+    def enviar_aviso():
+        try:
+            enviar_pendientes(conversacion.id)
+        except Exception:
+            # El aviso ya quedó persistido y lo reintenta el worker. Una caída
+            # del proveedor no convierte un alta confirmada en un error al asesor.
+            logger.exception('No se pudo despachar el aviso de la acción %s', accion.id)
+    transaction.on_commit(enviar_aviso, robust=True)
 
 
 def _accion_bloqueada(accion_id):
@@ -363,7 +384,7 @@ def _accion_bloqueada(accion_id):
 
 
 def aprobar_accion(
-    accion_id: int, funcionario_id: int, motivo: str | None = None
+    accion_id: int, funcionario_id: int, motivo: str | None = None, *, prima_mensual=None
 ) -> AccionPendiente:
     """Aprueba y ejecuta solo los efectos implementados (AC-T3-17)."""
     funcionario = _aprobador(funcionario_id)
@@ -371,6 +392,12 @@ def aprobar_accion(
         accion = _accion_bloqueada(accion_id)
         if accion.estado != EstadoAccion.PENDIENTE:
             raise EstadoInvalido("La acción ya fue resuelta.")
+        if prima_mensual is not None:
+            if accion.tipo_accion != TipoAccion.ALTA_POLIZA:
+                raise DatosInvalidos('La prima mensual solo se ingresa al confirmar un alta de póliza.')
+            from negocio.polizas import _prima_validada
+            accion.parametros = {**(accion.parametros or {}), 'prima_mensual': str(_prima_validada(prima_mensual))}
+            accion.save(update_fields=['parametros'])
         accion.estado = EstadoAccion.APROBADA
         accion.resuelta_por = funcionario
         accion.resuelta_en = timezone.now()
@@ -380,16 +407,10 @@ def aprobar_accion(
         )
         if _ejecutar(accion, funcionario):
             accion.estado = EstadoAccion.EJECUTADA
-            accion.save(update_fields=["estado", "parametros"])
+            accion.save(update_fields=["estado", "parametros", "poliza"])
 
-    plantilla = (
-        ACCION_APROBADA
-        if accion.estado == EstadoAccion.EJECUTADA
-        else ACCION_APROBADA_PENDIENTE
-    )
-    _avisar_al_cliente(
-        accion, plantilla.format(descripcion=_descripcion(accion)), funcionario
-    )
+        plantilla = (ACCION_APROBADA if accion.estado == EstadoAccion.EJECUTADA else ACCION_APROBADA_PENDIENTE)
+        _avisar_al_cliente(accion, plantilla.format(descripcion=_descripcion(accion)), funcionario)
     return accion
 
 
@@ -412,7 +433,7 @@ def rechazar_accion(
             update_fields=["estado", "resuelta_por", "resuelta_en", "motivo"]
         )
 
-    _avisar_al_cliente(accion, ACCION_RECHAZADA, funcionario)
+        _avisar_al_cliente(accion, ACCION_RECHAZADA, funcionario)
     return accion
 
 
@@ -439,6 +460,7 @@ def finalizar_gestion_externa(
         accion=accion, funcionario=funcionario, referencia=referencia, motivo=motivo
     )
     accion.refresh_from_db()
+    _avisar_al_cliente(accion, ACCION_APROBADA.format(descripcion=_descripcion(accion)), funcionario)
     return accion
 
 

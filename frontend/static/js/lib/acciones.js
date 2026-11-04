@@ -1,4 +1,4 @@
-import { formatearMonto } from "./formato.js?v=20261104vencimientos2";
+import { formatearMonto } from "./formato.js?v=20261104altas1";
 
 const tiposQueRequierenPoliza = new Set([
     "baja_poliza",
@@ -57,6 +57,8 @@ export function describirAccion(accion) {
             const dni = parametroFaltante(parametros.dni) ? "" : ` (DNI ${parametros.dni})`;
             return nombre ? `Alta de ${nombre}${dni}` : "Alta de cliente (datos incompletos)";
         }
+        case "alta_poliza":
+            return `Alta de póliza para ${parametros.marca ?? ""} ${parametros.modelo ?? ""} (${parametros.patente ?? "—"})`;
         default:
             return "Acción pendiente";
     }
@@ -75,6 +77,8 @@ export function faltantes(accion) {
         modificar_poliza: ["detalle"],
         apertura_siniestro: ["fecha_ocurrencia", "descripcion"],
         alta_cliente: ["nombre", "apellido", "dni", "telefono"],
+        alta_poliza: ["patente", "marca", "modelo", "anio", "clase", "uso", "compania_id",
+            "cobertura", "fecha_inicio", "fecha_vencimiento", "prima_mensual"],
         baja_poliza: [],
     };
     const requeridos = requeridosPorTipo[accion.tipo_accion] ?? [];
