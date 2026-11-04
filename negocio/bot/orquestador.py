@@ -41,6 +41,7 @@ from datos.models import (
     Mensaje,
     OrigenAlerta,
     Politica,
+    Poliza,
     TipoAccion,
     TipoConsulta,
 )
@@ -162,7 +163,7 @@ def _funcionario_destino(nombre: str):
 
 
 def _respuesta_saldo(cliente_id: int) -> _Respuesta:
-    resumen = list(resumen_polizas(cliente_id))
+    resumen = list(resumen_polizas(cliente_id).filter(poliza_id__in=Poliza.objects.filter(tipo_seguro__codigo="automotor").values("id")))
     if not resumen:
         return _Respuesta(plantillas.SIN_POLIZAS, derivar_a=DERIVACION_POR_DEFECTO)
     total = sum((fila.saldo_pendiente or Decimal("0")) for fila in resumen)
@@ -184,7 +185,7 @@ def _respuesta_saldo(cliente_id: int) -> _Respuesta:
 def _respuesta_vencimiento(cliente_id: int) -> _Respuesta:
     """El listado de pólizas del cliente. Contesta tanto "¿cuándo vence?" como
     "¿qué pólizas o vehículos tengo?", que es el mismo dato."""
-    resumen = list(resumen_polizas(cliente_id))
+    resumen = list(resumen_polizas(cliente_id).filter(poliza_id__in=Poliza.objects.filter(tipo_seguro__codigo="automotor").values("id")))
     if not resumen:
         return _Respuesta(plantillas.SIN_POLIZAS, derivar_a=DERIVACION_POR_DEFECTO)
     bienes = bienes_asegurados(cliente_id)
@@ -223,7 +224,7 @@ def _respuesta_asistencia(cliente_id: int | None) -> _Respuesta:
     corresponde sale de su póliza, así que se trata como un dato de la base:
     sin póliza vigente el bot no elige un número al azar, deriva (R12).
     """
-    vigentes = list(polizas_vigentes(cliente_id)) if cliente_id is not None else []
+    vigentes = list(polizas_vigentes(cliente_id).filter(tipo_seguro__codigo="automotor")) if cliente_id is not None else []
     cubiertas = [
         (poliza, plantillas.TELEFONOS_ASISTENCIA[poliza.cobertura])
         for poliza in vigentes
@@ -257,7 +258,7 @@ def _respuesta_asistencia(cliente_id: int | None) -> _Respuesta:
 
 def _respuesta_requiere_aprobacion(tipo: str, cliente_id: int | None) -> _Respuesta:
     """AC-T3-37: la póliza solo se adjunta si hay exactamente una vigente."""
-    vigentes = list(polizas_vigentes(cliente_id)) if cliente_id is not None else []
+    vigentes = list(polizas_vigentes(cliente_id).filter(tipo_seguro__codigo="automotor")) if cliente_id is not None else []
     if len(vigentes) == 1:
         poliza_id: int | None = vigentes[0].id
         parametros: dict = {}
@@ -280,7 +281,17 @@ def _respuesta_derivacion(tipo: str) -> _Respuesta:
     return _Respuesta(texto, derivar_a=destino)
 
 
-def _respuesta_documental(texto: str) -> _Respuesta:
+def _respuesta_documental(texto: str, conversacion=None) -> _Respuesta:
+    if conversacion is not None:
+        from negocio.coberturas import responder_cobertura
+        personal = responder_cobertura(texto, conversacion)
+        if personal is not None:
+            from negocio.coberturas import contexto_vigente
+            contexto = contexto_vigente(conversacion)
+            eligiendo = bool(contexto and contexto.pregunta)
+            requiere_asesor = personal[1] is None and not eligiendo
+            return _Respuesta(plantillas.DERIVACION if requiere_asesor else personal[0], fragmento_documental_id=personal[1],
+                derivar_a=DERIVACION_POR_DEFECTO if requiere_asesor else None)
     recuperacion = buscar_fragmentos(texto)
     if not recuperacion["respaldo_suficiente"]:
         return _respuesta_derivacion("consulta_cobertura")
@@ -327,8 +338,12 @@ def _armar_respuesta(
 ) -> _Respuesta:
     if politica == Politica.SEGURIDAD:
         return _Respuesta(plantillas.RECHAZO_SEGURIDAD)
+    import re
+    from negocio.bot.clasificador import normalizar
+    if tipo not in {'siniestro_urgente', 'siniestro'} and re.search(r'(?:seguro|poliza) (?:de |del )?(?:hogar|vida|comercio|moto)|(?:la|el) de (?:hogar|vida|comercio|moto)', normalizar(texto)):
+        return _Respuesta('Actualmente trabajamos solo con seguros automotores. Puedo ayudarte con tu auto, sus coberturas, pagos o siniestros.')
     if tipo == "consulta_cobertura":
-        return _respuesta_documental(texto)
+        return _respuesta_documental(texto, conversacion)
     # El alta de cliente es `requiere_aprobacion` pero no se puede pedir sin
     # tener los datos, así que tiene su propio camino antes de la política.
     if tipo == "registro":
@@ -339,16 +354,16 @@ def _armar_respuesta(
         return _respuesta_derivacion(tipo)
 
     # Política `bot_responde`: saludo, saldo, vencimiento, siniestro, asistencia.
-    if tipo == "saludo":
-        return _respuesta_saludo(texto, historial, llm)
-    if tipo == "agradecimiento":
-        return _respuesta_cortesia(texto, historial, llm)
+    if tipo in {"saludo", "agradecimiento"}:
+        historial_charla = list(Mensaje.objects.filter(conversacion=conversacion, consulta__isnull=False).exclude(estado_envio__in=['retenido','descartado']).order_by('-id')[:MAX_HISTORIAL])
+        historial_charla.reverse()
+        historial_roles = [('Cliente: ' if m.direccion == 'entrante' else 'Asistente: ') + m.texto for m in historial_charla]
+        responder = _respuesta_saludo if tipo == "saludo" else _respuesta_cortesia
+        return responder(texto, historial_roles, llm)
     if tipo == "ajeno":
-        # Texto fijo y sin derivar: no es una consulta que una persona pueda
-        # atender, es algo que el bot no hace.
         return _Respuesta(plantillas.FUERA_DE_TEMA)
     if tipo == "siniestro":
-        return _Respuesta(plantillas.SINIESTRO_INSTRUCCIONES)
+        return _Respuesta(plantillas.SINIESTRO_INSTRUCCIONES, derivar_a=DERIVACION_POR_DEFECTO)
     if tipo == "asistencia":
         # Va antes del corte por cliente: tiene su propio aviso cuando no hay
         # una póliza de la que sacar el número.
@@ -392,7 +407,7 @@ def _crear_saliente(
         estado_envio=estado,
         payload=(
             {"aviso_derivacion": True}
-            if texto in (plantillas.AVISO_NEUTRO, plantillas.DATOS_REGISTRADOS)
+            if texto in (plantillas.AVISO_NEUTRO, plantillas.DATOS_REGISTRADOS, plantillas.SINIESTRO_INSTRUCCIONES, plantillas.SIN_ASISTENCIA, plantillas.SIN_POLIZAS, plantillas.SIN_CLIENTE)
             else None
         ),
         fecha_hora=timezone.now(),
@@ -899,7 +914,7 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
         return ResultadoBot(True, None, None, False, [])
     texto = _texto_agrupado(agrupados)
     contacto = conversacion.contacto
-    cliente_id = contacto.cliente_id if contacto else None
+    cliente_id = contacto.cliente_id if contacto and contacto.cliente_id and contacto.cliente.activo else None
 
     alertas_entrada = evaluar_entrada(texto, contacto)
     _marcar_insistencia(alertas_entrada, conversacion.contacto_id)
@@ -919,12 +934,14 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
     ][-MAX_HISTORIAL:]
 
     tipo_por_reglas = clasificar_por_reglas(texto)
+    from negocio.coberturas import es_seleccion
+    if not alertas_entrada and tipo_por_reglas not in {"siniestro_urgente", "siniestro", "baja", "modificacion", "reclamo"} and es_seleccion(texto, conversacion):
+        tipo_por_reglas = "consulta_cobertura"
     if alertas_entrada:
         # AC-T3-32: con inyección no se llama al LLM y se responde el rechazo.
         tipo = "prompt_injection"
-    elif tipo_por_reglas in {"siniestro_urgente", "consulta_cobertura", "agradecimiento"}:
-        # La urgencia, las preguntas generales de cobertura y un "gracias" son
-        # reglas operativas; el LLM no puede cambiar su destino.
+    elif tipo_por_reglas in {"siniestro_urgente", "siniestro", "consulta_cobertura", "agradecimiento", "ajeno"}:
+        # Un modelo generativo no puede ocultar un incidente ni cambiar un cierre cordial.
         tipo = tipo_por_reglas
     else:
         tipo = clasificar_con_llm(llm, texto, historial) or tipo_por_reglas
@@ -979,6 +996,11 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
                 contacto=contacto,
             )
 
+    anterior_bot = Mensaje.objects.filter(conversacion=conversacion, direccion='saliente', emisor='bot', estado_envio__in=['enviado','entregado','leido']).order_by('-id').first()
+    if anterior_bot and tipo == 'saludo' and plantillas.es_repeticion(respuesta.texto, anterior_bot.texto):
+        respuesta.texto = plantillas.SALUDO
+    elif anterior_bot and respuesta.texto == plantillas.RECHAZO_SEGURIDAD:
+        respuesta.texto = plantillas.sin_repetir(respuesta.texto, anterior_bot.texto)
     alertas_salida = evaluar_salida(
         respuesta.texto,
         cliente_id=cliente_id,

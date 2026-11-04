@@ -14,6 +14,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+from urllib.parse import urlsplit
 from typing import Protocol
 from urllib import request
 
@@ -27,6 +29,8 @@ from negocio.bot.prompts import (
 logger = logging.getLogger(__name__)
 
 TIMEOUT_SEGUNDOS = 15
+TEMPERATURA_CLASIFICAR = 0
+TEMPERATURA_CHARLAR = 0.4
 
 
 class LLMClient(Protocol):
@@ -37,6 +41,12 @@ class LLMClient(Protocol):
 
     def charlar(self, texto: str, historial: list[str]) -> str | None:
         """Texto libre para el saludo, o `None` para usar la plantilla fija."""
+
+
+def _sin_datos_personales(texto):
+    texto = re.sub(r"[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}", "[correo]", str(texto))
+    texto = re.sub(r"\b(?:POL|SIN)-[A-Za-z0-9-]+", "[identificador]", texto, flags=re.I)
+    return re.sub(r"(?<!\w)\+?[\d .()-]{7,}(?!\w)", "[dato personal]", texto)[:3000]
 
 
 def _mensajes(
@@ -54,7 +64,7 @@ def _mensajes(
     mensajes = [{"role": "system", "content": sistema}]
     previos = list(historial or [])[-MAX_HISTORIAL:]
     if previos:
-        contexto = "\n".join(f"- {linea}" for linea in previos)
+        contexto = "\n".join(f"- {_sin_datos_personales(linea)}" for linea in previos)
         mensajes.append(
             {
                 "role": "user",
@@ -65,7 +75,7 @@ def _mensajes(
             }
         )
         mensajes.append({"role": "assistant", "content": "Entendido."})
-    mensajes.append({"role": "user", "content": f"{rotulo}:\n{texto}"})
+    mensajes.append({"role": "user", "content": f"{rotulo}:\n{_sin_datos_personales(texto)}"})
     return mensajes
 
 
@@ -106,6 +116,11 @@ class FakeLLM:
         return self.charla
 
 
+class SinRedireccion(request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError('El proveedor LLM no debe redireccionar la petición.')
+
+
 class OpenAICompatClient:
     """`POST {LLM_BASE_URL}/chat/completions` con `urllib`, sin dependencias."""
 
@@ -119,9 +134,13 @@ class OpenAICompatClient:
         self.api_key = api_key or os.getenv("LLM_API_KEY", "")
         self.modelo = modelo or os.getenv("LLM_MODEL", "")
 
-    def _completar(self, mensajes: list[dict[str, str]]) -> str | None:
+    def _completar(self, mensajes: list[dict[str, str]], *, temperatura=TEMPERATURA_CLASIFICAR) -> str | None:
+        partes = urlsplit(self.base_url)
+        permitidos = {h.strip() for h in os.getenv('LLM_HTTP_HOSTS', 'localhost,127.0.0.1,ollama').split(',')}
+        if partes.username or partes.password or partes.query or partes.fragment or not partes.hostname or (partes.scheme != 'https' and not (partes.scheme == 'http' and partes.hostname in permitidos)):
+            return None
         cuerpo = json.dumps(
-            {"model": self.modelo, "messages": mensajes, "temperature": 0}
+            {"model": self.modelo, "messages": mensajes, "temperature": temperatura}
         ).encode("utf-8")
         peticion = request.Request(
             f"{self.base_url}/chat/completions",
@@ -132,8 +151,11 @@ class OpenAICompatClient:
             },
             method="POST",
         )
-        with request.urlopen(peticion, timeout=TIMEOUT_SEGUNDOS) as respuesta:
-            datos = json.loads(respuesta.read().decode("utf-8"))
+        with request.build_opener(SinRedireccion()).open(peticion, timeout=TIMEOUT_SEGUNDOS) as respuesta:
+            contenido = respuesta.read(65537)
+            if len(contenido) > 65536:
+                return None
+            datos = json.loads(contenido.decode("utf-8"))
         opciones = datos.get("choices") or []
         if not opciones:
             return None
@@ -152,7 +174,7 @@ class OpenAICompatClient:
         return codigo if codigo in CODIGOS_CONSULTA else None
 
     def charlar(self, texto: str, historial: list[str]) -> str | None:
-        return self._completar(_mensajes(SISTEMA_SALUDO, texto, historial))
+        return self._completar(_mensajes(SISTEMA_SALUDO, texto, historial), temperatura=TEMPERATURA_CHARLAR)
 
 
 def cliente_llm() -> LLMClient:
@@ -178,7 +200,7 @@ def clasificar_con_llm(
     try:
         codigo = cliente.clasificar(texto, historial)
     except Exception:
-        logger.exception("El LLM falló al clasificar; se usa el clasificador por reglas.")
+        logger.warning("El LLM falló al clasificar; se usa el clasificador por reglas.")
         return None
     if codigo is None:
         return None
@@ -196,7 +218,7 @@ def charlar_con_llm(
     try:
         respuesta = cliente.charlar(texto, historial)
     except Exception:
-        logger.exception("El LLM falló al redactar el saludo; se usa la plantilla.")
+        logger.warning("El LLM falló al redactar el saludo; se usa la plantilla.")
         return None
     if not respuesta or not str(respuesta).strip():
         return None

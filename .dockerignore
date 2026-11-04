@@ -1,10 +1,13 @@
 .env
+.env.*
+!.env.example
+!.env.demo.example
 .venv
+venv
 .git
 node_modules
 __pycache__
 *.pyc
-SDD
 private_media
-docker-compose.yml
-Dockerfile
+.modelos
+staticfiles

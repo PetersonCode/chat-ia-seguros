@@ -166,8 +166,8 @@ class SinRepetirTests(BaseBotTests):
 
         conversacion = self._conversacion("1001")
         with patch("negocio.whatsapp.enviar_pendientes"):
-            _avisar_solo_texto(conversacion)
-            _avisar_solo_texto(conversacion)
+            _avisar_solo_texto(self._entrante(conversacion, "[audio]"))
+            _avisar_solo_texto(self._entrante(conversacion, "[audio]"))
 
         textos = list(
             Mensaje.objects.filter(conversacion=conversacion, direccion="saliente")

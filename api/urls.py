@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from django.urls import path
+from django.conf import settings
+from django.http import JsonResponse
 
 from api.paginas import servir_pagina
 from api.views import (
@@ -58,7 +60,11 @@ from api.views import (
 )
 from api.webhook import webhook_whatsapp
 
+from api.views import poliza_vincular_documento
+
 urlpatterns = [
+    path("api/entorno/", lambda request: JsonResponse({"modo_demostracion": settings.MODO_DEMOSTRACION})),
+    path('api/polizas/<int:id>/documentos/', poliza_vincular_documento),
     path("api/auth/csrf/", auth_csrf, name="api_auth_csrf"),
     path("api/auth/login/", auth_login, name="api_auth_login"),
     path("api/auth/logout/", auth_logout, name="api_auth_logout"),

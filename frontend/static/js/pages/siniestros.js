@@ -1,6 +1,6 @@
-import { api } from "../api.js?v=20261103";
-import { inicializarNav } from "../nav.js?v=20261103";
-import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261103";
+import { api } from "../api.js?v=20261104integrado1";
+import { inicializarNav } from "../nav.js?v=20261104integrado1";
+import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261104integrado1";
 
 const formularioDenuncia = document.getElementById("formulario-denuncia");
 const buscarCliente = document.getElementById("buscar-cliente-siniestro");

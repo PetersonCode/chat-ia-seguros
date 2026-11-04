@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20261103";
+import { api } from "./api.js?v=20261104integrado1";
 
 const contadores = [
     { clave: "acciones", etiqueta: "Acciones", destino: "/panel/acciones/" },
@@ -13,9 +13,11 @@ const LOGO = "/static/img/logo-castano.png?v=1";
 const destinos = [
     { etiqueta: "Bandeja", destino: "/panel/" },
     { etiqueta: "Clientes", destino: "/panel/clientes/" },
+    { etiqueta: "Documentos", destino: "/panel/documentos/" },
+    { etiqueta: "Siniestros", destino: "/panel/siniestros/" },
+    { etiqueta: "Reportes", destino: "/panel/reportes/" },
     { etiqueta: "Casos cerrados", destino: "/panel/cerrados/" },
     { etiqueta: "Métricas", destino: "/panel/metricas/" },
-    { etiqueta: "Documentos", destino: "/panel/documentos/" },
 ];
 
 function crearElemento(etiqueta, clase, texto) {
@@ -247,3 +249,12 @@ export async function inicializarNav(nav = document.getElementById("nav")) {
     await cargarDatos();
     globalThis.setInterval(cargarDatos, 30_000);
 }
+
+api.get('/api/entorno/').then((entorno) => {
+    if (!entorno.modo_demostracion) return;
+    const aviso = document.createElement('p');
+    aviso.className = 'alert alert-warning mx-3 my-2';
+    aviso.setAttribute('role','note');
+    aviso.textContent = 'MODO DEMOSTRACIÓN · WhatsApp simulado · Usar solo datos ficticios. El bot reconoce automáticamente los números vinculados a clientes ficticios.';
+    document.getElementById('nav').after(aviso);
+}).catch(() => {});

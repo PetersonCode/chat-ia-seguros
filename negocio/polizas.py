@@ -216,6 +216,8 @@ def alta_poliza(
     `numero_poliza` vacío toma el próximo libre; si viene, se respeta el que
     eligió el funcionario, validando formato y que no esté repetido.
     """
+    if tipo_seguro != 'automotor':
+        raise DatosInvalidos('Actualmente la agencia trabaja solo con seguros automotores.')
     cliente = _cliente(cliente_id)
     if not cliente.activo:
         raise EstadoInvalido(

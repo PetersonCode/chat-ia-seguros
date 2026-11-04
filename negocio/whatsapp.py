@@ -77,7 +77,7 @@ def _normalizar_numero(numero_raw: str | None) -> str:
     try:
         return normalizar_telefono(numero_raw or "")
     except ValueError:
-        logger.warning("Número de WhatsApp con formato inesperado: %r", numero_raw)
+        logger.warning("Número de WhatsApp con formato inesperado.")
         return (numero_raw or "").strip()
 
 
@@ -85,7 +85,7 @@ def verificar_suscripcion(
     mode: str | None, token: str | None, challenge: str | None
 ) -> str | None:
     esperado = os.getenv("WHATSAPP_VERIFY_TOKEN")
-    if mode == "subscribe" and token and esperado and token == esperado and challenge:
+    if mode == "subscribe" and token and esperado and hmac.compare_digest(token, esperado) and challenge:
         return challenge
     return None
 
@@ -161,7 +161,7 @@ def registrar_entrante(
 
 def _avisar_solo_texto(mensaje: Mensaje) -> None:
     """Explica qué formatos se pueden recibir por este canal."""
-    from negocio.bot.plantillas import SOLO_TEXTO
+    from negocio.bot.plantillas import SOLO_TEXTO, sin_repetir
 
     conversacion_id = mensaje.conversacion_id
     with transaction.atomic():
@@ -170,13 +170,15 @@ def _avisar_solo_texto(mensaje: Mensaje) -> None:
         )
         if conversacion.modo == ModoConversacion.HUMANO:
             return
+        previo = Mensaje.objects.filter(conversacion=conversacion, direccion='saliente', emisor='bot').exclude(estado_envio__in=['retenido','descartado']).order_by('-id').first()
+        texto = sin_repetir(SOLO_TEXTO, previo.texto if previo else None)
         Mensaje.objects.get_or_create(
             respuesta_a=mensaje,
             defaults={
                 "conversacion": conversacion,
                 "direccion": Direccion.SALIENTE,
                 "emisor": Emisor.BOT,
-                "texto": SOLO_TEXTO,
+                "texto": texto,
                 "estado_envio": EstadoEnvio.PENDIENTE_ENVIO,
                 "fecha_hora": timezone.now(),
             },
@@ -272,6 +274,13 @@ def procesar_webhook(payload: dict) -> None:
                 logger.warning("Valor de cambio de WhatsApp con forma inesperada.")
                 continue
 
+            esperado = os.getenv('WHATSAPP_PHONE_NUMBER_ID', '')
+            metadata = valor.get('metadata') or {}
+            if os.getenv('WHATSAPP_MODO', 'simulado') == 'real' and (
+                not esperado or not isinstance(metadata, dict) or str(metadata.get('phone_number_id', '')) != esperado
+            ):
+                logger.warning('Webhook descartado: línea de WhatsApp no coincide.')
+                continue
             perfiles = {}
             contactos = valor.get("contacts", []) or []
             if isinstance(contactos, list):
@@ -413,20 +422,18 @@ def _destino_api(numero: str) -> str:
     return destino
 
 
-def _detalle_error_meta(fallo: HTTPError) -> str:
-    """El motivo que manda Meta, que `str(HTTPError)` se come.
+class ErrorMeta(RuntimeError):
+    pass
 
-    `str(fallo)` es solo "HTTP Error 400: Bad Request": el motivo real
-    (p. ej. "(#131030) Recipient phone number not in allowed list") viaja en el
-    JSON del cuerpo, y si no se lee acá se pierde y el mensaje queda `fallido`
-    sin explicación.
-    """
+
+def _detalle_error_meta(fallo: HTTPError) -> str:
+    # Solo código técnico: Meta puede incluir teléfonos o tokens en el mensaje.
     try:
-        datos = json.loads(fallo.read().decode("utf-8"))
+        datos = json.loads(fallo.read(65536).decode('utf-8'))
+        codigo = (datos.get('error') or {}).get('code')
+        return f'meta_{codigo}' if isinstance(codigo, int) else f'http_{int(fallo.code)}'
     except Exception:
-        return str(fallo)
-    detalle = (datos.get("error") or {}).get("message")
-    return f"HTTP {fallo.code}: {detalle}" if detalle else str(fallo)
+        return f'http_{int(fallo.code)}'
 
 
 def _enviar_por_api(mensaje: Mensaje) -> None:
@@ -456,14 +463,14 @@ def _enviar_por_api(mensaje: Mensaje) -> None:
         with request.urlopen(peticion, timeout=TIMEOUT_SEGUNDOS) as respuesta:
             datos = json.loads(respuesta.read().decode("utf-8"))
     except HTTPError as fallo:
-        raise RuntimeError(_detalle_error_meta(fallo)) from fallo
+        raise ErrorMeta(_detalle_error_meta(fallo)) from fallo
     mensajes = datos.get("messages") or [{}]
     mensaje.wa_message_id = mensajes[0].get("id")
 
 
 def mensaje_permitido_durante_atencion(mensaje: Mensaje) -> bool:
     """Avisos de derivación, respuestas liberadas explícitamente y texto humano."""
-    from negocio.bot.plantillas import DERIVACION, DERIVACION_URGENTE, AVISO_NEUTRO, DATOS_REGISTRADOS
+    from negocio.bot.plantillas import DERIVACION, DERIVACION_URGENTE, AVISO_NEUTRO, DATOS_REGISTRADOS, SINIESTRO_INSTRUCCIONES, SIN_ASISTENCIA, SIN_POLIZAS, SIN_CLIENTE
     from datos.models import Derivacion
 
     if mensaje.emisor == Emisor.FUNCIONARIO:
@@ -475,7 +482,7 @@ def mensaje_permitido_durante_atencion(mensaje: Mensaje) -> bool:
     consulta = mensaje.consulta
     if (
         consulta
-        and mensaje.texto in (AVISO_NEUTRO, DATOS_REGISTRADOS)
+        and mensaje.texto in (AVISO_NEUTRO, DATOS_REGISTRADOS, SINIESTRO_INSTRUCCIONES, SIN_ASISTENCIA, SIN_POLIZAS, SIN_CLIENTE)
         and (mensaje.payload or {}).get("aviso_derivacion") is True
         and Derivacion.objects.filter(consulta_id=consulta.id).exists()
     ):
@@ -583,10 +590,9 @@ def enviar_pendientes(conversacion_id: int) -> int:
                     ]
                 )
                 logger.info(
-                    "WhatsApp simulado | conversación %s | mensaje %s | %s",
+                    "WhatsApp simulado | conversación %s | mensaje %s",
                     conversacion_id,
                     mensaje.id,
-                    mensaje.texto,
                 )
                 enviados += 1
                 continue
@@ -594,7 +600,7 @@ def enviar_pendientes(conversacion_id: int) -> int:
                 _enviar_por_api(mensaje)
             except Exception as error:
                 mensaje.estado_envio = EstadoEnvio.FALLIDO
-                mensaje.error = str(error)
+                mensaje.error = str(error) if isinstance(error, ErrorMeta) else type(error).__name__
                 if mensaje.intentos_envio < MAX_INTENTOS_ENVIO:
                     espera = min(2 ** (mensaje.intentos_envio - 1), 60)
                     mensaje.proximo_intento_envio = timezone.now() + timedelta(
@@ -610,7 +616,7 @@ def enviar_pendientes(conversacion_id: int) -> int:
                         "proximo_intento_envio",
                     ]
                 )
-                logger.warning("Falló el envío del mensaje %s: %s", mensaje.id, error)
+                logger.warning("Falló el envío del mensaje %s (%s)", mensaje.id, type(error).__name__)
                 continue
             mensaje.estado_envio = EstadoEnvio.ENVIADO
             mensaje.enviado_en = timezone.now()

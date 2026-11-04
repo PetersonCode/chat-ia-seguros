@@ -708,3 +708,35 @@ class VBandejaConversacion(models.Model):
 
     def delete(self, *args, **kwargs):
         raise TypeError("Es una vista de solo lectura")
+
+
+class AuditoriaSeguridad(models.Model):
+    fecha = models.DateTimeField(default=timezone.now)
+    usuario_id = models.BigIntegerField(null=True)
+    evento = models.CharField(max_length=100)
+    recurso = models.CharField(max_length=300)
+    estado = models.IntegerField()
+    origen_hash = models.CharField(max_length=64, default="")
+    class Meta:
+        managed = False
+        db_table = "auditoria_seguridad"
+
+class DocumentoPoliza(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.DO_NOTHING, related_name="fuentes_documentales")
+    documento = models.ForeignKey(DocumentoGeneral, on_delete=models.DO_NOTHING, related_name="vinculos_poliza")
+    vinculado_por = models.ForeignKey(Funcionario, on_delete=models.DO_NOTHING)
+    creado_en = models.DateTimeField(default=timezone.now)
+    class Meta:
+        managed = False
+        db_table = "documentos_polizas"
+
+class ContextoCobertura(models.Model):
+    conversacion = models.OneToOneField(Conversacion, primary_key=True, on_delete=models.DO_NOTHING)
+    cliente = models.ForeignKey(Cliente, on_delete=models.DO_NOTHING)
+    creado_en = models.DateTimeField(default=timezone.now)
+    expira_en = models.DateTimeField()
+    poliza = models.ForeignKey(Poliza, null=True, on_delete=models.DO_NOTHING)
+    pregunta = models.TextField(default="")
+    class Meta:
+        managed = False
+        db_table = "contextos_cobertura"

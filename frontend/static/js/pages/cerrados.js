@@ -1,7 +1,7 @@
-import { api } from "../api.js?v=20261103";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261103";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261103";
-import { claseTarjetaSeveridad, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261103";
+import { api } from "../api.js?v=20261104integrado1";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261104integrado1";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261104integrado1";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261104integrado1";
 
 const filas = document.getElementById("filas-casos");
 const estado = document.getElementById("estado-casos");
