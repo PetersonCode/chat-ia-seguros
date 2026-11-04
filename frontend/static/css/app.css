@@ -149,22 +149,6 @@ a:hover {
 .nav-logo:hover,
 .nav-logo:focus-visible { box-shadow: 0 0 0 3px rgb(143 184 242 / 40%); transform: scale(1.05); }
 
-.nav-instagram {
-    display: grid;
-    place-items: center;
-    width: 2rem;
-    height: 2rem;
-    border: 1px solid var(--sc-ig-borde);
-    border-radius: 50%;
-    background-color: var(--sc-ig-fondo);
-    color: var(--sc-ig-icono);
-    font-size: 1rem;
-    transition: background-color 0.15s ease, color 0.15s ease;
-}
-.nav-instagram:hover,
-.nav-instagram:focus-visible { background-color: var(--sc-ig-fondo-hover); color: #fff; text-decoration: none; }
-}
-
 .navbar-brand:hover {
     text-decoration: none;
 }
