@@ -1,0 +1,48 @@
+✔ AC-T1-17: describirAccion presenta acciones y pólizas en texto legible (24.5836ms)
+✔ AC-T1-17: faltantes informa los parámetros necesarios para cada acción (2.488ms)
+✔ describirAccion y faltantes conocen el alta de cliente que arma el bot (0.2908ms)
+✔ AC-T1-02: get envía encabezados JSON y devuelve el cuerpo (2.1862ms)
+✔ AC-T1-02: post y patch serializan sus cuerpos (0.5338ms)
+✔ AC-T1-02: errores de API conservan status, codigo y mensaje (1.6396ms)
+✔ AC-T1-02: una respuesta 401 redirige al login y lanza ApiError (0.3431ms)
+✔ AC-T1-22: limpiarDni deja solo los dígitos (2.042ms)
+✔ AC-T1-22: digitosNacionales descarta +54, el 9 y el 0 inicial (0.332ms)
+✔ AC-T1-22: un cliente completo y correcto no tiene errores (1.1255ms)
+✔ AC-T1-22: el email es opcional pero si viene se valida (0.3263ms)
+✔ AC-T1-22: se rechazan DNI, teléfono y nombres sucios (0.3424ms)
+✔ AC-T1-22: el alta exige todos los campos obligatorios (0.48ms)
+✔ AC-T1-22: separarNombrePerfil parte en nombre y apellido sin inventar (0.3647ms)
+✔ AC-T1-22: prellenadoDesdeUrl arma el alta a partir de la conversación (0.3338ms)
+✔ AC-T1-23: en modo parcial solo se valida lo que viene cargado (0.2825ms)
+✔ AC-T1-09: cada color de bandeja tiene su clase y lo desconocido queda en verde (1.1235ms)
+✔ una conversación sin alertas se muestra como Baja, no como un guion (0.3181ms)
+✔ la severidad no decide el color: sin alertas la fila sigue verde (0.2534ms)
+✔ claseSeveridad da la etiqueta de cada nivel y cae en baja si no hay alertas (1.022ms)
+✔ AC-T1-09: armarQuery codifica valores y conserva el orden de los parámetros (1.0733ms)
+✔ AC-T1-09: armarQuery omite campos vacíos, nulos y falsos (0.2708ms)
+✔ AC-T1-04: debounce ejecuta una vez tras la última llamada y usa sus argumentos (2.6447ms)
+✔ AC-T1-07: app.css define las clases visuales requeridas (4.6397ms)
+✔ AC-T1-01: package.json configura módulos ES, proyecto privado y tests sin dependencias (0.9678ms)
+✔ AC-T1-08: los módulos JS no usan HTML inseguro ni hacen fetch fuera de api.js (27.8909ms)
+✔ todas las URLs de estáticos llevan versión, para que la caché no sirva lo viejo (27.6051ms)
+✔ AC-T1-03: formatear monto con agrupación argentina y centavos (16.07ms)
+✔ AC-T1-03: formatear fechas en español y hora de Buenos Aires (5.6231ms)
+✔ AC-T1-03: datos nulos o inválidos se representan con guion (0.2415ms)
+✔ AC-T1-11: fusionarMensajes ordena por fecha e id, quita duplicados y no muta las entradas (1.4806ms)
+✔ AC-T1-11: accionesPermitidas exige aprobador y mensaje retenido (0.2253ms)
+✔ AC-T1-20: ordenarPolizas pone vigentes primero por vencimiento sin mutar la lista (10.3443ms)
+✔ AC-T1-20: etiquetaEstadoPoliza traduce estados conocidos y marca desconocidos (0.8244ms)
+✔ validarPoliza acepta un alta completa y el número vacío (lo pone el servidor) (0.4534ms)
+✔ validarPoliza marca los campos que faltan o están mal (0.3627ms)
+✔ validarPoliza exige que el vencimiento sea posterior al inicio (0.2323ms)
+✔ mesesDeCobertura espeja la regla del servidor: un año son 12 cuotas, no 13 (0.2333ms)
+✔ la tarjeta toma el color de la urgencia y lo desconocido queda en verde (0.8716ms)
+✔ la severidad se pinta con la misma escala que el servidor (0.2412ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 341.8254

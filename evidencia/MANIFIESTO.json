@@ -1,0 +1,1215 @@
+{
+  "fecha": "2026-11-04",
+  "fuentes": {
+    "chat-ia-seguros-daniel-orm-bdd (1).zip": "6700aa7cff66f9b707a49f6360f6ffc747faafbce6a896bffd8b76a44136c77a",
+    "chat-ia-seguros-daniel-orm-bdd (2).zip": "c4b609c49ea450588cbdcad639950522b9bbae9ff694bb79a0ae23080ae6f338"
+  },
+  "nota": "Lista los archivos de la entrega excepto este manifiesto. Texto normalizado a LF para Git. Se excluyen secretos y artefactos de ejecución.",
+  "archivos": [
+    {
+      "archivo": ".dockerignore",
+      "bytes": 127,
+      "sha256": "edf8d1d46a26055fb05aa8cdad7b798e5d8bea86159242417dfe99bb621675de"
+    },
+    {
+      "archivo": ".env.demo.example",
+      "bytes": 2462,
+      "sha256": "bc8563880e9e5fba1fd5a181570d0c71677428826d6aadb72594a8ee93962d9d"
+    },
+    {
+      "archivo": ".env.example",
+      "bytes": 2387,
+      "sha256": "4f0f4eb71fb70e10e5e73b345b4c29d33ce24ce342f6b688f353650aa0e10229"
+    },
+    {
+      "archivo": ".gitattributes",
+      "bytes": 45,
+      "sha256": "ced447a891638bf2cc804146c15fd5b0d6f511be94c9d2369e4be0e6d8abf09e"
+    },
+    {
+      "archivo": ".gitignore",
+      "bytes": 157,
+      "sha256": "8ccd6f7f692f5e39b5759768497c809f4bc38d4ee0478b91cd19c039a926663a"
+    },
+    {
+      "archivo": "api/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archivo": "api/apps.py",
+      "bytes": 138,
+      "sha256": "ca6c283d922c1bba17f7540e8c2e39d3e53e9c97602e5d0b6ef6fc8fba4a3784"
+    },
+    {
+      "archivo": "api/errores.py",
+      "bytes": 4305,
+      "sha256": "dafcb7317d7348eaa7cf8aae22918bb605a17bd627ac312ea4d14f5c4fabd193"
+    },
+    {
+      "archivo": "api/management/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archivo": "api/management/commands/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archivo": "api/management/commands/crear_usuarios_funcionarios.py",
+      "bytes": 1293,
+      "sha256": "f26f8f462c3de5785ce9d6c96940768c935e865dff645ad15cf5ec2a567c8994"
+    },
+    {
+      "archivo": "api/management/commands/versionar_estaticos.py",
+      "bytes": 2372,
+      "sha256": "fbad3e9bdc243963422b8d8530b297f29dc994a71226037c7289c77a4f616611"
+    },
+    {
+      "archivo": "api/paginacion.py",
+      "bytes": 551,
+      "sha256": "8181b9380c9cf019b3e0dc51e371566feda5f9180a2c3e5d9076da6b42d8614f"
+    },
+    {
+      "archivo": "api/paginas.py",
+      "bytes": 1061,
+      "sha256": "ba13f5285b7c8aed00c092aead1b9c4743205817bfbac31f60a314d9e59f2105"
+    },
+    {
+      "archivo": "api/permisos.py",
+      "bytes": 2135,
+      "sha256": "b3c8b7fef3d95c41e302183611614de90001c40ca57f5d9d1f3b34aada89e436"
+    },
+    {
+      "archivo": "api/serializers.py",
+      "bytes": 5625,
+      "sha256": "82ddeff060f13f051f19fb039a1c0281cefe7048902dbc2c5f425d8cce5c5b79"
+    },
+    {
+      "archivo": "api/tests/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archivo": "api/tests/base.py",
+      "bytes": 1934,
+      "sha256": "21d47c2135345e2359778f27732c04b7af08cfe1d56c53c1c7c118132210f057"
+    },
+    {
+      "archivo": "api/tests/test_acciones.py",
+      "bytes": 14117,
+      "sha256": "987b9770901f75cc3bcb9ee51bcbe97488046a25988f5534126a2bad5c3e1ab7"
+    },
+    {
+      "archivo": "api/tests/test_clientes.py",
+      "bytes": 7057,
+      "sha256": "782d62c3f201cefc531e62a6e8f1c765f8661916abe3b2e4bb81202f798f34a0"
+    },
+    {
+      "archivo": "api/tests/test_configuracion.py",
+      "bytes": 9372,
+      "sha256": "ba01b4e183c520ce374aab3b49ea96a77fbc2f626cc402887f944513826939b8"
+    },
+    {
+      "archivo": "api/tests/test_correcciones_cierre.py",
+      "bytes": 10179,
+      "sha256": "41769a58a6b5d637a7b57787ba8c9ddb70a2cacc17bc5903fe69be3a95926d27"
+    },
+    {
+      "archivo": "api/tests/test_documentos.py",
+      "bytes": 4915,
+      "sha256": "9bbedbc626542e38158afeee99cf06443a45c9a2f18c09750ee0bbbb195244e6"
+    },
+    {
+      "archivo": "api/tests/test_hardening.py",
+      "bytes": 16066,
+      "sha256": "0761efef43a9f0ceefdc70e8a28cfd04ec60225fcd986aa3e0b4531d59d0e93a"
+    },
+    {
+      "archivo": "api/tests/test_polizas.py",
+      "bytes": 11243,
+      "sha256": "92acdd595608a6ee0558ff47e5a62420fa3a69ee8b27149e4398f74761ef7e82"
+    },
+    {
+      "archivo": "api/tests/test_reportes.py",
+      "bytes": 5902,
+      "sha256": "58b5f63a2fb09a9c9ff87382bd79daeda51201e74f87d0bcafa65f38eaa43d8a"
+    },
+    {
+      "archivo": "api/tests/test_sesion.py",
+      "bytes": 6764,
+      "sha256": "1c09db028049a5cf36031f7c291a60791b1a221ac8f69e151f4fff7522fa4e7f"
+    },
+    {
+      "archivo": "api/tests/test_siniestros.py",
+      "bytes": 18717,
+      "sha256": "356df3083c6fb30f4f69980fd72d79353ca18d90d4991cd996388912bcf7390d"
+    },
+    {
+      "archivo": "api/tests/test_supervision.py",
+      "bytes": 25038,
+      "sha256": "168b5253faf5119a6be6a35469144d705108a003b6f440330d2d6caa1b6c1e34"
+    },
+    {
+      "archivo": "api/tests/test_usuarios.py",
+      "bytes": 6098,
+      "sha256": "907655368347b904d95d39365ac826bfce8a622f235f49b4c571d246cafb2020"
+    },
+    {
+      "archivo": "api/tests/test_webhook_y_paginas.py",
+      "bytes": 9037,
+      "sha256": "0af1e4b46659e1c48eea54eaeab39ad5bfdf834661435dc95a1f856d06ff7305"
+    },
+    {
+      "archivo": "api/urls.py",
+      "bytes": 7359,
+      "sha256": "52487317f0b2c11eb73b0833fc96905b94bf085ad6ae1d1240375bc02067d164"
+    },
+    {
+      "archivo": "api/views.py",
+      "bytes": 46626,
+      "sha256": "358d2a3aed82d5bebc02fd65dcf1aa9e990dcf45d574861e19c30e9703ddb749"
+    },
+    {
+      "archivo": "api/webhook.py",
+      "bytes": 1444,
+      "sha256": "2d2c67c6f7d1b2f2b248de846c2f42e2870e690f3b81432cf30dd5df06efd825"
+    },
+    {
+      "archivo": "base.html",
+      "bytes": 6783,
+      "sha256": "267e9e42e8c5fbe68a1687e861c9befba3de7aafd50dd8f228b9ba2c76b1fc2b"
+    },
+    {
+      "archivo": "chat_auditoria.html",
+      "bytes": 7890,
+      "sha256": "254194caea97af67909aa3d47944da5b89e4a2810155024c17a90c1d0c155ac6"
+    },
+    {
+      "archivo": "config/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archivo": "config/asgi.py",
+      "bytes": 167,
+      "sha256": "68091a061d54455635f667d22e5f5a7bc45bab421168ff043eb4ada0ef121cd0"
+    },
+    {
+      "archivo": "config/settings.py",
+      "bytes": 5872,
+      "sha256": "bc02421aaf731ede4ac5a12bdd6c1e0e62089ce1b1dfbf2b0983362e1f2eb49b"
+    },
+    {
+      "archivo": "config/settings_docker.py",
+      "bytes": 595,
+      "sha256": "a53a904cd60a56674ab50a1e6dc6d927639f795ab80d8698f15b2af1eb3e50cc"
+    },
+    {
+      "archivo": "config/test_runner.py",
+      "bytes": 2667,
+      "sha256": "b78601e466bd4cf6540f91097754334026c80b23ae6043b2fd2db49d212b517c"
+    },
+    {
+      "archivo": "config/urls.py",
+      "bytes": 199,
+      "sha256": "ea1c46e60770066a6504bbedd841d4a1ef392891e68ffbff9c2b806602b7fa7d"
+    },
+    {
+      "archivo": "config/wsgi.py",
+      "bytes": 167,
+      "sha256": "f2563644298f803003bd744e8bd67fdf55e97f8f79d5420269bee499541b7269"
+    },
+    {
+      "archivo": "datos/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archivo": "datos/apps.py",
+      "bytes": 142,
+      "sha256": "294c816548b40f17be7e4edc1c0c28ce933a92c922a5449629228ae1bc62bef7"
+    },
+    {
+      "archivo": "datos/fabricas.py",
+      "bytes": 7326,
+      "sha256": "6e89ee3574f350f494a513bfa85c47144de4146523dda52f652e68f1d7a67301"
+    },
+    {
+      "archivo": "datos/limpieza.py",
+      "bytes": 2329,
+      "sha256": "75e585d82b7ba5c3d1be779d268a21ddf957b01f9b32b00a078ab589e29b5312"
+    },
+    {
+      "archivo": "datos/management/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archivo": "datos/management/commands/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archivo": "datos/management/commands/importar_consultas_csv.py",
+      "bytes": 8213,
+      "sha256": "0712140304e89c0d9847289c1063f156aa00fbf7bee4e2f5e6fcfafb04114205"
+    },
+    {
+      "archivo": "datos/management/commands/verificar_conexion.py",
+      "bytes": 1376,
+      "sha256": "c4f430de3b73055f093a52cb01767723d58e47c7903d7f245c33a25b4852ceaf"
+    },
+    {
+      "archivo": "datos/models.py",
+      "bytes": 23842,
+      "sha256": "22200ffcddaf1720f5dd7d500b3f3b1185d77f3ea9bbae56485b4c89eeed447e"
+    },
+    {
+      "archivo": "datos/selectors.py",
+      "bytes": 15387,
+      "sha256": "3a61e1ba5f5f5fe2c23f973eb8a7b98ea5f6007c5db822fa1d14f636c3d0063c"
+    },
+    {
+      "archivo": "datos/tests/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archivo": "datos/tests/fixtures/consultas_muestra.csv",
+      "bytes": 646,
+      "sha256": "4b86fa4b31a48366372046704bc00a1c7326ffbd668652d4a4ab9943dacc0daf"
+    },
+    {
+      "archivo": "datos/tests/test_configuracion.py",
+      "bytes": 3706,
+      "sha256": "a90ffa5b2660f9ab4e2266f9b4a84ac053f752e8ffe6454293881d7e50af8f7d"
+    },
+    {
+      "archivo": "datos/tests/test_fabricas.py",
+      "bytes": 8221,
+      "sha256": "d0d12c51e3b332e92017d030626d2378593a129a8929e77564b6303fa538f13a"
+    },
+    {
+      "archivo": "datos/tests/test_importacion.py",
+      "bytes": 8135,
+      "sha256": "dd3fe1b5cca00c4ffd9c210b439a197c8d49c85530a92e3cf14d140c50ca59a5"
+    },
+    {
+      "archivo": "datos/tests/test_limpieza.py",
+      "bytes": 3887,
+      "sha256": "25a49656ac6385401bae27b8bf3e510e56259ca926d84de44bf4a3607c0103cc"
+    },
+    {
+      "archivo": "datos/tests/test_models.py",
+      "bytes": 13855,
+      "sha256": "5b6d987ba08768e0a03004144255b28c76f2785405a3b907cadce0c7a48214ae"
+    },
+    {
+      "archivo": "datos/tests/test_selectors.py",
+      "bytes": 18896,
+      "sha256": "81777cf466d3e1ce86d030534f206bfbd2cb82490554cd3f262a866074855ccf"
+    },
+    {
+      "archivo": "datos/tests/transacciones.py",
+      "bytes": 1302,
+      "sha256": "f943ea7aced0a91331c9963ce608a87d5697dfb50ab0775807d81baf0d272f17"
+    },
+    {
+      "archivo": "datos_demo/base_conocimiento_ficticia.pdf",
+      "bytes": 90912,
+      "sha256": "9ee719232a58f0c4a49d25a24fcc815700d3c483288da80820cdd6cf7b907db7"
+    },
+    {
+      "archivo": "docker-compose.yml",
+      "bytes": 2180,
+      "sha256": "c2ecd08e86491761c83ea30a0e44396e5faee9a67a49faed9a509cc8d5bbd297"
+    },
+    {
+      "archivo": "Dockerfile",
+      "bytes": 769,
+      "sha256": "0a40302f6915b3fbee03bc88f907c05378f7db16eb06b78b028ac5340f32164b"
+    },
+    {
+      "archivo": "docs/BOT_Y_DOCUMENTOS.md",
+      "bytes": 4947,
+      "sha256": "7240736a98c3cc89a2575e32ba497f009d6dfe530a62034bb1b71a13f9b878fa"
+    },
+    {
+      "archivo": "docs/CAMBIOS.md",
+      "bytes": 3641,
+      "sha256": "b213b8e1930f424b792a78c33559169b1a2095749761735bf8537cd9c2e04299"
+    },
+    {
+      "archivo": "docs/EXPOSICION.md",
+      "bytes": 2659,
+      "sha256": "b4ecced2623a18af7487e712ac301fc2b6d931f7002f24ff0c531be920c4517c"
+    },
+    {
+      "archivo": "docs/INTEGRACION.md",
+      "bytes": 3535,
+      "sha256": "944944b38a9f2c3f208b0101d103db5e525d135e191be1c67e23bce3a9991bb6"
+    },
+    {
+      "archivo": "docs/OPERACION.md",
+      "bytes": 6898,
+      "sha256": "71e10805e837f570044ba5637c1ec6c78ba9ade041274704cfd60c274f6997af"
+    },
+    {
+      "archivo": "docs/REFERENCIAS.md",
+      "bytes": 3587,
+      "sha256": "680c5e846adfa5be351060d700f9ad66fc0150f75fe7cbd70beb1a36efeb17bd"
+    },
+    {
+      "archivo": "docs/SEGURIDAD.md",
+      "bytes": 9150,
+      "sha256": "adf2125eceea2c01e94bed2052f7eeb68fc62d36347ca4dba10fbe07394afc3d"
+    },
+    {
+      "archivo": "evidencia/avisos-pypi.json",
+      "bytes": 5410,
+      "sha256": "506c32b8a34947aec8d829a9b6cbb8f9d73486979a81b6afe143fe27e15ddbe8"
+    },
+    {
+      "archivo": "evidencia/bandit.json",
+      "bytes": 21571,
+      "sha256": "f9b8d30a67fafd530219374d3b187f9684ffd79aff6d3f15843df304c0ef1cef"
+    },
+    {
+      "archivo": "evidencia/cambios-companero.json",
+      "bytes": 1483,
+      "sha256": "9a63f7d6297e50dda237322e00bea3ea085f321ef203797e3626969da821ff58"
+    },
+    {
+      "archivo": "evidencia/check-django.txt",
+      "bytes": 48,
+      "sha256": "1e3e63f221bde88816c4a4ef7367691607b20cc1d194028a02ec9ae0586cf9b1"
+    },
+    {
+      "archivo": "evidencia/check-produccion.txt",
+      "bytes": 551,
+      "sha256": "291698a03875f2ba4093d1ffb5b03278d32029447730a1260f8d8c9953bd1d24"
+    },
+    {
+      "archivo": "evidencia/cortesia-final.png",
+      "bytes": 205518,
+      "sha256": "63deab02b854cdb0da8c4978e3ba084cb73ab1b07cab53fa3507eae66cdcff1f"
+    },
+    {
+      "archivo": "evidencia/dependencias-resueltas.txt",
+      "bytes": 676,
+      "sha256": "38719cb9c2535f62d60c3df0273ee711f27cec9ee5628deb0ebb2f22eb0a692f"
+    },
+    {
+      "archivo": "evidencia/documentos-final.png",
+      "bytes": 206830,
+      "sha256": "89bac00de9453d1e8225f2b6fc81d43e489edd5fca632fb301a501aacf1c4f93"
+    },
+    {
+      "archivo": "evidencia/flujo-automatico.json",
+      "bytes": 3485,
+      "sha256": "0ce439d7b0e1f930a8c7da570eac46dae2578d5bee1e815b984cb0c8b139f413"
+    },
+    {
+      "archivo": "evidencia/flujo-completo.json",
+      "bytes": 4722,
+      "sha256": "b05ffd9eb161171e8df3fbd2925980ebca25474d3a9593a0f4066c271e3cd05e"
+    },
+    {
+      "archivo": "evidencia/integridad-previa.json",
+      "bytes": 192,
+      "sha256": "6551594a43704fadc2f2c517cdbd4ca78ebedd41a32bb890b52af1935ba54d1f"
+    },
+    {
+      "archivo": "evidencia/inventario-cambios.json",
+      "bytes": 6834,
+      "sha256": "bf299072e8933db94c8217d18f3d5f71aba6e0e31be09cfd8eb92251917a7dfd"
+    },
+    {
+      "archivo": "evidencia/modelo-local.txt",
+      "bytes": 75,
+      "sha256": "e277dafe862c3a3667c47b15d6291d7efcdbb0716ed894cc71250af18d1e8b72"
+    },
+    {
+      "archivo": "evidencia/pruebas-django.txt",
+      "bytes": 104416,
+      "sha256": "83e21f6f4904c52fc36300cbc888068915fcaa0270718bf425db48ce680041d9"
+    },
+    {
+      "archivo": "evidencia/pruebas-javascript.txt",
+      "bytes": 3399,
+      "sha256": "ad712d63ba3de2b0f2dd15c635258aa2387234f5ef3624c89d03795e079055f7"
+    },
+    {
+      "archivo": "evidencia/RESULTADOS.md",
+      "bytes": 5718,
+      "sha256": "8b0fba09f430b5abef57e43f9a7ae86ab1872974467b607455c48800becfd9e7"
+    },
+    {
+      "archivo": "evidencia/siniestro-final.png",
+      "bytes": 182755,
+      "sha256": "84f61e20b3de7bf93d8f965f1ff8c4facd7ca21293f6199bfb018db260fdf68e"
+    },
+    {
+      "archivo": "frontend/pages/acciones.html",
+      "bytes": 6250,
+      "sha256": "0cd2e2dbf1f8f977fd62570630e57fb0a2ed0b89ddbf78a85662b86aaa1ef359"
+    },
+    {
+      "archivo": "frontend/pages/alertas.html",
+      "bytes": 3896,
+      "sha256": "cbc0477fc75bf36a79ed1d7ab1ccb0c5527439b6143d4c000b696b97d4ff9ec5"
+    },
+    {
+      "archivo": "frontend/pages/bandeja.html",
+      "bytes": 4258,
+      "sha256": "e466877e0153b2c46e90fcc1171edb482813eac378483a29a7daca6149b1d743"
+    },
+    {
+      "archivo": "frontend/pages/cerrados.html",
+      "bytes": 1890,
+      "sha256": "db24c66f4c31c9e8fb62e6ed93d881dc0c9734e7f6ee964015b43cd418a49938"
+    },
+    {
+      "archivo": "frontend/pages/cliente.html",
+      "bytes": 9390,
+      "sha256": "15e7f83ecdcc15adf513a532cc6cef9301bec8ca5a60153351f6b80c76124a41"
+    },
+    {
+      "archivo": "frontend/pages/clientes.html",
+      "bytes": 5096,
+      "sha256": "470e63eaf48337072548d001baf8fb7469b352bfa9cea540a05b05f2338e2503"
+    },
+    {
+      "archivo": "frontend/pages/conversacion.html",
+      "bytes": 4868,
+      "sha256": "02682c88ee7a3829198841bdd126e5ea000f5862342afbcee0f404637a897089"
+    },
+    {
+      "archivo": "frontend/pages/derivaciones.html",
+      "bytes": 1591,
+      "sha256": "d934c6370b1c240890ffeb04d2f132382b76a589e329ca76f8a37a81d5fe40a3"
+    },
+    {
+      "archivo": "frontend/pages/documentos.html",
+      "bytes": 5565,
+      "sha256": "5014d505379f7bde9302f45361aaa77a48013f625cfb2010ec7c7e801869c3cc"
+    },
+    {
+      "archivo": "frontend/pages/login.html",
+      "bytes": 2317,
+      "sha256": "2fa977801f140b7b9a1735c68903e6fc9a38e4cc1f34cc4584a0264ddf2e5790"
+    },
+    {
+      "archivo": "frontend/pages/panel.html",
+      "bytes": 8980,
+      "sha256": "2e83c19664d1fffd2231fe9c23a18c93309cb2f5d46c6185929150c6dc01f88a"
+    },
+    {
+      "archivo": "frontend/pages/reportes.html",
+      "bytes": 3341,
+      "sha256": "956911fbd93d8196f10f3feb4833b88bb62e9c5a49962f49630d68cdf8bf1a72"
+    },
+    {
+      "archivo": "frontend/pages/siniestros.html",
+      "bytes": 8341,
+      "sha256": "82ab7913de24d0642d26c78381995df8aa4fdad582c4d37f15f4d02707ab3964"
+    },
+    {
+      "archivo": "frontend/pages/usuarios.html",
+      "bytes": 4849,
+      "sha256": "3f4cbc34299aa76980d679a063c72f1c46d56274d48f19ffb50b2c4e93a7d5f0"
+    },
+    {
+      "archivo": "frontend/static/css/app.css",
+      "bytes": 31219,
+      "sha256": "c057acfff3cbcad1a48b06e03e4998a205ca2f7021bf5b0307d7e0a6823a7230"
+    },
+    {
+      "archivo": "frontend/static/img/logo-castano.png",
+      "bytes": 101445,
+      "sha256": "a7acefbb3781fb502ef77494956b118048614700da59c61213b77ce2f3f66701"
+    },
+    {
+      "archivo": "frontend/static/js/api.js",
+      "bytes": 2404,
+      "sha256": "b0420c3a68ffc9d393ba9db31484822be9f52c256bb54d797ecec1e1fdca28d9"
+    },
+    {
+      "archivo": "frontend/static/js/lib/acciones.js",
+      "bytes": 3347,
+      "sha256": "bd7f8e5b136f7500941382c7f13b50a2e3173467934d8c166a485c8fddd08395"
+    },
+    {
+      "archivo": "frontend/static/js/lib/clientes.js",
+      "bytes": 4436,
+      "sha256": "6f7af0e81235a6c02f954fb8ffb5a27ccc3dff9033418a37e9cdabe70d7080d8"
+    },
+    {
+      "archivo": "frontend/static/js/lib/color.js",
+      "bytes": 1719,
+      "sha256": "3956b99719513b6d03f64286a41a307a672e3dc51914e964f1fa2ed12720acaa"
+    },
+    {
+      "archivo": "frontend/static/js/lib/consulta.js",
+      "bytes": 608,
+      "sha256": "e361fce9f0d1872bf0501679df849712bcba735ef14f95ed962e97bb24a43530"
+    },
+    {
+      "archivo": "frontend/static/js/lib/debounce.js",
+      "bytes": 419,
+      "sha256": "dcef47fd5c89295b52aece838b78396152137709b50b96be5337d2a6afb2f102"
+    },
+    {
+      "archivo": "frontend/static/js/lib/formato.js",
+      "bytes": 2219,
+      "sha256": "df6e7febddf01334e5dbc7fa5c2847ddb5f4fbfa5d34ba5089fbe58d34b3c7b5"
+    },
+    {
+      "archivo": "frontend/static/js/lib/mensajes.js",
+      "bytes": 1196,
+      "sha256": "9a5ab571dd7ff9a19fd6f4b71d33a333becf32b4ba2db58f160383e20d28a00f"
+    },
+    {
+      "archivo": "frontend/static/js/lib/polizas.js",
+      "bytes": 3803,
+      "sha256": "043ade1812ffc8eda556a4803b86f284d93bbba0fda005e9f638a2c5aa1025ec"
+    },
+    {
+      "archivo": "frontend/static/js/lib/tarjetas.js",
+      "bytes": 5010,
+      "sha256": "bfcf9c656fd8aa1f4e701f0d8761e2c84a8da695a0416213ec9621f9177f1553"
+    },
+    {
+      "archivo": "frontend/static/js/nav.js",
+      "bytes": 9764,
+      "sha256": "d88996a1c3854a207cdad3e3747c9879e82b7dd6c5426a87725b55702ffbd1db"
+    },
+    {
+      "archivo": "frontend/static/js/pages/acciones.js",
+      "bytes": 17507,
+      "sha256": "f25b17863a08a8a3b5fa1d260249989d3245b67bc13293071f70509ec0753408"
+    },
+    {
+      "archivo": "frontend/static/js/pages/alertas.js",
+      "bytes": 4698,
+      "sha256": "787fca7e2279c89dbd1a67eb16b7f129177381e3ea88d52e2744eee47be4db16"
+    },
+    {
+      "archivo": "frontend/static/js/pages/bandeja.js",
+      "bytes": 9071,
+      "sha256": "b7d47488d045f0da84b73e4ddf02484c5546bc3c4263c15856172d15574f83f0"
+    },
+    {
+      "archivo": "frontend/static/js/pages/cerrados.js",
+      "bytes": 5244,
+      "sha256": "33187705855a8e1a3fa8c9c1eb83c59cd074bc52c3985a5e7d91ac834b193be1"
+    },
+    {
+      "archivo": "frontend/static/js/pages/cliente.js",
+      "bytes": 16562,
+      "sha256": "c7fc755d7e3e7443769cf161ab55729556db95d216b0ca9d32b68fd71536e4d6"
+    },
+    {
+      "archivo": "frontend/static/js/pages/clientes.js",
+      "bytes": 8027,
+      "sha256": "2901aa3e2b4c3b1482643a9b02e75c33c2350c6e2f4604b7fa3dfa85edb6c460"
+    },
+    {
+      "archivo": "frontend/static/js/pages/conversacion.js",
+      "bytes": 23038,
+      "sha256": "42f39227a42e29a0cf3b03b1645159cc25389f8028044b59315821deaaa43caf"
+    },
+    {
+      "archivo": "frontend/static/js/pages/derivaciones.js",
+      "bytes": 5462,
+      "sha256": "81d1c3379b64c22864ac2b6b539d8ef0ae87e0b61aed4ec5d48ba05832e8fa61"
+    },
+    {
+      "archivo": "frontend/static/js/pages/documentos.js",
+      "bytes": 7886,
+      "sha256": "7d9d7ac05b874fd11a6b789c2d2eb04edd61fbc2f85d5ccef4e1a06021ed7bac"
+    },
+    {
+      "archivo": "frontend/static/js/pages/login.js",
+      "bytes": 1415,
+      "sha256": "06e5eb978018e9b821fd08276dac42973350608b924d577cab78cafb3882a78b"
+    },
+    {
+      "archivo": "frontend/static/js/pages/panel.js",
+      "bytes": 3147,
+      "sha256": "7988f2411aca3e7797eecf9a4edfdbacac211cf63576201fa9db8dfe548a8576"
+    },
+    {
+      "archivo": "frontend/static/js/pages/reportes.js",
+      "bytes": 5071,
+      "sha256": "54b4a11d940ab428f175a51ad7a8afd6c3fce222038f33538c550b85c40c37ca"
+    },
+    {
+      "archivo": "frontend/static/js/pages/siniestros.js",
+      "bytes": 18365,
+      "sha256": "3d05a337794bd879dc0ad6b5dffdba0c973c2adc1cec546e28c9dcc1f78fdde8"
+    },
+    {
+      "archivo": "frontend/static/js/pages/usuarios.js",
+      "bytes": 9043,
+      "sha256": "26cafd729732d52e581b29945a133ba9dcce2d342306ae32c1764dd0c96d0829"
+    },
+    {
+      "archivo": "frontend/tests/acciones.test.js",
+      "bytes": 2828,
+      "sha256": "bfc79896747a96c9d510afc0ccf3a0c3d42425f1de80c6980fa0ede8e78687b0"
+    },
+    {
+      "archivo": "frontend/tests/api.test.js",
+      "bytes": 2888,
+      "sha256": "27255348ae8273e69bb094f7a56743f6b7463ab3fa621a9e5b62dd45c0d6a9c8"
+    },
+    {
+      "archivo": "frontend/tests/clientes.test.js",
+      "bytes": 3527,
+      "sha256": "cb80f8b7a1a50c2bb7fadbc91c6e21ae7c797d6a9f4d5eb72a6f005f5eafe334"
+    },
+    {
+      "archivo": "frontend/tests/color.test.js",
+      "bytes": 1745,
+      "sha256": "668d5112c57df846967778371998c0cf3bd342871c518c4acfc5dc491bc75f54"
+    },
+    {
+      "archivo": "frontend/tests/consulta.test.js",
+      "bytes": 807,
+      "sha256": "09d185d2a60288759689b231036de020381f12fa25a56f0643e6835c412ed7e6"
+    },
+    {
+      "archivo": "frontend/tests/debounce.test.js",
+      "bytes": 647,
+      "sha256": "a69b64b13616c1e1bdad45355dd781c9140081c4c87456ee86d647f75f351e0b"
+    },
+    {
+      "archivo": "frontend/tests/estaticos.test.js",
+      "bytes": 3710,
+      "sha256": "708ad393b9e174d397e1e70fdbf070687981d131d579de7387193f5531764534"
+    },
+    {
+      "archivo": "frontend/tests/formato.test.js",
+      "bytes": 951,
+      "sha256": "20a10d79d04c513a24a0a3c7bff891dfaa87ef521fc3be321b7c8194b8b95f1b"
+    },
+    {
+      "archivo": "frontend/tests/mensajes.test.js",
+      "bytes": 1524,
+      "sha256": "38e1961b00633ce1af2e17a274611357887db61164d62b09c0c2e5528c0852d6"
+    },
+    {
+      "archivo": "frontend/tests/polizas.test.js",
+      "bytes": 3086,
+      "sha256": "6a941b06cb41427c2f94483bed822e779961848710c44bac8dab01934cf9f9e2"
+    },
+    {
+      "archivo": "frontend/tests/tarjetas.test.js",
+      "bytes": 1026,
+      "sha256": "034a7926dfc0614f5969204aa6ddacf09f4baccb48091fdf6dfc83e5206f3fc1"
+    },
+    {
+      "archivo": "manage.py",
+      "bytes": 614,
+      "sha256": "7a0aded1a375c4a2e13cb7b503a9d85d2dc5201c0a607595a76c859f7725f32a"
+    },
+    {
+      "archivo": "negocio/__init__.py",
+      "bytes": 38,
+      "sha256": "2d110cf97136e6d0e5ce48c9b717742b7e56abe8727ba15a97c51a10052e1e74"
+    },
+    {
+      "archivo": "negocio/acciones.py",
+      "bytes": 18301,
+      "sha256": "126b1bdcdd9aefe79c250f62b7367b9232738616a7f44d1349305b1baf8ed241"
+    },
+    {
+      "archivo": "negocio/adjuntos_siniestros.py",
+      "bytes": 13504,
+      "sha256": "c5e2f67d051c28964b1199ee3641b4271d7522b09377d163204ba97dbc704ab8"
+    },
+    {
+      "archivo": "negocio/apps.py",
+      "bytes": 146,
+      "sha256": "392c68afd12cd8a47e08eef5f14e3c7887ce3555aa42d2e7036bdb389695b1af"
+    },
+    {
+      "archivo": "negocio/bot/__init__.py",
+      "bytes": 52,
+      "sha256": "cdc779b0a7bdaab3d5c7f48ea0f27c38813b3875cc897d185b61d8e264c5fed6"
+    },
+    {
+      "archivo": "negocio/bot/clasificador.py",
+      "bytes": 14368,
+      "sha256": "b6aad771af0ed63fba2c5a00bbd03f349f31ec6eec81098efb0822d441ae68ab"
+    },
+    {
+      "archivo": "negocio/bot/guardrails.py",
+      "bytes": 20295,
+      "sha256": "7e78d3dcf0edb3fff062f722f8fab1aee40f92ffea3c26d96d8a35e449d72f46"
+    },
+    {
+      "archivo": "negocio/bot/llm.py",
+      "bytes": 8482,
+      "sha256": "367b162f0d9c021f118001800a829f5bbe149bc1f0d883bd46b27bb792698791"
+    },
+    {
+      "archivo": "negocio/bot/orquestador.py",
+      "bytes": 44335,
+      "sha256": "4166e691111fc22bd406c0b5a37840661fd697341261c6bb1e6e0accca70eff3"
+    },
+    {
+      "archivo": "negocio/bot/plantillas.py",
+      "bytes": 8730,
+      "sha256": "2445b95c949f038bb2b66baa03bc28eefbd5e05e39d133a8248427d34d17b213"
+    },
+    {
+      "archivo": "negocio/bot/prompts.py",
+      "bytes": 7866,
+      "sha256": "97fc103789e16d5e632613583c3b2d471e6f42b3e37ce6af500eff7aea0f7440"
+    },
+    {
+      "archivo": "negocio/bot/registro.py",
+      "bytes": 10269,
+      "sha256": "bae740cea4f6516edf051fe0bfcca11c3aa59315c2350f740a6ef2a24adbafe2"
+    },
+    {
+      "archivo": "negocio/busqueda_semantica.py",
+      "bytes": 1611,
+      "sha256": "8c1fc77c4bb2ca9133c0e2404e4972eac82f59adfa195ad6172c83227f1c4361"
+    },
+    {
+      "archivo": "negocio/clientes.py",
+      "bytes": 7486,
+      "sha256": "4e45a2269f169090f9de4c83c48cc554fefd892507f0320aaec8fdb040697c66"
+    },
+    {
+      "archivo": "negocio/coberturas.py",
+      "bytes": 6779,
+      "sha256": "b3320f13e4fcdaec928f5a81ff039754b6ec8cd0f44a6f137cfbfef7487acadd"
+    },
+    {
+      "archivo": "negocio/documentos.py",
+      "bytes": 9764,
+      "sha256": "08b3811b9133066cef05e85268cb3230ecfa4d49a21d0a5687b2b32b7ab0b8b8"
+    },
+    {
+      "archivo": "negocio/errores.py",
+      "bytes": 602,
+      "sha256": "1f8a0acfeec3a5ce1cebf91ced4fee7c6a97978fda7c6e622373e5d7ec585d1a"
+    },
+    {
+      "archivo": "negocio/management/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archivo": "negocio/management/commands/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archivo": "negocio/management/commands/cargar_demo_exposicion.py",
+      "bytes": 4840,
+      "sha256": "8f19bcbd3a507c13f4cc3bbde327e87d312e86d27bb2f5e9eed2c32d3752af48"
+    },
+    {
+      "archivo": "negocio/management/commands/cargar_demo_mvp2.py",
+      "bytes": 3497,
+      "sha256": "70ad3d5bd48eab039977a70a25de923592eac9ebbd57df63dda0f0aa049cd15b"
+    },
+    {
+      "archivo": "negocio/management/commands/preparar_busqueda.py",
+      "bytes": 782,
+      "sha256": "731c1320138feedacc312ebf82ab184c1de1ef79d7b5b4f3c1e361aaae5000d3"
+    },
+    {
+      "archivo": "negocio/management/commands/purgar_temporales.py",
+      "bytes": 816,
+      "sha256": "6ed859703c5196e7b2fda24f31772be0512033335c1ae10c1fb76ea917c609f9"
+    },
+    {
+      "archivo": "negocio/management/commands/reprocesar_pendientes.py",
+      "bytes": 8791,
+      "sha256": "ad76f7371c3776fe8a7977109b29bc40e92eb62332911e0598c0448ae8ce676f"
+    },
+    {
+      "archivo": "negocio/management/commands/simular_whatsapp.py",
+      "bytes": 2304,
+      "sha256": "1f2684d48303043ec8ce4883b5f746877f4f657a8d1877ee70bdfb9eeb35643d"
+    },
+    {
+      "archivo": "negocio/management/commands/verificar_busqueda_local.py",
+      "bytes": 1213,
+      "sha256": "354fe9411c1d8dffb67011ad72ab0d50b1608dbe0750a618c03a1e4b9f1cbe9e"
+    },
+    {
+      "archivo": "negocio/polizas.py",
+      "bytes": 12401,
+      "sha256": "e076e2b62a63012faf4410ce5591b09d4e6ae09f371601559c5ceffc19460614"
+    },
+    {
+      "archivo": "negocio/reglas.py",
+      "bytes": 1179,
+      "sha256": "35e24d3a6eea8ee8aabb631e9bb808807cc2b674ff0c2cce4be6e4277bee9a52"
+    },
+    {
+      "archivo": "negocio/seguridad.py",
+      "bytes": 3648,
+      "sha256": "b172dee89cc9cdd93d42e0ac567ad32c30f9edbae853b1be92cebf93fee5699b"
+    },
+    {
+      "archivo": "negocio/sesion.py",
+      "bytes": 537,
+      "sha256": "0685c3ec4680c7567edb3f9cf12043e0c7d6d92526b4353ac06f1b41efbf3ed6"
+    },
+    {
+      "archivo": "negocio/siniestros.py",
+      "bytes": 7132,
+      "sha256": "1792aee86576604545976eeba24e505ec2082969207bcb1b94c43e6eb597e230"
+    },
+    {
+      "archivo": "negocio/supervision.py",
+      "bytes": 20881,
+      "sha256": "d5d31102d70a656d47d22f9af9f4e904a834ce9d3dc6cd558b3a88dee87bdb26"
+    },
+    {
+      "archivo": "negocio/tests/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archivo": "negocio/tests/datos_prueba.py",
+      "bytes": 4392,
+      "sha256": "a80e71dd6273ac44d7f1825b948fb097850a0bb94c03d6466fd247e72b43373d"
+    },
+    {
+      "archivo": "negocio/tests/golden_set.json",
+      "bytes": 6127,
+      "sha256": "9f4bca52942ab3f28b7b55ca3ea3bda540827c78b656940b77a9fa2ae6035cb9"
+    },
+    {
+      "archivo": "negocio/tests/test_acciones.py",
+      "bytes": 24548,
+      "sha256": "9146125ccdf0ee6db5e3a536af8c38ab1d89aca00f1046ccad60ed390bd48dc7"
+    },
+    {
+      "archivo": "negocio/tests/test_adjuntos_siniestros.py",
+      "bytes": 5974,
+      "sha256": "84b3eb4e39705825eed3a65f75adfc53fc1c07aa13504fe17a491cd729189658"
+    },
+    {
+      "archivo": "negocio/tests/test_bot.py",
+      "bytes": 80140,
+      "sha256": "c958e064ad1aefba924341c80417ee2722600fb78f6b3b4259cfb175ea8ca850"
+    },
+    {
+      "archivo": "negocio/tests/test_clientes.py",
+      "bytes": 9786,
+      "sha256": "0fd872d99b3cb4f2125b35e46bc739e2d3bd90bfb03073eca5c4d8ba4b174026"
+    },
+    {
+      "archivo": "negocio/tests/test_cola_integracion.py",
+      "bytes": 3308,
+      "sha256": "324524378b24ddb123dbe967d6ad86fa8c774a03b3f5dc9a16df752b31d5d701"
+    },
+    {
+      "archivo": "negocio/tests/test_comandos.py",
+      "bytes": 9222,
+      "sha256": "f3f3783b68729c3a833361da71edbb285e5a0e6f1989fa03b42cf7e4c16e6dcb"
+    },
+    {
+      "archivo": "negocio/tests/test_demo.py",
+      "bytes": 1560,
+      "sha256": "9c0a0d9b35103f7be19b608f4b9244ad58a5e78f9565e7f80ddfba1a8449e714"
+    },
+    {
+      "archivo": "negocio/tests/test_documentos.py",
+      "bytes": 1122,
+      "sha256": "5f5a1e8560e5626e46159ceae4998ca6a03d406f1ba4a60002dddef7c1acc11c"
+    },
+    {
+      "archivo": "negocio/tests/test_golden_set.py",
+      "bytes": 2906,
+      "sha256": "def18b20b06bac68b8b91e8e8850880fc22bf7817190b5716665992acc3fcd37"
+    },
+    {
+      "archivo": "negocio/tests/test_polizas.py",
+      "bytes": 15877,
+      "sha256": "ce796e3c41d72e482bf77756da3110a4dfa3d7d1570841c9ff42dc3d0aa7587e"
+    },
+    {
+      "archivo": "negocio/tests/test_reglas.py",
+      "bytes": 9154,
+      "sha256": "50b275d6b411bf5cc1d905310aa0a92c1f117df249a8b2a5ee84c79f93daf47d"
+    },
+    {
+      "archivo": "negocio/tests/test_sin_repetir.py",
+      "bytes": 7461,
+      "sha256": "5c8d38dd44a5fd57d1e7b3843ad98b9f06696d19448fdd34fc63715f078d81e4"
+    },
+    {
+      "archivo": "negocio/tests/test_siniestros.py",
+      "bytes": 7842,
+      "sha256": "1db637ebc1db1c432c1e2c3943c90da94c245e5492de0569f58e9073960cd126"
+    },
+    {
+      "archivo": "negocio/tests/test_supervision.py",
+      "bytes": 25353,
+      "sha256": "ea275744b4121bbbfc4de1f7ee27edd609442f52fed4d98210df8fd74d5daca9"
+    },
+    {
+      "archivo": "negocio/tests/test_whatsapp.py",
+      "bytes": 23055,
+      "sha256": "6c14281406be0976f104d676aa7c00af1815f59f67f03b62a4cec808ccbdc6b6"
+    },
+    {
+      "archivo": "negocio/usuarios.py",
+      "bytes": 5474,
+      "sha256": "e4a04140ecda8f2756b0b693838d8214831f5af92166046de291774426e669e5"
+    },
+    {
+      "archivo": "negocio/whatsapp.py",
+      "bytes": 24295,
+      "sha256": "f573539cdb0f88fe2b79ec8aff3d408843f396494e685cdcb06de7517b176631"
+    },
+    {
+      "archivo": "package.json",
+      "bytes": 126,
+      "sha256": "985fa7d3ce588aafcb097d7486de30095073c0a14f35e39e932e4de29e8e2584"
+    },
+    {
+      "archivo": "panel.html",
+      "bytes": 6788,
+      "sha256": "cc094e6425fe3833935615cf8c853bcd9e59afbc5ca04e235f97f82c56b1462f"
+    },
+    {
+      "archivo": "polizas.html",
+      "bytes": 7861,
+      "sha256": "a5977a3e84c78faa6159154262f295a39633eebe0c764ad858b651e52e04c1d5"
+    },
+    {
+      "archivo": "README.md",
+      "bytes": 8484,
+      "sha256": "156a9f7dba9b374c5f3d8924a30177216f61d16527d9cc7a98de7f723399809f"
+    },
+    {
+      "archivo": "requirements-production.txt",
+      "bytes": 37,
+      "sha256": "cccdff4d3c631f19fa4256e6c54475738f97a8e93c8f1257ad95c9b0b9da23ea"
+    },
+    {
+      "archivo": "requirements.txt",
+      "bytes": 120,
+      "sha256": "c9c9d66afbb7d9e629faafc6ad13e2e0341c63fdda642df2107c1cdee26e3aec"
+    },
+    {
+      "archivo": "SDD/00-comun.md",
+      "bytes": 9339,
+      "sha256": "eeccad64caac1cb5707bdd7282c928e82885cc77db87065b9c7cb3d7cff973a9"
+    },
+    {
+      "archivo": "SDD/contratos/api.md",
+      "bytes": 8624,
+      "sha256": "68a957ac615c0c9bb62b908429498764e64b7f42cc37152a54070b86fa67f3ca"
+    },
+    {
+      "archivo": "SDD/contratos/modelos.md",
+      "bytes": 11736,
+      "sha256": "f5b0360ebf4812690d10aaf0d392b1db1c2c2eb42ab2f7304da2378bdca7d941"
+    },
+    {
+      "archivo": "SDD/contratos/servicios.md",
+      "bytes": 6311,
+      "sha256": "f8cd2594fab5b20f5b808867287a3a5f7e5860c2835541a4639b460eb9ae4afe"
+    },
+    {
+      "archivo": "SDD/entregas/_plantilla.md",
+      "bytes": 1035,
+      "sha256": "665c56fa8145360997999b1acce4e930946cd1ba3ab7ea0f3664a024f9e640ee"
+    },
+    {
+      "archivo": "SDD/entregas/T1.md",
+      "bytes": 5279,
+      "sha256": "e5aeb5ebdad6e3bd423c52e0178fd71d0405a11d01c4b69b1a065a273765ba88"
+    },
+    {
+      "archivo": "SDD/entregas/T2.md",
+      "bytes": 7796,
+      "sha256": "86dbfa536f084e396c619841debfd90319d943755df5c9f1d163c076a76d1e6f"
+    },
+    {
+      "archivo": "SDD/entregas/T3.md",
+      "bytes": 9679,
+      "sha256": "963e3090e446c125247bde8e2481fca25ca7dc4901e23c100c9c9d394b725045"
+    },
+    {
+      "archivo": "SDD/entregas/T4.md",
+      "bytes": 6715,
+      "sha256": "b0becc5413b50f5e9556e5bfd92432cfda6f31e62f3262d363fa19493125cb1b"
+    },
+    {
+      "archivo": "SDD/paquetes/P1-vehiculos-companias.md",
+      "bytes": 6855,
+      "sha256": "64e0007f077607315d685d3a1ccc8b50f2d15467fc8a2b9b728a9d06ae64f860"
+    },
+    {
+      "archivo": "SDD/paquetes/P2-motor-avisos.md",
+      "bytes": 11628,
+      "sha256": "ac7603e61c942331a5d5f3eb82806e5da9be319065cc9415925547ad344bf09a"
+    },
+    {
+      "archivo": "SDD/paquetes/P3-renovaciones.md",
+      "bytes": 8390,
+      "sha256": "bb9ea075f46dcc4356665e01569e23dbaa975a507123f5f0fa0cd3e4d0983553"
+    },
+    {
+      "archivo": "SDD/paquetes/P4-cobranza-mora.md",
+      "bytes": 9402,
+      "sha256": "ed238cd9eb5f0538fa36c1b8769b43385acb861bfec28dbaf988f0de0e3c6352"
+    },
+    {
+      "archivo": "SDD/paquetes/P5-embudo-interesados.md",
+      "bytes": 10958,
+      "sha256": "4407054b12b45f3fe742230e9cd5cfe8512407d77a9b785f12654b23b50d5396"
+    },
+    {
+      "archivo": "SDD/paquetes/P6-documentos-credencial.md",
+      "bytes": 8429,
+      "sha256": "2cf8c947ca1b664bac8e1d033ee97174cb8dad9869e07ce4c533221d11b8a1d1"
+    },
+    {
+      "archivo": "SDD/paquetes/P7-siniestros-ampliados.md",
+      "bytes": 8680,
+      "sha256": "f642e92ba4592384a7263d99b14e5778eef8a804f8aa1aa454f41c1650869475"
+    },
+    {
+      "archivo": "SDD/paquetes/P8-panel-equipo-reportes.md",
+      "bytes": 7366,
+      "sha256": "5a0d9a9c3a7d2e92522256e056d897845b01313b0d74d45a52910441619210c2"
+    },
+    {
+      "archivo": "SDD/paquetes/P9-fidelizacion.md",
+      "bytes": 9218,
+      "sha256": "17176ee358b753fb6aec8cc267b1a6df5e3f3bd3b02d18e35758de32c39d9060"
+    },
+    {
+      "archivo": "SDD/paquetes/README.md",
+      "bytes": 6764,
+      "sha256": "01d27af351493115b89a069395c45ae8214b71f48af6712adce273ac843b46e0"
+    },
+    {
+      "archivo": "SDD/plantillas/env.example",
+      "bytes": 2387,
+      "sha256": "4f0f4eb71fb70e10e5e73b345b4c29d33ce24ce342f6b688f353650aa0e10229"
+    },
+    {
+      "archivo": "SDD/qa/T1.md",
+      "bytes": 6807,
+      "sha256": "eeccb7ae417188c12ae96d124c8e23b9f815b6297bbad2390b8a8d0bc3a4617f"
+    },
+    {
+      "archivo": "SDD/README.md",
+      "bytes": 7252,
+      "sha256": "b7783c25984e6f28109a1119a5aced3b28efa0858aa59bfa7442011e59ea76cc"
+    },
+    {
+      "archivo": "SDD/sql/00_drop_all.sql",
+      "bytes": 855,
+      "sha256": "ff4f3eb938fc2845d86391cad4766f2b9206267ce738b6c1751e4bedd8a94cff"
+    },
+    {
+      "archivo": "SDD/sql/01_schema.sql",
+      "bytes": 16131,
+      "sha256": "946f92e81002cbb4aa6eb583d5fe352db5cda03532602fe20e6054d36d35ecfd"
+    },
+    {
+      "archivo": "SDD/sql/02_seed.sql",
+      "bytes": 17932,
+      "sha256": "3cd46928c2fc212450bb87cd0251cbd29bd2181ffaf842fe91b08dcd279f2f6f"
+    },
+    {
+      "archivo": "SDD/sql/03_whatsapp.sql",
+      "bytes": 8329,
+      "sha256": "32d1a660612e049cf9c1eb9f4ebedaf5f0f227d0835099d7c54d517fa4555ce4"
+    },
+    {
+      "archivo": "SDD/sql/04_mensaje_descartado.sql",
+      "bytes": 1080,
+      "sha256": "0bce965bf36a9dd2601708423da6dfcdd4b9f7ed3e9aa111de605e476cd73518"
+    },
+    {
+      "archivo": "SDD/sql/05_acciones_del_bot.sql",
+      "bytes": 3405,
+      "sha256": "008d1be6e016161943e711e19284edcbbdf39f7f0f4d209abf03e16069bac479"
+    },
+    {
+      "archivo": "SDD/sql/06_pagos_con_referencia.sql",
+      "bytes": 1620,
+      "sha256": "f04296c4e03cd867d44e9ffb5a40ff6516305da9b0735676b2294fbc37b0094f"
+    },
+    {
+      "archivo": "SDD/sql/07_expediente_siniestros.sql",
+      "bytes": 5431,
+      "sha256": "35b168f98f82145db9b6a02e9c8dd858348003e21a4969a47d7178068af3c60d"
+    },
+    {
+      "archivo": "SDD/sql/08_adjuntos_siniestros.sql",
+      "bytes": 3591,
+      "sha256": "96fdad1cd4df8f85f9ae31ba45d318005772add8bc7fc9a64b3aff717e8540a4"
+    },
+    {
+      "archivo": "SDD/sql/09_documentos_generales.sql",
+      "bytes": 2266,
+      "sha256": "6f2342c80001b090ee68279944eddefdc4b66ef140a5c21836233e3197d5791e"
+    },
+    {
+      "archivo": "SDD/sql/10_trabajos_whatsapp.sql",
+      "bytes": 1481,
+      "sha256": "0f84a110ac3a1305eaab8770b33f201f313ebc30a63e45a98d97d7f7b5fc04d0"
+    },
+    {
+      "archivo": "SDD/sql/11_finalizaciones_acciones.sql",
+      "bytes": 4067,
+      "sha256": "a656d68addb4cd504d9e54f89b277c6f349c60eacc7c0d5f019cb9727fbaf811"
+    },
+    {
+      "archivo": "SDD/sql/12_tipos_de_charla.sql",
+      "bytes": 1014,
+      "sha256": "f644608d88352659c4e7df604720587dfd944303fea5e937a027c723cbb80ce7"
+    },
+    {
+      "archivo": "SDD/sql/22_seguridad_y_coberturas.sql",
+      "bytes": 1660,
+      "sha256": "fcfc8f7e6267e63bd61b3afdecbef87359c04ad2445bbbdd5a0d2a065073883e"
+    },
+    {
+      "archivo": "SDD/T1-frontend.md",
+      "bytes": 10316,
+      "sha256": "cc5eaea585b21770b81b559e66abd459b8705d82ae8560d8001ce90d40f79632"
+    },
+    {
+      "archivo": "SDD/T2-api.md",
+      "bytes": 9578,
+      "sha256": "b52fb68f79e3a8c08c8906e37be0ea70f5e2eed65d678f4ff16b70e8d89bfb3e"
+    },
+    {
+      "archivo": "SDD/T3-logica.md",
+      "bytes": 29020,
+      "sha256": "0b5b5ea2ac9623d9ce03eacccae4e2636987a22c36d2bffb54c841d86ab47c3b"
+    },
+    {
+      "archivo": "SDD/T4-orm.md",
+      "bytes": 10876,
+      "sha256": "e04fdc158cc65c20633dc5ad3b1918e40ae451efd66c30e79c7221e903fb3c98"
+    },
+    {
+      "archivo": "SDD/verificar.py",
+      "bytes": 3740,
+      "sha256": "b8864fc7a096fea6bd88f66fd81684cdc47d028cdf3f89580e71bc17467bfcab"
+    }
+  ]
+}
