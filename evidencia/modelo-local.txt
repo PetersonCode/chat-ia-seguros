@@ -1,0 +1,1 @@
+Paráfrasis: 0.5049; fuera de dominio: -0.0166. Inferencia local correcta.

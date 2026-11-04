@@ -18,6 +18,7 @@ from datos.models import (
     AccionPendiente,
     AdjuntoSiniestro,
     Conversacion,
+    ContextoCobertura,
     ConsultaBot,
     Direccion,
     Emisor,
@@ -491,6 +492,7 @@ def borrar_conversacion(conversacion_id: int, funcionario_id: int) -> dict[str, 
     mensajes.update(respuesta_a=None)
     mensajes.delete()
     casos.delete()
+    ContextoCobertura.objects.filter(conversacion_id=conversacion_id).delete()
     conversacion.delete()
     return {
         "mensajes": cantidad_mensajes,

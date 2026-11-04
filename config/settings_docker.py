@@ -8,11 +8,11 @@ import os
 from .settings import *  # noqa: F401,F403
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_HOST = False
 
 _dominios = [d.strip() for d in os.getenv("PUBLIC_DOMAINS", "").split(",") if d.strip()]
 CSRF_TRUSTED_ORIGINS = [f"https://{d}" for d in _dominios]
 
-_seguras = os.getenv("DJANGO_COOKIES_SECURE", "true").strip().lower() in {"1", "true", "yes", "on"}
-SESSION_COOKIE_SECURE = _seguras
-CSRF_COOKIE_SECURE = _seguras
+# El proxy debe reemplazar X-Forwarded-Proto y ser la única entrada a la app.
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True

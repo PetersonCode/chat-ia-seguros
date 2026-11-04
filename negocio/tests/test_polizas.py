@@ -373,7 +373,7 @@ class RegistrarPagoTests(TestCase):
 
         otra_poliza = alta_poliza(
             self.cliente.id,
-            tipo_seguro="hogar",
+            tipo_seguro="automotor",
             cobertura="basica",
             fecha_inicio=date(2026, 1, 10),
             fecha_vencimiento=date(2026, 2, 10),

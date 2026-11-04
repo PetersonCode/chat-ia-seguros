@@ -32,6 +32,7 @@ ORDEN = (
     "cotizacion",
     "consulta_cobertura",
     "registro",
+    "ajeno",
     "agradecimiento",
     "saludo",
 )
@@ -217,6 +218,9 @@ PATRONES: dict[str, tuple[str, ...]] = {
         "contratar un seguro",
     ),
     "consulta_cobertura": (
+        "parabrisas", "cristales", "ventanilla", "luneta", "pedrisco", "vidrio",
+        "que pasa si",
+        "que incluye", "que protege", "que cubre mi",
         "cobertura",
         "cubre",
         "esta cubierto",
@@ -232,6 +236,12 @@ PATRONES: dict[str, tuple[str, ...]] = {
     ),
     # No se busca por subcadena sino con `_es_cierre_cordial` (ver abajo).
     "agradecimiento": (),
+    # Respaldo gratuito para pedidos inequívocamente fuera del servicio.
+    # Va después de las consultas de seguros: no tapa una cobertura o siniestro.
+    "ajeno": (
+        "receta de", "como cocinar", "pronostico del tiempo", "clima manana",
+        "contame un chiste", "quien gano el mundial", "codigo en python",
+    ),
     # Va último en ORDEN, así que acá solo cae lo que ningún otro tipo pidió:
     # es el lugar seguro para la jerga rioplatense. "todo bien" no le roba nada
     # a "todo bien, quiero mi saldo", porque saldo se evalúa antes.
@@ -298,6 +308,9 @@ PREGUNTA_COBERTURA = (
     "cubierta",
     "cobertura",
     "que incluye",
+    "que pasa si",
+    "que pasaria si",
+    "que proteccion",
 )
 
 
@@ -332,6 +345,23 @@ def _esta_negado(prefijo: str) -> bool:
     ))
 
 
+def relata_siniestro(texto: str) -> bool:
+    normalizado=normalizar(texto)
+    for frase in re.split(r'[.!?;,]|\bpero\b',normalizado):
+        if re.search(r'\b(si|podria|puede pasar|en caso de)\b',frase):
+            continue
+        for hecho in re.finditer(
+            r'\b(?:se (?:me |nos )?(?:rompio|astillo|rajo)|'
+            r'(?:me|nos) (?:rompieron|rayaron|abollaron)|'
+            r'(?:sufri|tuve|tuvimos) un siniestro|denunciar un siniestro|ya ocurrio|'
+            r'(?:mi|el) (?:parabrisas|vidrio|auto|coche|vehiculo) '
+            r'(?:esta|quedo|amanecio) (?:roto|rajado|danado|abollado))\b', frase
+        ):
+            if not _esta_negado(frase[:hecho.start()]):
+                return True
+    return False
+
+
 def clasificar(texto: str) -> str:
     """Devuelve el código de `TipoConsulta` para un mensaje del cliente."""
     normalizado = normalizar(texto)
@@ -356,6 +386,8 @@ def clasificar(texto: str) -> str:
             )
             if not pregunta_general or hecho_explicito:
                 return "siniestro_urgente"
+    if relata_siniestro(texto):
+        return 'siniestro'
     for tipo in ORDEN:
         candidatos = normalizado
         if tipo == "siniestro_urgente":

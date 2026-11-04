@@ -459,7 +459,7 @@ class EnvioTests(TestCase):
 
         mensaje.refresh_from_db()
         self.assertEqual(mensaje.estado_envio, EstadoEnvio.FALLIDO)
-        self.assertIn("sin red", mensaje.error)
+        self.assertEqual(mensaje.error, "OSError")
         self.assertEqual(mensaje.intentos_envio, 1)
         self.assertIsNotNone(mensaje.proximo_intento_envio)
 
@@ -538,7 +538,7 @@ class EnvioTests(TestCase):
         mensaje.refresh_from_db()
         self.assertEqual(mensaje.estado_envio, EstadoEnvio.FALLIDO)
         self.assertIn("131030", mensaje.error)
-        self.assertIn("not in allowed list", mensaje.error)
+        self.assertNotIn("not in allowed list", mensaje.error)
 
     # AC-T3-14
     def test_nunca_envia_retenidos_descartados_enviados_ni_fallidos(self):

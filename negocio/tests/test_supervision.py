@@ -545,6 +545,18 @@ class VaciarAlertasTests(BaseSupervisionTests):
 class BorrarConversacionTests(BaseSupervisionTests):
     """Borrar la conversación se lleva sus mensajes, casos y alertas."""
 
+    def test_borra_el_contexto_temporal_sin_tocar_la_auditoria_de_seguridad(self):
+        from negocio.coberturas import contexto_automatico
+        from negocio.seguridad import registrar
+        from datos.models import ContextoCobertura, AuditoriaSeguridad
+        contexto_automatico(self.conversacion)
+        identificador=self.conversacion.pk
+        registrar('prueba_borrado',f'/api/conversaciones/{identificador}/borrar/')
+        self.assertTrue(ContextoCobertura.objects.filter(conversacion_id=identificador).exists())
+        borrar_conversacion(identificador,self.aprobador.id)
+        self.assertFalse(ContextoCobertura.objects.filter(conversacion_id=identificador).exists())
+        self.assertTrue(AuditoriaSeguridad.objects.filter(evento='prueba_borrado').exists())
+
     def test_borra_la_conversacion_con_todo_lo_que_cuelga_de_ella(self):
         fabricas.crear_mensaje(self.conversacion, consulta=self.consulta)
         fabricas.crear_mensaje(

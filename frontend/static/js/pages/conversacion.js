@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261103";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261103";
-import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261103";
-import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261103";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261103";
-import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261103";
+import { api } from "../api.js?v=20261104integrado1";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261104integrado1";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261104integrado1";
+import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261104integrado1";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261104integrado1";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261104integrado1";
 
 const idConversacion = new URLSearchParams(globalThis.location.search).get("id");
 const tituloChat = document.getElementById("titulo-chat");
@@ -209,13 +209,18 @@ function renderizarConversacion(detalle) {
     conversacion = detalle;
     tituloChat.textContent = `Conversación ${detalle.id}`;
     contactoChat.textContent = `Chat con: ${detalle.whatsapp}`;
-    estadoChat.textContent = `Estado: ${detalle.estado} · Modo: ${detalle.modo}`;
+    estadoChat.textContent = `Estado: ${detalle.estado} · Modo: ${detalle.modo}`
+        + (detalle.derivacion_urgente ? " · Derivación urgente" : "")
+        + (detalle.atendida_por?.nombre ? ` · Atiende: ${detalle.atendida_por.nombre}` : "");
 
     // Una conversación vaciada ya no recibe mensajes: el cliente sigue en una
     // nueva. Queda solo para consulta.
     const cerrada = detalle.estado === "cerrada";
     botonModo.hidden = cerrada;
-    botonModo.textContent = detalle.modo === "humano" ? "Devolver al bot" : "Tomar conversación";
+    const asignadaAMi = detalle.atendida_por?.id === funcionario?.id;
+    botonModo.textContent = detalle.modo === "humano" && asignadaAMi
+        ? "Devolver al bot"
+        : "Tomar conversación";
     botonVaciar.hidden = cerrada;
     // Borrar y descartar alertas son decisiones de aprobador; la API lo exige
     // igual, esto solo evita mostrar un botón que va a contestar 403.
@@ -224,6 +229,7 @@ function renderizarConversacion(detalle) {
     botonVaciarAlertas.hidden = !aprobador
         || !Array.isArray(detalle.alertas)
         || detalle.alertas.length === 0;
+
 
     const casosAbiertos = Array.isArray(detalle.casos_abiertos) ? detalle.casos_abiertos : [];
     botonCerrarCasos.hidden = casosAbiertos.length === 0;
@@ -446,7 +452,8 @@ async function cambiarModo() {
     botonModo.disabled = true;
     mostrarMensajePagina("");
     try {
-        const accion = conversacion.modo === "humano" ? "devolver" : "tomar";
+        const asignadaAMi = conversacion.atendida_por?.id === funcionario?.id;
+        const accion = conversacion.modo === "humano" && asignadaAMi ? "devolver" : "tomar";
         conversacion = await api.post(`/api/conversaciones/${idConversacion}/${accion}/`);
         renderizarConversacion(conversacion);
     } catch (error) {

@@ -12,6 +12,8 @@ x-app: &app
   networks: [irusu-web, irusu-db, irusu-llm]
   environment: &app-env
     DB_HOST: postgres          # servicio del compose principal (SSL sigue siendo obligatorio)
+    BUSQUEDA_SEMANTICA: "true"
+    MODELO_BUSQUEDA_DIR: /app/.modelos
     DB_PORT: "5432"
     LLM_BASE_URL: http://ollama:11434/v1   # contenedor ollama-irusu (pisa el valor del .env, que sirve para desarrollo fuera de Docker)
     DJANGO_DEBUG: "false"
@@ -19,7 +21,10 @@ x-app: &app
     PUBLIC_DOMAINS: irusu.com.ar,www.irusu.com.ar
   security_opt: [no-new-privileges:true]
   cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp:size=128m,mode=1777]
   volumes:
+    - modelos:/app/.modelos
     - private_media:/app/private_media   # adjuntos de siniestros: sobreviven a recrear el contenedor
 
 services:
@@ -30,7 +35,7 @@ services:
     ports:
       - "127.0.0.1:8000:8000"   # solo para probar en esta PC; el acceso público es vía nginx
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/auth/csrf/', timeout=5)"]
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz/', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -46,6 +51,7 @@ services:
         condition: service_healthy
 
 volumes:
+  modelos:
   private_media:
 
 networks:

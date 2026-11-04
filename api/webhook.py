@@ -20,6 +20,8 @@ def webhook_whatsapp(request: HttpRequest) -> HttpResponse:
         return HttpResponse(resultado, content_type="text/plain")
 
     if request.method == "POST":
+        if len(request.body) > 1024 * 1024:
+            return HttpResponse(status=413)
         firma = request.META.get("HTTP_X_HUB_SIGNATURE_256")
         if not verificar_firma(request.body, firma):
             return HttpResponseForbidden()
@@ -27,6 +29,8 @@ def webhook_whatsapp(request: HttpRequest) -> HttpResponse:
             payload = json.loads(request.body.decode("utf-8"))
         except (TypeError, ValueError, UnicodeDecodeError):
             return HttpResponseBadRequest("JSON inválido")
+        if not isinstance(payload, dict):
+            return HttpResponseBadRequest("Se espera un objeto JSON")
         procesar_webhook(payload)
         return HttpResponse(status=200)
 

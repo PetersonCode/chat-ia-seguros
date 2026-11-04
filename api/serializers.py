@@ -24,15 +24,15 @@ class DocumentoAltaSerializer(serializers.Serializer):
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    password = serializers.CharField(trim_whitespace=False)
+    password = serializers.CharField(trim_whitespace=False, max_length=128)
 
 
 class ResponderSerializer(serializers.Serializer):
-    texto = serializers.CharField(trim_whitespace=False)
+    texto = serializers.CharField(trim_whitespace=False, max_length=10000)
 
 
 class MotivoSerializer(serializers.Serializer):
-    motivo = serializers.CharField(trim_whitespace=False)
+    motivo = serializers.CharField(trim_whitespace=False, max_length=2000)
 
 
 class FinalizacionAccionSerializer(serializers.Serializer):

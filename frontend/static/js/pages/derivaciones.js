@@ -1,7 +1,7 @@
-import { api } from "../api.js?v=20261103";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261103";
-import { formatearFechaHora } from "../lib/formato.js?v=20261103";
-import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261103";
+import { api } from "../api.js?v=20261104integrado1";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261104integrado1";
+import { formatearFechaHora } from "../lib/formato.js?v=20261104integrado1";
+import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261104integrado1";
 
 const lista = document.getElementById("lista-derivaciones");
 const estado = document.getElementById("estado-derivaciones");

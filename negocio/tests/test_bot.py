@@ -53,11 +53,12 @@ class BaseBotTests(TestCase):
         self.escenario = crear_escenario()
 
     def _conversacion(self, etiqueta: str, **campos):
-        return fabricas.crear_conversacion(
+        conversacion = fabricas.crear_conversacion(
             self.escenario.contacto(etiqueta),
             ultimo_mensaje_cliente_en=timezone.now(),
             **campos,
         )
+        return conversacion
 
     def _entrante(self, conversacion, texto: str) -> Mensaje:
         return fabricas.crear_mensaje(conversacion, texto=texto)
@@ -307,9 +308,7 @@ class InsistenciaTests(BaseBotTests):
         for texto in self.INTENTOS[:2]:
             resultado = self._turno(conversacion, texto)
             self.assertEqual(resultado.tipo_consulta, "prompt_injection")
-            self.assertEqual(
-                self._respuesta(resultado).texto, plantillas.RECHAZO_SEGURIDAD
-            )
+            self.assertIn(self._respuesta(resultado).texto, (plantillas.RECHAZO_SEGURIDAD, *plantillas.VARIANTES[plantillas.RECHAZO_SEGURIDAD]))
 
         self.assertEqual(Alerta.objects.count(), 2)
         self.assertFalse(
@@ -768,7 +767,7 @@ class PoliticasTests(BaseBotTests):
         # desconocido el bot le pide los datos antes de derivarlo.
         for cliente, texto, tipo in (
             (self.escenario.juan, "cuanto cuesta asegurar una moto 150cc", "cotizacion"),
-            (self.escenario.maria, "qué incluye mi cobertura?", "consulta_cobertura"),
+            (self.escenario.maria, "qué incluye la cobertura?", "consulta_cobertura"),
             (self.escenario.nora, "quiero adelantar las cuotas", "pago"),
         ):
             with self.subTest(tipo=tipo):
@@ -1416,7 +1415,7 @@ class NoEntendiTests(BaseBotTests):
 
     def test_consulta_general_sobre_robo_no_depende_de_un_llm_que_diga_urgente(self):
         conversacion = self._conversacion("1001")
-        mensaje = self._entrante(conversacion, "¿mi seguro cubre robo?")
+        mensaje = self._entrante(conversacion, "¿el seguro cubre robo?")
         llm = FakeLLM(clasificacion="siniestro_urgente")
 
         with patch("negocio.bot.orquestador.cliente_llm", return_value=llm):
@@ -1430,7 +1429,7 @@ class NoEntendiTests(BaseBotTests):
         self.assertEqual(Derivacion.objects.get().prioridad, "normal")
 
     def test_preguntar_por_la_cobertura_no_devuelve_como_denunciar_un_siniestro(self):
-        _, _, resultado = self._procesar("1001", "me cubre el granizo?")
+        _, _, resultado = self._procesar("1001", "el seguro cubre el granizo?")
 
         self.assertEqual(resultado.tipo_consulta, "consulta_cobertura")
         texto = self._respuesta(resultado).texto
@@ -1457,7 +1456,7 @@ class ConsultaDocumentalBotTests(BaseBotTests):
         documento = self._publicar_fuente()
         llm = FakeLLM(clasificacion="siniestro_urgente")
         with patch("negocio.bot.orquestador.cliente_llm", return_value=llm):
-            _, _, resultado = self._procesar("1001", "¿mi seguro cubre robo?")
+            _, _, resultado = self._procesar("1001", "¿el seguro cubre robo?")
 
         texto = self._respuesta(resultado).texto
         self.assertEqual(resultado.tipo_consulta, "consulta_cobertura")
@@ -1473,7 +1472,7 @@ class ConsultaDocumentalBotTests(BaseBotTests):
     def test_fuente_irrelevante_no_respalda_y_deriva_sin_inventar(self):
         self._publicar_fuente("La asistencia en ruta está disponible las 24 horas.")
 
-        _, _, resultado = self._procesar("1001", "¿mi seguro cubre robo?")
+        _, _, resultado = self._procesar("1001", "¿el seguro cubre robo?")
 
         self.assertEqual(resultado.tipo_consulta, "consulta_cobertura")
         self.assertEqual(self._respuesta(resultado).texto, plantillas.DERIVACION)
@@ -1481,10 +1480,10 @@ class ConsultaDocumentalBotTests(BaseBotTests):
 
     def test_retirar_fuente_la_excluye_de_las_respuestas_siguientes(self):
         documento = self._publicar_fuente()
-        self._procesar("1001", "¿mi seguro cubre robo?")
+        self._procesar("1001", "¿el seguro cubre robo?")
         retirar_documento(documento.id, self.escenario.graciela.id)
 
-        _, _, resultado = self._procesar("1003", "¿mi seguro cubre robo?")
+        _, _, resultado = self._procesar("1003", "¿el seguro cubre robo?")
 
         self.assertEqual(self._respuesta(resultado).texto, plantillas.DERIVACION)
         self.assertEqual(Derivacion.objects.count(), 1)
@@ -1506,7 +1505,7 @@ class ConsultaDocumentalBotTests(BaseBotTests):
             modo="humano",
             funcionario=self.escenario.graciela,
         )
-        mensaje = self._entrante(conversacion, "¿mi seguro cubre robo?")
+        mensaje = self._entrante(conversacion, "¿el seguro cubre robo?")
 
         with patch(
             "negocio.bot.orquestador.buscar_fragmentos",
@@ -1580,7 +1579,7 @@ class ConsultaDocumentalBotTests(BaseBotTests):
     def test_un_pasaje_con_datos_no_verificados_sigue_bajo_guardrail_de_salida(self):
         self._publicar_fuente(f"{self.PASAJE} La póliza POL-99999 lo cubre.")
 
-        _, _, resultado = self._procesar("1001", "¿mi seguro cubre robo?")
+        _, _, resultado = self._procesar("1001", "¿el seguro cubre robo?")
 
         self.assertTrue(resultado.retenido)
         self.assertEqual(self._respuesta(resultado).estado_envio, EstadoEnvio.RETENIDO)
@@ -1713,6 +1712,12 @@ class AccionesQueArmaElBotTests(BaseBotTests):
 
 class CharlaQueNoEsConsultaTests(BaseBotTests):
     """Un "gracias" se contesta y lo que no es de seguros se aclara: ninguno deriva."""
+
+    def test_pedido_ajeno_explicito_tambien_funciona_sin_api_generativa(self):
+        resultado, _ = self._turno('Pasame una receta de tortilla')
+        self.assertEqual(resultado.tipo_consulta,'ajeno')
+        self.assertEqual(self._respuesta(resultado).texto,plantillas.FUERA_DE_TEMA)
+        self.assertFalse(Derivacion.objects.exists())
 
     def _turno(self, texto, llm=None, etiqueta="1001"):
         conversacion = self._conversacion(etiqueta)

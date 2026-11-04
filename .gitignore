@@ -1,9 +1,13 @@
 .env
+.env.*
+!.env.example
+!.env.demo.example
 __pycache__/
+*.pyc
 .venv/
 venv/
 node_modules/
 private_media/
+.modelos/
+staticfiles/
 docker-compose.override.yml
-docker-compose.yml
-Dockerfile

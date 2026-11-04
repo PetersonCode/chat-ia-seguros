@@ -1,5 +1,5 @@
-import { api } from "../api.js?v=20261103";
-import { inicializarNav } from "../nav.js?v=20261103";
+import { api } from "../api.js?v=20261104integrado1";
+import { inicializarNav } from "../nav.js?v=20261104integrado1";
 
 const formulario = document.getElementById("filtros-reportes");
 const campoDesde = document.getElementById("reporte-desde");

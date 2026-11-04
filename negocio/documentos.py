@@ -39,9 +39,23 @@ def _normalizar(texto: str) -> str:
     return texto.replace("\x00", "ñ")
 
 
+# Conceptos acotados del dominio: mismo significado, sin afirmar cobertura.
+SINONIMOS = {
+    'cristales': ('cristal', 'vidrio', 'vidrios', 'parabrisas', 'ventanilla', 'ventanillas', 'luneta'),
+    'automotor': ('auto', 'autos', 'coche', 'vehiculo', 'vehiculos'),
+    'rotura': ('romper', 'roto', 'rompio', 'rompieron', 'roturas', 'quebrado', 'quebraron', 'quiebra', 'astillo'),
+    'robo': ('sustraccion', 'hurtar', 'hurto', 'robado', 'robar'),
+    'cobertura': ('cubre', 'cubren', 'cubierto', 'coberturas', 'incluye', 'protege', 'proteccion'),
+    'granizo': ('piedra', 'pedrada', 'pedrisco', 'granizada'),
+    'hogar': ('casa', 'vivienda', 'departamento'),
+}
+CANONICO = {variante: concepto for concepto, variantes in SINONIMOS.items() for variante in variantes}
+STOPWORDS.update({'quiero', 'saber', 'tengo', 'seguro', 'poliza', 'puedo', 'preguntar', 'consulta', 'necesito', 'si', 'le', 'del', 'sobre', 'esto', 'eso'})
+
+
 def _terminos(texto: str) -> set[str]:
     return {
-        termino
+        CANONICO.get(termino, termino)
         for termino in re.findall(r"[a-zñ0-9]+", _normalizar(texto))
         if termino not in STOPWORDS
     }
@@ -128,6 +142,8 @@ def aprobar_documento(documento_id: int, funcionario_id: int) -> DocumentoGenera
         raise NoEncontrado("El documento no existe.")
     if documento.estado != EstadoDocumento.BORRADOR:
         raise EstadoInvalido("Solo se pueden aprobar documentos en borrador.")
+    if DocumentoGeneral.objects.filter(titulo=documento.titulo, estado=EstadoDocumento.APROBADO).exclude(pk=documento.pk).exists():
+        raise EstadoInvalido('Retirá la versión aprobada anterior del mismo título antes de aprobar esta.')
     if not documento.fragmentos.exists():
         raise DatosInvalidos("No se puede aprobar un documento sin contenido.")
     funcionario = _aprobador(funcionario_id)
@@ -157,7 +173,7 @@ def retirar_documento(documento_id: int, funcionario_id: int) -> DocumentoGenera
     return documento
 
 
-def buscar_fragmentos(consulta: str) -> dict:
+def buscar_fragmentos(consulta: str, *, documentos_ids=None, incluir_vinculados=False) -> dict:
     terminos_consulta = _terminos(consulta)
     if not terminos_consulta:
         return {
@@ -170,15 +186,29 @@ def buscar_fragmentos(consulta: str) -> dict:
         }
 
     resultados = []
-    for fragmento in FragmentoDocumento.objects.filter(
-        documento__estado=EstadoDocumento.APROBADO
-    ).select_related("documento"):
+    fragmentos = FragmentoDocumento.objects.filter(documento__estado=EstadoDocumento.APROBADO)
+    if documentos_ids is not None:
+        fragmentos = fragmentos.filter(documento_id__in=documentos_ids)
+    elif not incluir_vinculados:
+        # Fuentes vinculadas a contratos quedan fuera de consultas generales.
+        fragmentos = fragmentos.exclude(documento__vinculos_poliza__isnull=False)
+    from negocio.busqueda_semantica import similitud
+    for fragmento in fragmentos.select_related("documento").order_by("id").distinct()[:2000]:
         coincidencias, total_terminos = puntuar_fragmento(consulta, fragmento.texto)
-        if coincidencias < _requeridos(total_terminos):
-            continue
+        lexical = coincidencias >= _requeridos(total_terminos)
+        semantica = None
+        if not lexical:
+            try:
+                semantica = similitud(consulta, fragmento.texto)
+            except Exception:
+                semantica = None
+            if semantica is None or semantica < 0.50:
+                continue
         documento = fragmento.documento
         resultados.append(
             {
+                "metodo": "conceptos" if lexical else "semantica_local",
+                "similitud": semantica,
                 "documento_id": documento.id,
                 "fragmento_id": fragmento.id,
                 "titulo": documento.titulo,
@@ -191,12 +221,15 @@ def buscar_fragmentos(consulta: str) -> dict:
         )
     resultados.sort(
         key=lambda resultado: (
-            -resultado["coincidencias"] / resultado["terminos_consulta"],
+            -(resultado["coincidencias"] / resultado["terminos_consulta"] if resultado["metodo"] == "conceptos" else resultado["similitud"]),
             -resultado["coincidencias"],
             resultado["titulo"].casefold(),
             resultado["documento_id"],
         )
     )
+    # Si el modelo no distingue entre dos fuentes, pedir revisión humana.
+    if len(resultados) > 1 and resultados[0]['metodo'] == 'semantica_local' and resultados[1]['metodo'] == 'semantica_local' and resultados[0]['documento_id'] != resultados[1]['documento_id'] and resultados[0]['similitud'] - resultados[1]['similitud'] < 0.08:
+        resultados = []
     resultados = resultados[:MAXIMO_RESULTADOS]
     return {
         "respaldo_suficiente": bool(resultados),

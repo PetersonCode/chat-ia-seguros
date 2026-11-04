@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261103";
-import { inicializarNav } from "../nav.js?v=20261103";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261103";
-import { claseTarjeta, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261103";
-import { armarQuery } from "../lib/consulta.js?v=20261103";
-import { debounce } from "../lib/debounce.js?v=20261103";
+import { api } from "../api.js?v=20261104integrado1";
+import { inicializarNav } from "../nav.js?v=20261104integrado1";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261104integrado1";
+import { claseTarjeta, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261104integrado1";
+import { armarQuery } from "../lib/consulta.js?v=20261104integrado1";
+import { debounce } from "../lib/debounce.js?v=20261104integrado1";
 
 const formulario = document.getElementById("formulario-filtros");
 const campoEstado = document.getElementById("filtro-estado");
@@ -38,6 +38,9 @@ function nombreCliente(cliente) {
 
 /** La etiqueta de severidad, con la cantidad de alertas abiertas si hay. */
 function insigniaSeveridad(conversacion) {
+    if (conversacion.derivacion_urgente) {
+        return crearInsignia("Derivación urgente", claseSeveridad("critica"));
+    }
     const etiqueta = crearInsignia(
         etiquetaSeveridad(conversacion.severidad_maxima),
         claseSeveridad(conversacion.severidad_maxima),

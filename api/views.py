@@ -17,6 +17,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib.auth import authenticate, login, logout
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone
+from django.db import transaction
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
@@ -356,6 +357,7 @@ def _conversacion_detalle(conversacion_id: int) -> dict:
     )
     # Para prellenar el alta cuando el contacto es desconocido: es lo único que
     # sabemos de esa persona antes de que un humano cargue sus datos reales.
+    payload['contacto_reconocido'] = bool(conversacion.contacto.cliente_id and conversacion.contacto.cliente.activo)
     payload["nombre_perfil"] = (
         conversacion.contacto.nombre_perfil if conversacion.contacto else None
     )
@@ -538,6 +540,12 @@ def auth_csrf(request):
 def auth_login(request):
     datos = LoginSerializer(data=request.data)
     datos.is_valid(raise_exception=True)
+    from negocio.seguridad import admitir
+    email = datos.validated_data["email"].strip().lower()
+    ip = request.META.get("REMOTE_ADDR", "")
+    # No confiar en X-Forwarded-For que puede falsificar un cliente.
+    if not admitir("login-ip:" + ip, 60) or not admitir("login-cuenta:" + email, 10):
+        return Response({"error": {"codigo": "limite_acceso", "mensaje": "Demasiados intentos. Volvé a intentar en 15 minutos."}}, status=429, headers={"Retry-After": "900"})
     user = authenticate(
         request,
         username=datos.validated_data["email"],
@@ -1032,7 +1040,7 @@ def poliza_opciones(request):
             "numero_sugerido": proximo_numero_poliza(),
             "tipos_seguro": [
                 {"codigo": tipo.codigo, "nombre": tipo.nombre}
-                for tipo in TipoSeguro.objects.order_by("nombre")
+                for tipo in TipoSeguro.objects.filter(codigo="automotor").order_by("nombre")
             ],
             "coberturas": list(Cobertura.values),
         }
@@ -1051,6 +1059,7 @@ def documentos_buscar(request):
 @api_view(["GET", "POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([EsAprobadorParaEscribir])
+@transaction.atomic
 def documento_crear(request):
     if request.method == "GET":
         documentos = _documentos_visibles(request)
@@ -1062,10 +1071,17 @@ def documento_crear(request):
         return _pagina(documentos.order_by("-creado_en", "-id"), request, _documento)
     datos = DocumentoAltaSerializer(data=request.data)
     datos.is_valid(raise_exception=True)
+    numero_poliza = request.data.get("numero_poliza", "")
+    # Validar antes de crear para no dejar un borrador huérfano por un typo.
+    if numero_poliza and (not isinstance(numero_poliza, str) or not Poliza.objects.filter(numero_poliza=numero_poliza.strip()).exists()):
+        raise DatosInvalidos("La póliza indicada no existe.")
     documento = crear_documento(
         **datos.validated_data,
         funcionario_id=request.funcionario.id,
     )
+    if numero_poliza:
+        from negocio.coberturas import vincular_documento
+        vincular_documento(numero_poliza, documento.id, request.funcionario.id)
     return Response(
         {
             "id": documento.id,
@@ -1323,3 +1339,18 @@ def usuario_cambiar_clave(request, id):
     datos = ClaveSerializer(data=request.data)
     datos.is_valid(raise_exception=True)
     return Response(_usuario(cambiar_clave(id, datos.validated_data["clave"])))
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsAprobador])
+def poliza_vincular_documento(request, id):
+    from negocio.coberturas import vincular_documento
+    documento_id = request.data.get('documento_id')
+    if not isinstance(documento_id, int) or isinstance(documento_id, bool) or documento_id <= 0:
+        raise DatosInvalidos('Indicá un documento_id entero positivo.')
+    poliza = Poliza.objects.filter(pk=id).first()
+    if poliza is None:
+        raise NoEncontrado('La póliza no existe.')
+    vinculo = vincular_documento(poliza.numero_poliza, documento_id, request.funcionario.id)
+    return Response({'id': vinculo.id, 'poliza_id': id, 'documento_id': documento_id})

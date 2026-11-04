@@ -90,10 +90,11 @@ class ConfiguracionTests(SimpleTestCase):
         self.assertCountEqual(
             requisitos,
             [
-                "Django==5.2.4",
-                "djangorestframework==3.16.0",
+                "Django==5.2.19",
+                "djangorestframework==3.18.2",
                 "psycopg[binary]==3.2.10",
-                "python-dotenv==1.1.1",
-                "Pillow==12.0.0",
+                "python-dotenv==1.2.2",
+                "Pillow==13.0.0",
+                "fastembed==0.9.1",
             ],
         )

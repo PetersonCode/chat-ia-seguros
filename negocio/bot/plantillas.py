@@ -3,8 +3,9 @@ SALDO = "Tu saldo pendiente es de {monto}. Próximo vencimiento de pago: {fecha}
 SIN_SALDO = "No tenés saldo pendiente. ¡Gracias por estar al día!"
 VENCIMIENTO = "Estas son tus pólizas:\n{lineas}"
 SIN_POLIZAS = "No encontramos pólizas vigentes a tu nombre. Te derivamos con un asesor."
-SIN_CLIENTE = "Para darte esa información necesitamos validar tu identidad. Te derivamos con un asesor."
+SIN_CLIENTE = "No encuentro una póliza automotor asociada a este número. Puedo registrar tu consulta para que un asesor te ayude."
 SINIESTRO_INSTRUCCIONES = (
+    "Recibimos tu aviso de siniestro y te derivamos con un asesor para continuar. "
     "Si ya tenés un expediente, podés enviar una foto JPEG o PNG de hasta 5 MB "
     "e indicar su número SIN-AAAA-NNNNN en el texto del mensaje. Un asesor "
     "revisará el archivo. Si todavía no tenés expediente, contanos qué ocurrió "
@@ -153,3 +154,21 @@ def formatear_fecha(fecha) -> str:
     if fecha is None:
         return "-"
     return fecha.strftime("%d/%m/%Y")
+
+
+VARIANTES = {
+    RECHAZO_SEGURIDAD: ("Solo puedo ayudarte con consultas de seguros dentro de los permisos establecidos. ¿Qué necesitás consultar?",),
+    SOLO_TEXTO: ("Por ahora puedo interpretar mensajes escritos. Escribí tu consulta para continuar.",),
+    DERIVACION: ("Un asesor continuará con tu consulta en este chat.",),
+}
+
+
+def es_repeticion(texto, anterior):
+    return bool(anterior) and ' '.join(texto.lower().split()) == ' '.join(anterior.lower().split())
+
+
+def sin_repetir(texto, anterior):
+    if not es_repeticion(texto, anterior):
+        return texto
+    variantes = VARIANTES.get(texto)
+    return variantes[0] if variantes else 'Te reitero la información disponible: ' + texto

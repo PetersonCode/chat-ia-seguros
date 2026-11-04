@@ -26,7 +26,7 @@ class RunnerConEsquema(DiscoverRunner):
         self._entorno_test.start()
         # Acelera fixtures; settings.py y la aplicación normal siguen usando
         # PBKDF2. Hay una prueba explícita de login con PBKDF2.
-        self._hashers_test = override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+        self._hashers_test = override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"], MODO_DEMOSTRACION=False, BUSQUEDA_SEMANTICA=False)
         self._hashers_test.enable()
         return super().setup_test_environment(**kwargs)
 
@@ -54,6 +54,7 @@ class RunnerConEsquema(DiscoverRunner):
             "10_trabajos_whatsapp.sql",
             "11_finalizaciones_acciones.sql",
             "12_tipos_de_charla.sql",
+            "22_seguridad_y_coberturas.sql",
         )
         with connection.cursor() as cursor:
             for nombre in archivos_sql:

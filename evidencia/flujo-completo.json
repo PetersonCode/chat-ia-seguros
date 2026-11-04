@@ -1,0 +1,79 @@
+{
+  "base_aislada": true,
+  "whatsapp": "simulado",
+  "modelo": "local ONNX",
+  "casos": [
+    {
+      "pregunta": "Necesito el número de la grúa",
+      "tipo": "asistencia",
+      "respuesta": "Para asistencia en el camino con tu póliza POL-90101 (cobertura total) llamá al 0800-333-1003. Atiende las 24 horas.",
+      "estado_envio": "enviado",
+      "modo": "bot",
+      "segundos": 0.052
+    },
+    {
+      "pregunta": "¿Qué saldo tengo pendiente?",
+      "tipo": "saldo",
+      "respuesta": "Tu saldo pendiente es de $96.000. Próximo vencimiento de pago: 15/10/2026.",
+      "estado_envio": "enviado",
+      "modo": "bot",
+      "segundos": 0.026
+    },
+    {
+      "pregunta": "¿Qué cubre mi póliza?",
+      "tipo": "consulta_cobertura",
+      "respuesta": "Condiciones vinculadas a tu póliza POL-90101. Fuente: Condiciones ficticias automotor total, versión PDF-2026-10-29.\n“La cobertura automotor total incluye responsabilidad civil por daños a terceros hasta $80.000.000 por evento, robo total e incendio total o parcial, cristales y cerraduras, daños propios por choque y granizo. Valor del vehículo hasta $25.000.000. Cristales y cerraduras hasta $250.000 por año. Franquicia por choque $350.000 por evento. Granizo hasta $1.500.000 por año. Exclusiones: desgaste, fallas mecánicas, objetos personales, uso comercial no declarado, competencias, conducción sin habilitación y daños intencionales. Estas condiciones son ficticias y no garantizan indemnización.”\nEste es un extracto de tus condiciones. Aplican los límites y exclusiones indicados; si querés denunciar un hecho, contame qué ocurrió.",
+      "estado_envio": "enviado",
+      "modo": "bot",
+      "segundos": 0.035
+    },
+    {
+      "pregunta": "¿Qué protección tengo si se quiebra el vidrio frontal del coche?",
+      "tipo": "consulta_cobertura",
+      "respuesta": "Condiciones vinculadas a tu póliza POL-90101. Fuente: Condiciones ficticias automotor total, versión PDF-2026-10-29.\n“La cobertura automotor total incluye responsabilidad civil por daños a terceros hasta $80.000.000 por evento, robo total e incendio total o parcial, cristales y cerraduras, daños propios por choque y granizo. Valor del vehículo hasta $25.000.000. Cristales y cerraduras hasta $250.000 por año. Franquicia por choque $350.000 por evento. Granizo hasta $1.500.000 por año. Exclusiones: desgaste, fallas mecánicas, objetos personales, uso comercial no declarado, competencias, conducción sin habilitación y daños intencionales. Estas condiciones son ficticias y no garantizan indemnización.”\nEste es un extracto de tus condiciones. Aplican los límites y exclusiones indicados; si querés denunciar un hecho, contame qué ocurrió.",
+      "estado_envio": "enviado",
+      "modo": "bot",
+      "segundos": 1.905
+    },
+    {
+      "pregunta": "Gracias por tu ayuda",
+      "tipo": "agradecimiento",
+      "respuesta": "¡De nada! Si necesitás algo más sobre tu seguro, escribime cuando quieras.",
+      "estado_envio": "enviado",
+      "modo": "bot",
+      "segundos": 0.022
+    },
+    {
+      "pregunta": "Pasame una receta de tortilla",
+      "tipo": "ajeno",
+      "respuesta": "Disculpá, solo puedo ayudarte con temas de tu seguro: saldo, vencimiento de pólizas, siniestros, asistencia en el camino o cotizaciones. Si necesitás algo de eso, contame.",
+      "estado_envio": "enviado",
+      "modo": "bot",
+      "segundos": 0.021
+    },
+    {
+      "pregunta": "Se me astilló el vidrio delantero del auto, ¿mi seguro lo cubre?",
+      "tipo": "siniestro",
+      "respuesta": "Recibimos tu aviso de siniestro y te derivamos con un asesor para continuar. Si ya tenés un expediente, podés enviar una foto JPEG o PNG de hasta 5 MB e indicar su número SIN-AAAA-NNNNN en el texto del mensaje. Un asesor revisará el archivo. Si todavía no tenés expediente, contanos qué ocurrió y un asesor podrá registrar la denuncia. Recibir una foto o registrar una denuncia no confirma cobertura ni indemnización.",
+      "estado_envio": "enviado",
+      "modo": "humano",
+      "segundos": 0.031
+    },
+    {
+      "pregunta": "Me chocaron en la autopista",
+      "tipo": "siniestro_urgente",
+      "respuesta": "Entendemos que es urgente. Ya avisamos a un asesor para que se comunique con vos cuanto antes.",
+      "estado_envio": "enviado",
+      "modo": "humano",
+      "segundos": 0.026
+    }
+  ],
+  "siniestro_normal_prioridad": "normal",
+  "siniestro_urgente_prioridad": "urgente",
+  "siniestro_urgente_asesor": "Roberto",
+  "bot_pausado_sin_respuesta_automatica": true,
+  "sin_validacion_manual": true,
+  "panel_detalle_http": 200,
+  "operador_no_administra_documentos": true,
+  "conversacion_id": 14
+}

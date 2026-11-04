@@ -1,0 +1,236 @@
+[
+  {
+    "paquete": "anyio",
+    "version": "4.16.0",
+    "fuente": "https://pypi.org/pypi/anyio/4.16.0/json",
+    "avisos": []
+  },
+  {
+    "paquete": "asgiref",
+    "version": "3.13.0",
+    "fuente": "https://pypi.org/pypi/asgiref/3.13.0/json",
+    "avisos": []
+  },
+  {
+    "paquete": "certifi",
+    "version": "2026.10.23",
+    "fuente": "https://pypi.org/pypi/certifi/2026.10.23/json",
+    "avisos": []
+  },
+  {
+    "paquete": "charset-normalizer",
+    "version": "3.5.2",
+    "fuente": "https://pypi.org/pypi/charset-normalizer/3.5.2/json",
+    "avisos": []
+  },
+  {
+    "paquete": "click",
+    "version": "8.5.0",
+    "fuente": "https://pypi.org/pypi/click/8.5.0/json",
+    "avisos": []
+  },
+  {
+    "paquete": "colorama",
+    "version": "0.4.6",
+    "fuente": "https://pypi.org/pypi/colorama/0.4.6/json",
+    "avisos": []
+  },
+  {
+    "paquete": "django",
+    "version": "5.2.19",
+    "fuente": "https://pypi.org/pypi/django/5.2.19/json",
+    "avisos": []
+  },
+  {
+    "paquete": "djangorestframework",
+    "version": "3.18.2",
+    "fuente": "https://pypi.org/pypi/djangorestframework/3.18.2/json",
+    "avisos": []
+  },
+  {
+    "paquete": "fastembed",
+    "version": "0.9.1",
+    "fuente": "https://pypi.org/pypi/fastembed/0.9.1/json",
+    "avisos": []
+  },
+  {
+    "paquete": "filelock",
+    "version": "4.2.7",
+    "fuente": "https://pypi.org/pypi/filelock/4.2.7/json",
+    "avisos": []
+  },
+  {
+    "paquete": "flatbuffers",
+    "version": "25.12.19",
+    "fuente": "https://pypi.org/pypi/flatbuffers/25.12.19/json",
+    "avisos": []
+  },
+  {
+    "paquete": "fsspec",
+    "version": "2026.9.0",
+    "fuente": "https://pypi.org/pypi/fsspec/2026.9.0/json",
+    "avisos": []
+  },
+  {
+    "paquete": "gunicorn",
+    "version": "26.2.0",
+    "fuente": "https://pypi.org/pypi/gunicorn/26.2.0/json",
+    "avisos": []
+  },
+  {
+    "paquete": "h11",
+    "version": "0.16.0",
+    "fuente": "https://pypi.org/pypi/h11/0.16.0/json",
+    "avisos": []
+  },
+  {
+    "paquete": "hf-xet",
+    "version": "1.8.0",
+    "fuente": "https://pypi.org/pypi/hf-xet/1.8.0/json",
+    "avisos": []
+  },
+  {
+    "paquete": "httpcore",
+    "version": "1.0.9",
+    "fuente": "https://pypi.org/pypi/httpcore/1.0.9/json",
+    "avisos": []
+  },
+  {
+    "paquete": "httpx",
+    "version": "0.28.1",
+    "fuente": "https://pypi.org/pypi/httpx/0.28.1/json",
+    "avisos": []
+  },
+  {
+    "paquete": "huggingface-hub",
+    "version": "1.33.0",
+    "fuente": "https://pypi.org/pypi/huggingface-hub/1.33.0/json",
+    "avisos": []
+  },
+  {
+    "paquete": "idna",
+    "version": "3.20",
+    "fuente": "https://pypi.org/pypi/idna/3.20/json",
+    "avisos": []
+  },
+  {
+    "paquete": "loguru",
+    "version": "0.7.3",
+    "fuente": "https://pypi.org/pypi/loguru/0.7.3/json",
+    "avisos": []
+  },
+  {
+    "paquete": "mmh3",
+    "version": "5.3.1",
+    "fuente": "https://pypi.org/pypi/mmh3/5.3.1/json",
+    "avisos": []
+  },
+  {
+    "paquete": "numpy",
+    "version": "2.5.4",
+    "fuente": "https://pypi.org/pypi/numpy/2.5.4/json",
+    "avisos": []
+  },
+  {
+    "paquete": "onnxruntime",
+    "version": "1.31.1",
+    "fuente": "https://pypi.org/pypi/onnxruntime/1.31.1/json",
+    "avisos": []
+  },
+  {
+    "paquete": "packaging",
+    "version": "26.3",
+    "fuente": "https://pypi.org/pypi/packaging/26.3/json",
+    "avisos": []
+  },
+  {
+    "paquete": "pillow",
+    "version": "13.0.0",
+    "fuente": "https://pypi.org/pypi/pillow/13.0.0/json",
+    "avisos": []
+  },
+  {
+    "paquete": "protobuf",
+    "version": "7.36.2",
+    "fuente": "https://pypi.org/pypi/protobuf/7.36.2/json",
+    "avisos": []
+  },
+  {
+    "paquete": "psycopg",
+    "version": "3.2.10",
+    "fuente": "https://pypi.org/pypi/psycopg/3.2.10/json",
+    "avisos": []
+  },
+  {
+    "paquete": "psycopg-binary",
+    "version": "3.2.10",
+    "fuente": "https://pypi.org/pypi/psycopg-binary/3.2.10/json",
+    "avisos": []
+  },
+  {
+    "paquete": "py-rust-stemmers",
+    "version": "0.1.8",
+    "fuente": "https://pypi.org/pypi/py-rust-stemmers/0.1.8/json",
+    "avisos": []
+  },
+  {
+    "paquete": "python-dotenv",
+    "version": "1.2.2",
+    "fuente": "https://pypi.org/pypi/python-dotenv/1.2.2/json",
+    "avisos": []
+  },
+  {
+    "paquete": "pyyaml",
+    "version": "6.0.3",
+    "fuente": "https://pypi.org/pypi/pyyaml/6.0.3/json",
+    "avisos": []
+  },
+  {
+    "paquete": "requests",
+    "version": "2.34.2",
+    "fuente": "https://pypi.org/pypi/requests/2.34.2/json",
+    "avisos": []
+  },
+  {
+    "paquete": "sqlparse",
+    "version": "0.6.0",
+    "fuente": "https://pypi.org/pypi/sqlparse/0.6.0/json",
+    "avisos": []
+  },
+  {
+    "paquete": "tokenizers",
+    "version": "0.23.3",
+    "fuente": "https://pypi.org/pypi/tokenizers/0.23.3/json",
+    "avisos": []
+  },
+  {
+    "paquete": "tqdm",
+    "version": "4.70.1",
+    "fuente": "https://pypi.org/pypi/tqdm/4.70.1/json",
+    "avisos": []
+  },
+  {
+    "paquete": "typing-extensions",
+    "version": "4.16.0",
+    "fuente": "https://pypi.org/pypi/typing-extensions/4.16.0/json",
+    "avisos": []
+  },
+  {
+    "paquete": "tzdata",
+    "version": "2026.5",
+    "fuente": "https://pypi.org/pypi/tzdata/2026.5/json",
+    "avisos": []
+  },
+  {
+    "paquete": "urllib3",
+    "version": "2.8.0",
+    "fuente": "https://pypi.org/pypi/urllib3/2.8.0/json",
+    "avisos": []
+  },
+  {
+    "paquete": "win32-setctime",
+    "version": "1.2.1",
+    "fuente": "https://pypi.org/pypi/win32-setctime/1.2.1/json",
+    "avisos": []
+  }
+]
