@@ -1,0 +1,58 @@
+# Seguros Castaño: dashboard + bot de WhatsApp (Django).
+# La base de datos NO está acá: es el contenedor "postgres-irusu" del compose de C:\HOST.
+# Se conecta por la red interna irusu-db; nginx (contenedor edge) llega por irusu-web.
+# Levantar primero el compose de C:\HOST: es el que crea esas dos redes.
+name: universidad
+
+x-app: &app
+  build: .
+  image: seguros-castano:latest
+  restart: unless-stopped
+  env_file: .env
+  networks: [irusu-web, irusu-db, irusu-llm]
+  environment: &app-env
+    DB_HOST: postgres          # servicio del compose principal (SSL sigue siendo obligatorio)
+    DB_PORT: "5432"
+    LLM_BASE_URL: http://ollama:11434/v1   # contenedor ollama-irusu (pisa el valor del .env, que sirve para desarrollo fuera de Docker)
+    DJANGO_DEBUG: "false"
+    DJANGO_ALLOWED_HOSTS: irusu.com.ar,www.irusu.com.ar,universidad-web,localhost,127.0.0.1
+    PUBLIC_DOMAINS: irusu.com.ar,www.irusu.com.ar
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  volumes:
+    - private_media:/app/private_media   # adjuntos de siniestros: sobreviven a recrear el contenedor
+
+services:
+  # Dashboard + API + webhook de WhatsApp (el bot corre en hilos de este proceso).
+  web:
+    <<: *app
+    container_name: universidad-web
+    ports:
+      - "127.0.0.1:8000:8000"   # solo para probar en esta PC; el acceso público es vía nginx
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/auth/csrf/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Reintenta los mensajes que quedaron sin respuesta del bot (AC-T3-46), cada minuto.
+  bot-worker:
+    <<: *app
+    container_name: universidad-bot-worker
+    command: ["sh", "-c", "while true; do python manage.py reprocesar_pendientes; sleep 60; done"]
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  private_media:
+
+networks:
+  irusu-web:
+    external: true
+  irusu-db:
+    external: true
+  irusu-llm:
+    external: true
+
