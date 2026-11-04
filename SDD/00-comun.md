@@ -51,7 +51,7 @@ SDD/       esta documentación, los contratos, los SQL, las entregas y el QA
 
 ## 5. Reglas inviolables
 **Proceso**
-- **R1.** Una persona = una tarea = una branch. Solo se tocan los archivos de tu carpeta (tabla de la sección 3) y los que tu spec nombre explícitamente.
+- **R1.** Una persona = una tarea = una branch. Solo se tocan los archivos de tu carpeta (tabla de la sección 3) y los que tu spec nombre explícitamente. **Excepción:** un paquete de `SDD/paquetes/` lo hace una sola persona y toca las cuatro carpetas, pero por etapas y en orden (ORM → lógica → API → front), cada una contra el contrato de la anterior.
 - **R2.** **La spec manda.** Si algo no está especificado o dos documentos se contradicen: escribí `NO ESPECIFICADO: …`, frená y la persona lo anota en su entrega como pregunta. No inventes.
 - **R3.** **Por etapas.** Tu spec tiene etapas (A, B, C…). Hacé **una etapa por vez**; al terminarla, frená y esperá que la persona corra los tests y te diga "OK, siguiente".
 - **R4.** **Tests primero.** Cada criterio `AC-Tn-xx` tiene al menos un test que lo cita en un comentario (`# AC-T3-14` en Python, `// AC-T1-08` en JS). Los de pantalla que no se pueden automatizar se verifican a mano en `SDD/qa/T1.md`.

@@ -11,10 +11,12 @@ Aprobador obligatorio en `liberar_respuesta`, `descartar_respuesta` y
 from __future__ import annotations
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from datos.models import (
     AccionPendiente,
+    AdjuntoSiniestro,
     Conversacion,
     ConsultaBot,
     Direccion,
@@ -28,6 +30,9 @@ from datos.models import (
     Mensaje,
     ModoConversacion,
     Alerta,
+    Derivacion,
+    Siniestro,
+    TrabajoWhatsApp,
 )
 from datos.selectors import alertas_abiertas
 from negocio.errores import (
@@ -53,6 +58,7 @@ ESTADOS_ACCION_PENDIENTE = (
 MOTIVO_MINIMO = 5
 RESOLUCION_LIBERADA = "Liberada sin cambios"
 RESOLUCION_DESBLOQUEO = "Número desbloqueado manualmente"
+RESOLUCION_ALERTAS_VACIADAS = "Alertas vaciadas desde la conversación"
 RESOLUCION_CORREGIDA = "Respuesta corregida por el funcionario"
 RESOLUCION_DESBLOQUEO = "Número desbloqueado manualmente"
 
@@ -388,6 +394,110 @@ def vaciar_chat(conversacion_id: int, funcionario_id: int) -> Conversacion:
     conversacion.funcionario = None
     conversacion.save(update_fields=["estado", "cerrada_en", "modo", "funcionario"])
     return conversacion
+
+
+@transaction.atomic
+def vaciar_alertas(conversacion_id: int, funcionario_id: int) -> int:
+    """Descarta todas las alertas abiertas de la conversación. Devuelve cuántas.
+
+    No se borran: pasan a `descartada`, firmadas por quien las vació, así que
+    siguen en el historial pero salen del panel y de los contadores. Es la misma
+    salida que tienen las alertas de una respuesta que se descarta.
+
+    Aprobador obligatorio: descartar una alerta es dar por revisado lo que el
+    bot dijo o lo que intentó el cliente. Y no se vacía con una respuesta
+    retenida, porque esa respuesta existe justamente por una alerta: habría que
+    liberarla o descartarla antes, que es lo que cierra sus alertas con criterio.
+
+    Ojo: la alerta de insistencia es la que mantiene bloqueado un número, así que
+    vaciarla también lo desbloquea.
+    """
+    funcionario = _funcionario(funcionario_id, aprobador=True)
+    _conversacion(conversacion_id)
+
+    retenidas = Mensaje.objects.filter(
+        conversacion_id=conversacion_id, estado_envio=EstadoEnvio.RETENIDO
+    ).count()
+    if retenidas:
+        raise EstadoInvalido(
+            f"Hay {retenidas} respuesta(s) retenida(s) sin resolver. "
+            "Liberalas o descartalas antes de vaciar las alertas."
+        )
+
+    ids = list(
+        alertas_abiertas(conversacion_id=conversacion_id).values_list("id", flat=True)
+    )
+    return Alerta.objects.filter(pk__in=ids).update(
+        estado=EstadoAlerta.DESCARTADA,
+        resuelta_por=funcionario,
+        resuelta_en=timezone.now(),
+        resolucion=RESOLUCION_ALERTAS_VACIADAS,
+    )
+
+
+@transaction.atomic
+def borrar_conversacion(conversacion_id: int, funcionario_id: int) -> dict[str, int]:
+    """Borra la conversación con sus mensajes, casos y alertas. No tiene vuelta atrás.
+
+    Aprobador obligatorio. Se niega si algo del expediente depende de ella: una
+    acción administrativa, un siniestro o una foto de siniestro. Esos registros
+    son de auditoría —la base misma impide modificar una finalización o un
+    adjunto— y borrarles el chat de origen los dejaría sin contexto. Para esos
+    casos existe `vaciar_chat`, que corta el contexto del bot sin borrar nada.
+
+    El contacto no se toca: si el cliente vuelve a escribir, arranca una
+    conversación nueva.
+    """
+    _funcionario(funcionario_id, aprobador=True)
+    conversacion = (
+        Conversacion.objects.select_for_update().filter(pk=conversacion_id).first()
+    )
+    if conversacion is None:
+        raise NoEncontrado("La conversación no existe.")
+
+    casos = ConsultaBot.objects.filter(conversacion_id=conversacion_id)
+    caso_ids = list(casos.values_list("id", flat=True))
+
+    dependientes = []
+    acciones = AccionPendiente.objects.filter(consulta_id__in=caso_ids).count()
+    if acciones:
+        dependientes.append(f"{acciones} acción(es) administrativa(s)")
+    siniestros = Siniestro.objects.filter(consulta_id__in=caso_ids).count()
+    if siniestros:
+        dependientes.append(f"{siniestros} siniestro(s)")
+    adjuntos = AdjuntoSiniestro.objects.filter(
+        mensaje_origen__conversacion_id=conversacion_id
+    ).count()
+    if adjuntos:
+        dependientes.append(f"{adjuntos} foto(s) de siniestro")
+    if dependientes:
+        raise EstadoInvalido(
+            "No se puede borrar: tiene " + ", ".join(dependientes) + ", que quedan "
+            "como registro de auditoría. Usá «Vaciar chat» para que el bot arranque "
+            "sin contexto sin borrar nada."
+        )
+
+    mensajes = Mensaje.objects.filter(conversacion_id=conversacion_id)
+    cantidad_mensajes = mensajes.count()
+    alertas = Alerta.objects.filter(
+        Q(consulta_id__in=caso_ids) | Q(mensaje__conversacion_id=conversacion_id)
+    )
+    cantidad_alertas = alertas.count()
+
+    # De las hojas hacia la raíz: la base no cascadea desde la conversación.
+    alertas.delete()
+    Derivacion.objects.filter(consulta_id__in=caso_ids).delete()
+    TrabajoWhatsApp.objects.filter(mensaje__conversacion_id=conversacion_id).delete()
+    mensajes.update(respuesta_a=None)
+    mensajes.delete()
+    casos.delete()
+    conversacion.delete()
+    return {
+        "mensajes": cantidad_mensajes,
+        "casos": len(caso_ids),
+        "alertas": cantidad_alertas,
+    }
+
 
 @transaction.atomic
 def desbloquear_numero(conversacion_id: int, funcionario_id: int) -> Conversacion:

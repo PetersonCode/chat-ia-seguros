@@ -54,7 +54,12 @@ from datos.selectors import (
 from negocio.acciones import derivar, solicitar_accion
 from negocio.bot import plantillas, registro
 from negocio.bot.clasificador import clasificar as clasificar_por_reglas
-from negocio.bot.clasificador import corregir_cruce_cobertura, pide_un_humano
+from negocio.bot.clasificador import (
+    agradece,
+    corregir_cruce_cobertura,
+    pide_un_humano,
+    se_despide,
+)
 from negocio.bot.guardrails import AlertaDetectada, evaluar_entrada, evaluar_salida
 from negocio.bot.llm import charlar_con_llm, clasificar_con_llm, cliente_llm
 from negocio.bot.plantillas import formatear_fecha, formatear_monto
@@ -88,6 +93,9 @@ DERIVACION_POR_TIPO = {
     "siniestro_urgente": ("Roberto", "urgente"),
 }
 DERIVACION_POR_DEFECTO = ("Graciela", "normal")
+
+# Tipos que no son una consulta: el bot los contesta y no se derivan nunca.
+TIPOS_DE_CHARLA = frozenset({"agradecimiento", "ajeno"})
 
 ACLARACION_SIN_POLIZA_UNICA = "el cliente tiene 0 o varias pólizas vigentes"
 
@@ -292,6 +300,20 @@ def _respuesta_saludo(texto: str, historial: list[str], llm) -> _Respuesta:
     return _Respuesta(del_llm or plantillas.SALUDO)
 
 
+def _respuesta_cortesia(texto: str, historial: list[str], llm) -> _Respuesta:
+    """Un "gracias" o un "chau" se contesta con calidez y no abre ningún trámite.
+
+    Igual que el saludo: lo redacta el LLM si hay, y pasa por los guardrails; si
+    no, sale la plantilla que corresponde.
+    """
+    del_llm = charlar_con_llm(llm, texto, historial)
+    if del_llm:
+        return _Respuesta(del_llm)
+    if se_despide(texto) and not agradece(texto):
+        return _Respuesta(plantillas.DESPEDIDA)
+    return _Respuesta(plantillas.AGRADECIMIENTO)
+
+
 def _armar_respuesta(
     tipo: str,
     politica: str,
@@ -319,6 +341,12 @@ def _armar_respuesta(
     # Política `bot_responde`: saludo, saldo, vencimiento, siniestro, asistencia.
     if tipo == "saludo":
         return _respuesta_saludo(texto, historial, llm)
+    if tipo == "agradecimiento":
+        return _respuesta_cortesia(texto, historial, llm)
+    if tipo == "ajeno":
+        # Texto fijo y sin derivar: no es una consulta que una persona pueda
+        # atender, es algo que el bot no hace.
+        return _Respuesta(plantillas.FUERA_DE_TEMA)
     if tipo == "siniestro":
         return _Respuesta(plantillas.SINIESTRO_INSTRUCCIONES)
     if tipo == "asistencia":
@@ -894,12 +922,19 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
     if alertas_entrada:
         # AC-T3-32: con inyección no se llama al LLM y se responde el rechazo.
         tipo = "prompt_injection"
-    elif tipo_por_reglas in {"siniestro_urgente", "consulta_cobertura"}:
-        # La urgencia y las preguntas generales de cobertura son reglas
-        # operativas; el LLM no puede cambiar su destino.
+    elif tipo_por_reglas in {"siniestro_urgente", "consulta_cobertura", "agradecimiento"}:
+        # La urgencia, las preguntas generales de cobertura y un "gracias" son
+        # reglas operativas; el LLM no puede cambiar su destino.
         tipo = tipo_por_reglas
     else:
         tipo = clasificar_con_llm(llm, texto, historial) or tipo_por_reglas
+        # "Gracias" y "fuera de tema" son juicios sociales del LLM, y no pueden
+        # taparle a una regla algo que sí es un pedido ("gracias, quiero la baja")
+        # ni a quien pidió hablar con una persona.
+        if tipo in TIPOS_DE_CHARLA and (
+            tipo_por_reglas not in {"otro", "saludo"} or pide_un_humano(texto)
+        ):
+            tipo = tipo_por_reglas
         # Vale para los dos clasificadores: ver `corregir_cruce_cobertura`.
         tipo = corregir_cruce_cobertura(tipo, texto)
 

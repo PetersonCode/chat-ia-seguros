@@ -542,3 +542,125 @@ class VaciarChatTests(ApiTestCase):
         respuesta = self.cliente_api.post(self.ruta, {}, format="json")
 
         self.assertIn(respuesta.status_code, (401, 403))
+
+
+class VaciarAlertasApiTests(ApiTestCase):
+    """`POST /api/conversaciones/<id>/vaciar-alertas/`: descarta las abiertas."""
+
+    def setUp(self):
+        super().setUp()
+        self.consulta = fabricas.crear_consulta(self.conversacion)
+        fabricas.crear_alerta(self.consulta)
+        fabricas.crear_alerta(self.consulta)
+
+    @property
+    def ruta(self) -> str:
+        return f"/api/conversaciones/{self.conversacion.id}/vaciar-alertas/"
+
+    def test_devuelve_el_detalle_sin_alertas(self):
+        self.entrar()
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 200, respuesta.content)
+        self.assertEqual(respuesta.json()["alertas"], [])
+
+    def test_un_operador_sin_permiso_de_aprobacion_es_403(self):
+        self.entrar(self.operador)
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 403, respuesta.content)
+
+    def test_sin_sesion_no_se_puede_vaciar(self):
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertIn(respuesta.status_code, (401, 403))
+
+    def test_con_una_respuesta_retenida_es_409(self):
+        self.entrar()
+        fabricas.crear_mensaje(
+            self.conversacion,
+            consulta=self.consulta,
+            direccion="saliente",
+            emisor="bot",
+            estado_envio="retenido",
+            wa_message_id=None,
+        )
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 409, respuesta.content)
+
+    def test_una_conversacion_inexistente_es_404(self):
+        self.entrar()
+
+        respuesta = self.cliente_api.post(
+            "/api/conversaciones/999999/vaciar-alertas/", {}, format="json"
+        )
+
+        self.assertEqual(respuesta.status_code, 404, respuesta.content)
+
+
+class BorrarConversacionApiTests(ApiTestCase):
+    """`POST /api/conversaciones/<id>/borrar/`: borra el chat entero."""
+
+    def setUp(self):
+        super().setUp()
+        self.consulta = fabricas.crear_consulta(self.conversacion)
+        fabricas.crear_mensaje(self.conversacion, consulta=self.consulta)
+        fabricas.crear_alerta(self.consulta)
+
+    @property
+    def ruta(self) -> str:
+        return f"/api/conversaciones/{self.conversacion.id}/borrar/"
+
+    def test_borra_y_cuenta_lo_que_se_llevo(self):
+        self.entrar()
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 200, respuesta.content)
+        self.assertEqual(
+            respuesta.json(),
+            {"id": self.conversacion.id, "borrados": {"mensajes": 1, "casos": 1, "alertas": 1}},
+        )
+        detalle = self.cliente_api.get(f"/api/conversaciones/{self.conversacion.id}/")
+        self.assertEqual(detalle.status_code, 404)
+
+    def test_ya_no_aparece_en_la_bandeja(self):
+        self.entrar()
+        self.cliente_api.post(self.ruta, {}, format="json")
+
+        respuesta = self.cliente_api.get("/api/conversaciones/")
+
+        self.assertEqual(respuesta.json()["total"], 0)
+
+    def test_un_operador_sin_permiso_de_aprobacion_es_403(self):
+        self.entrar(self.operador)
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 403, respuesta.content)
+
+    def test_con_una_accion_administrativa_es_409_y_no_borra(self):
+        self.entrar()
+        fabricas.crear_accion(self.consulta)
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 409, respuesta.content)
+        detalle = self.cliente_api.get(f"/api/conversaciones/{self.conversacion.id}/")
+        self.assertEqual(detalle.status_code, 200)
+
+    def test_sin_sesion_no_se_puede_borrar(self):
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertIn(respuesta.status_code, (401, 403))
+
+    def test_una_conversacion_inexistente_es_404(self):
+        self.entrar()
+
+        respuesta = self.cliente_api.post("/api/conversaciones/999999/borrar/", {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 404, respuesta.content)

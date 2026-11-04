@@ -16,6 +16,8 @@ const mensajesChat = document.getElementById("mensajes-chat");
 const botonModo = document.getElementById("boton-modo");
 const botonCerrarCasos = document.getElementById("boton-cerrar-casos");
 const botonVaciar = document.getElementById("boton-vaciar");
+const botonBorrar = document.getElementById("boton-borrar");
+const botonVaciarAlertas = document.getElementById("boton-vaciar-alertas");
 const avisoBloqueo = document.getElementById("aviso-bloqueo");
 const botonDesbloquear = document.getElementById("boton-desbloquear");
 const formularioRespuesta = document.getElementById("formulario-respuesta");
@@ -215,6 +217,13 @@ function renderizarConversacion(detalle) {
     botonModo.hidden = cerrada;
     botonModo.textContent = detalle.modo === "humano" ? "Devolver al bot" : "Tomar conversación";
     botonVaciar.hidden = cerrada;
+    // Borrar y descartar alertas son decisiones de aprobador; la API lo exige
+    // igual, esto solo evita mostrar un botón que va a contestar 403.
+    const aprobador = Boolean(funcionario?.puede_aprobar);
+    botonBorrar.hidden = !aprobador;
+    botonVaciarAlertas.hidden = !aprobador
+        || !Array.isArray(detalle.alertas)
+        || detalle.alertas.length === 0;
 
     const casosAbiertos = Array.isArray(detalle.casos_abiertos) ? detalle.casos_abiertos : [];
     botonCerrarCasos.hidden = casosAbiertos.length === 0;
@@ -307,6 +316,36 @@ function vaciarChat() {
             nodosPorId.clear();
             mensajesChat.replaceChildren();
             mostrarMensajePagina("Chat vaciado. El próximo mensaje del cliente empieza una conversación nueva.");
+        },
+    );
+}
+
+function vaciarAlertas() {
+    const cantidad = conversacion?.alertas?.length ?? 0;
+    abrirConfirmacion(
+        "Vaciar alertas",
+        `Se descartan las ${cantidad} alerta(s) abiertas de esta conversación: salen del`
+        + " panel y de los contadores, pero quedan registradas con tu nombre. Si una de"
+        + " ellas bloquea el número por insistir con manipulación, también se desbloquea.",
+        async () => {
+            conversacion = await api.post(`/api/conversaciones/${idConversacion}/vaciar-alertas/`);
+            renderizarConversacion(conversacion);
+            notificarActualizacionPendientes();
+            mostrarMensajePagina("Alertas vaciadas.");
+        },
+    );
+}
+
+function borrarConversacion() {
+    abrirConfirmacion(
+        "Borrar conversación",
+        "Se borran para siempre la conversación, todos sus mensajes, sus casos y sus"
+        + " alertas. No se puede deshacer. Si el cliente vuelve a escribir, empieza una"
+        + " conversación nueva. Si tiene acciones administrativas o siniestros asociados,"
+        + " no se borra.",
+        async () => {
+            await api.post(`/api/conversaciones/${idConversacion}/borrar/`);
+            globalThis.location.assign("/panel/");
         },
     );
 }
@@ -492,6 +531,8 @@ async function iniciar() {
 botonModo.addEventListener("click", cambiarModo);
 botonCerrarCasos.addEventListener("click", cerrarCasos);
 botonVaciar.addEventListener("click", vaciarChat);
+botonBorrar.addEventListener("click", borrarConversacion);
+botonVaciarAlertas.addEventListener("click", vaciarAlertas);
 botonDesbloquear.addEventListener("click", desbloquearNumero);
 formularioRespuesta.addEventListener("submit", responder);
 dialogoCancelar.addEventListener("click", () => dialogo.close());

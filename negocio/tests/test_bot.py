@@ -29,6 +29,7 @@ from datos.models import (
     TipoAccion,
 )
 from negocio.bot import plantillas, registro
+from negocio.bot.clasificador import clasificar as clasificar_por_reglas
 from negocio.bot.guardrails import evaluar_entrada, evaluar_salida
 from negocio.bot.llm import FakeLLM
 from negocio.documentos import aprobar_documento, crear_documento, retirar_documento
@@ -1708,3 +1709,105 @@ class AccionesQueArmaElBotTests(BaseBotTests):
             Derivacion.objects.get().derivado_a_id, self.escenario.graciela.id
         )
         self.assertFalse(AccionPendiente.objects.exists())
+
+
+class CharlaQueNoEsConsultaTests(BaseBotTests):
+    """Un "gracias" se contesta y lo que no es de seguros se aclara: ninguno deriva."""
+
+    def _turno(self, texto, llm=None, etiqueta="1001"):
+        conversacion = self._conversacion(etiqueta)
+        mensaje = self._entrante(conversacion, texto)
+        llm = llm or FakeLLM()
+        with patch("negocio.bot.orquestador.cliente_llm", return_value=llm):
+            with self.captureOnCommitCallbacks(execute=True):
+                return procesar_mensaje(mensaje.id), llm
+
+    def test_el_clasificador_reconoce_agradecimientos_y_despedidas(self):
+        for texto in (
+            "Gracias", "gracias!", "Muchas gracias", "mil gracias, genial",
+            "ok gracias", "te agradezco", "chau", "Chau, gracias por todo",
+            "hasta luego", "muy amable",
+        ):
+            with self.subTest(texto=texto):
+                self.assertEqual(clasificar_por_reglas(texto), "agradecimiento")
+
+    def test_un_gracias_con_un_pedido_sigue_siendo_el_pedido(self):
+        for texto, esperado in (
+            ("gracias, cuánto debo?", "saldo"),
+            ("gracias, quiero dar de baja mi póliza", "baja"),
+            ("gracias pero necesito la grúa", "asistencia"),
+        ):
+            with self.subTest(texto=texto):
+                self.assertEqual(clasificar_por_reglas(texto), esperado)
+
+    def test_un_saludo_sigue_siendo_un_saludo(self):
+        self.assertEqual(clasificar_por_reglas("hola"), "saludo")
+        self.assertEqual(clasificar_por_reglas("buenas tardes"), "saludo")
+
+    def test_gracias_se_contesta_sin_repreguntar_ni_derivar(self):
+        resultado, _ = self._turno("Gracias")
+
+        self.assertEqual(resultado.tipo_consulta, "agradecimiento")
+        self.assertEqual(self._respuesta(resultado).texto, plantillas.AGRADECIMIENTO)
+        self.assertFalse(Derivacion.objects.exists())
+        self.assertEqual(ConsultaBot.objects.get().estado, EstadoConsulta.CERRADO)
+
+    def test_chau_se_contesta_con_una_despedida(self):
+        resultado, _ = self._turno("chau")
+
+        self.assertEqual(self._respuesta(resultado).texto, plantillas.DESPEDIDA)
+
+    def test_gracias_de_un_desconocido_tampoco_pide_datos_ni_deriva(self):
+        resultado, _ = self._turno("gracias", etiqueta="1007")
+
+        self.assertEqual(self._respuesta(resultado).texto, plantillas.AGRADECIMIENTO)
+        self.assertFalse(Derivacion.objects.exists())
+
+    def test_el_gracias_lo_redacta_el_llm_si_hay_y_no_decide_el_tipo(self):
+        llm = FakeLLM(clasificacion="otro", charla="¡De nada! Cualquier cosa, acá estoy.")
+
+        resultado, llm = self._turno("gracias", llm)
+
+        self.assertEqual(resultado.tipo_consulta, "agradecimiento")
+        self.assertEqual(
+            self._respuesta(resultado).texto, "¡De nada! Cualquier cosa, acá estoy."
+        )
+        self.assertNotIn("clasificar", [llamada[0] for llamada in llm.llamadas])
+
+    def test_lo_que_el_llm_ve_como_ajeno_al_seguro_recibe_la_aclaracion(self):
+        llm = FakeLLM(clasificacion="ajeno", charla="Claro, la receta es...")
+
+        resultado, _ = self._turno("pasame una receta de tortilla", llm)
+
+        self.assertEqual(resultado.tipo_consulta, "ajeno")
+        self.assertEqual(self._respuesta(resultado).texto, plantillas.FUERA_DE_TEMA)
+        self.assertFalse(Derivacion.objects.exists())
+        self.assertEqual(ConsultaBot.objects.get().estado, EstadoConsulta.CERRADO)
+
+    def test_ajeno_no_pisa_un_pedido_que_las_reglas_reconocen(self):
+        llm = FakeLLM(clasificacion="ajeno")
+
+        resultado, _ = self._turno("cuánto debo de mi póliza", llm)
+
+        self.assertEqual(resultado.tipo_consulta, "saldo")
+
+    def test_ajeno_no_pisa_el_pedido_de_hablar_con_una_persona(self):
+        llm = FakeLLM(clasificacion="ajeno")
+
+        resultado, _ = self._turno("quiero hablar con un asesor", llm)
+
+        self.assertEqual(resultado.tipo_consulta, "otro")
+
+    def test_lo_ambiguo_sigue_preguntando_que_necesita(self):
+        llm = FakeLLM(clasificacion="otro")
+
+        resultado, _ = self._turno("asdkjh qwe", llm)
+
+        self.assertIn(plantillas.MARCA_NO_ENTENDI, self._respuesta(resultado).texto)
+
+    def test_las_plantillas_nuevas_no_disparan_los_guardrails(self):
+        for texto in (
+            plantillas.AGRADECIMIENTO, plantillas.DESPEDIDA, plantillas.FUERA_DE_TEMA
+        ):
+            with self.subTest(texto=texto[:30]):
+                self.assertEqual(evaluar_salida(texto, cliente_id=None), [])

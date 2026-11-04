@@ -15,6 +15,7 @@ const destinos = [
     { etiqueta: "Clientes", destino: "/panel/clientes/" },
     { etiqueta: "Casos cerrados", destino: "/panel/cerrados/" },
     { etiqueta: "Métricas", destino: "/panel/metricas/" },
+    { etiqueta: "Documentos", destino: "/panel/documentos/" },
 ];
 
 function crearElemento(etiqueta, clase, texto) {

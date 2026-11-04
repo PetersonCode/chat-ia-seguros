@@ -21,6 +21,7 @@
                 <button id="boton-desbloquear" class="btn btn-warning btn-sm" type="button" hidden>Desbloquear número</button>
                 <button id="boton-cerrar-casos" class="btn btn-outline-danger btn-sm" type="button" hidden></button>
                 <button id="boton-vaciar" class="btn btn-outline-secondary btn-sm" type="button" hidden>Vaciar chat</button>
+                <button id="boton-borrar" class="btn btn-danger btn-sm" type="button" hidden>Borrar conversación</button>
             </div>
         </header>
         <p id="mensaje-pagina" class="alert d-none" role="status" aria-live="polite"></p>
@@ -54,8 +55,9 @@
                     </div>
                 </section>
                 <section class="card shadow-sm border-0" aria-labelledby="titulo-alertas">
-                    <div class="card-header bg-white">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
                         <h2 id="titulo-alertas" class="h6 mb-0">Alertas</h2>
+                        <button id="boton-vaciar-alertas" class="btn btn-outline-secondary btn-sm" type="button" hidden>Vaciar alertas</button>
                     </div>
                     <div id="panel-alertas" class="card-body">
                         <p class="text-muted mb-0">Cargando alertas…</p>

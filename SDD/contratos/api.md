@@ -36,6 +36,8 @@ Cambiar un endpoint o una forma de respuesta requiere acuerdo de las 4 personas.
 | `POST /api/conversaciones/{id}/tomar/` | sesión | → `200 conversacion_detalle` |
 | `POST /api/conversaciones/{id}/devolver/` | sesión | → `200 conversacion_detalle` |
 | `POST /api/conversaciones/{id}/desbloquear/` | aprobador | Levanta el bloqueo de 48 h por insistencia del número; resuelve su alerta → `200 conversacion_detalle`. `409` si no está bloqueado |
+| `POST /api/conversaciones/{id}/vaciar-alertas/` | aprobador | Descarta las alertas abiertas de la conversación (`descartada`, firmadas; no se borran) → `200 conversacion_detalle`. `409` si hay una respuesta retenida sin resolver |
+| `POST /api/conversaciones/{id}/borrar/` | aprobador | Borra la conversación con sus mensajes, casos y alertas, sin vuelta atrás → `200 {id, borrados: {mensajes, casos, alertas}}`. `409` si tiene acciones administrativas, siniestros o fotos de siniestro asociados |
 | `POST /api/conversaciones/{id}/responder/` | sesión | `{texto}` → `201 mensaje` |
 | `POST /api/mensajes/{id}/liberar/` | aprobador | `{texto_corregido?}` → `200 mensaje` (el que sale al cliente) |
 | `POST /api/mensajes/{id}/descartar/` | aprobador | `{motivo}` → `200 mensaje` |

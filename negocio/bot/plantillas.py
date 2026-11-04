@@ -22,6 +22,19 @@ DERIVACION = "Te derivamos con un asesor, que te va a responder a la brevedad."
 DERIVACION_URGENTE = "Entendemos que es urgente. Ya avisamos a un asesor para que se comunique con vos cuanto antes."
 AVISO_NEUTRO = "Gracias por tu consulta, un asesor te responderá a la brevedad."
 
+# --- Charla que no es una consulta -------------------------------------------
+# Agradecer o despedirse se contesta y se cierra: no se repregunta ni se deriva.
+# Son el respaldo de lo que redacta el LLM, o lo único si no hay LLM.
+AGRADECIMIENTO = "¡De nada! Si necesitás algo más sobre tu seguro, escribime cuando quieras."
+DESPEDIDA = "¡Hasta luego! Cualquier consulta sobre tu seguro, escribime cuando quieras."
+# Fuera de tema se contesta siempre con el texto fijo, nunca con el LLM: un
+# modelo libre terminaría respondiendo la receta o la cuenta que le pidieron.
+FUERA_DE_TEMA = (
+    "Disculpá, solo puedo ayudarte con temas de tu seguro: saldo, vencimiento "
+    "de pólizas, siniestros, asistencia en el camino o cotizaciones. Si "
+    "necesitás algo de eso, contame."
+)
+
 # --- Asistencia en el camino -----------------------------------------------
 # El teléfono depende de la cobertura contratada, así que sale de la póliza del
 # cliente y no de una constante suelta: es un dato suyo, como el saldo.

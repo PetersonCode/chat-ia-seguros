@@ -66,6 +66,8 @@ _TIPOS_CONSULTA = (
     ("registro", "Alta de cliente", "requiere_aprobacion"),
     ("asistencia", "Asistencia en el camino", "bot_responde"),
     ("pago", "Pagos y cuotas", "derivar_humano"),
+    ("agradecimiento", "Agradecimiento o despedida", "bot_responde"),
+    ("ajeno", "Fuera de tema", "bot_responde"),
 )
 
 

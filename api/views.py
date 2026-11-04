@@ -117,6 +117,8 @@ from negocio.supervision import (
     responder_como_humano,
     tomar_conversacion,
     vaciar_chat,
+    vaciar_alertas,
+    borrar_conversacion,
     desbloquear_numero,
 )
 
@@ -656,6 +658,24 @@ def conversacion_vaciar(request, id):
     """Cierra la conversación para que el bot arranque sin contexto."""
     vaciar_chat(id, request.funcionario.id)
     return Response(_conversacion_detalle(id))
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsAprobador])
+def conversacion_vaciar_alertas(request, id):
+    """Descarta las alertas abiertas de la conversación; devuelve el detalle."""
+    vaciar_alertas(id, request.funcionario.id)
+    return Response(_conversacion_detalle(id))
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsAprobador])
+def conversacion_borrar(request, id):
+    """Borra la conversación entera. 409 si hay expedientes que dependen de ella."""
+    borrados = borrar_conversacion(id, request.funcionario.id)
+    return Response({"id": id, "borrados": borrados})
 
 
 @api_view(["POST"])

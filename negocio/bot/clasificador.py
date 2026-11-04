@@ -32,6 +32,7 @@ ORDEN = (
     "cotizacion",
     "consulta_cobertura",
     "registro",
+    "agradecimiento",
     "saludo",
 )
 
@@ -229,6 +230,8 @@ PATRONES: dict[str, tuple[str, ...]] = {
         "documentacion necesaria",
         "documentos necesarios",
     ),
+    # No se busca por subcadena sino con `_es_cierre_cordial` (ver abajo).
+    "agradecimiento": (),
     # Va último en ORDEN, así que acá solo cae lo que ningún otro tipo pidió:
     # es el lugar seguro para la jerga rioplatense. "todo bien" no le roba nada
     # a "todo bien, quiero mi saldo", porque saldo se evalúa antes.
@@ -250,6 +253,34 @@ PATRONES: dict[str, tuple[str, ...]] = {
         "gracias",
     ),
 }
+
+
+# Agradecer o despedirse no es una consulta: no hay nada que resolver ni que
+# derivar. Se reconoce solo cuando el mensaje es corto y no pregunta nada, para
+# no tragarse un "gracias, ¿y mi saldo?" (eso lo gana `saldo`, que se evalúa
+# antes, y si no matchea nada igual cae en el saludo). "dale", "ok" o "listo"
+# no cuentan a propósito: suelen ser un "sí" a algo que preguntó el bot.
+_AGRADECE = re.compile(r"\b(?:gracias|agradezco|agradecid[oa]|muy amable)\b")
+_DESPIDE = re.compile(
+    r"\b(?:chau|chao|adios|hasta luego|hasta pronto|hasta manana|nos vemos|buen fin de semana)\b"
+)
+MAX_PALABRAS_CIERRE = 8
+
+
+def agradece(texto: str) -> bool:
+    """Si el mensaje trae un agradecimiento."""
+    return bool(_AGRADECE.search(normalizar(texto)))
+
+
+def se_despide(texto: str) -> bool:
+    """Si el mensaje trae una despedida."""
+    return bool(_DESPIDE.search(normalizar(texto)))
+
+
+def _es_cierre_cordial(normalizado: str) -> bool:
+    if "?" in normalizado or len(normalizado.split()) > MAX_PALABRAS_CIERRE:
+        return False
+    return bool(_AGRADECE.search(normalizado) or _DESPIDE.search(normalizado))
 
 
 def normalizar(texto: str) -> str:
@@ -334,6 +365,10 @@ def clasificar(texto: str) -> str:
                 for patron in PATRONES[tipo]:
                     if any(not _esta_negado(frase[:m.start()]) for m in re.finditer(re.escape(patron), frase)):
                         return tipo
+            continue
+        if tipo == "agradecimiento":
+            if _es_cierre_cordial(candidatos):
+                return tipo
             continue
         if any(patron in candidatos for patron in PATRONES[tipo]):
             return corregir_cruce_cobertura(tipo, texto)

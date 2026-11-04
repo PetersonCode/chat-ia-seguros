@@ -17,6 +17,14 @@ const paginaActual = document.getElementById("pagina-actual");
 const botonAnterior = document.getElementById("pagina-anterior");
 const botonSiguiente = document.getElementById("pagina-siguiente");
 
+const dialogoBorrar = document.getElementById("dialog-borrar");
+const dialogoBorrarDescripcion = document.getElementById("dialog-borrar-descripcion");
+const dialogoBorrarError = document.getElementById("dialog-borrar-error");
+const dialogoBorrarCancelar = document.getElementById("dialog-borrar-cancelar");
+const dialogoBorrarConfirmar = document.getElementById("dialog-borrar-confirmar");
+
+let esAprobador = false;
+let conversacionABorrar = null;
 let paginaSeleccionada = 1;
 let paginasTotales = 1;
 let solicitudActual = 0;
@@ -40,6 +48,39 @@ function insigniaSeveridad(conversacion) {
     return etiqueta;
 }
 
+function pedirBorrado(conversacion) {
+    conversacionABorrar = conversacion;
+    dialogoBorrarError.textContent = "";
+    dialogoBorrarDescripcion.textContent =
+        `Se borran para siempre la conversación con ${conversacion.whatsapp}, sus mensajes,`
+        + " sus casos y sus alertas. No se puede deshacer. Si tiene acciones administrativas"
+        + " o siniestros asociados, no se borra.";
+    dialogoBorrar.showModal();
+}
+
+async function confirmarBorrado() {
+    if (!conversacionABorrar) {
+        return;
+    }
+    dialogoBorrarConfirmar.disabled = true;
+    dialogoBorrarError.textContent = "";
+    try {
+        await api.post(`/api/conversaciones/${conversacionABorrar.id}/borrar/`);
+        dialogoBorrar.close();
+        conversacionABorrar = null;
+        // Si se borró la última de la página, se vuelve a la anterior.
+        await cargarConversaciones(
+            filas.children.length <= 1 && paginaSeleccionada > 1
+                ? paginaSeleccionada - 1
+                : paginaSeleccionada,
+        );
+    } catch (error) {
+        dialogoBorrarError.textContent = error.mensaje ?? error.message ?? "No se pudo borrar la conversación.";
+    } finally {
+        dialogoBorrarConfirmar.disabled = false;
+    }
+}
+
 /** La tarjeta toma el color de la urgencia que calcula el servidor. */
 function crearTarjetaConversacion(conversacion) {
     const enlace = `/panel/conversacion/?id=${encodeURIComponent(conversacion.id)}`;
@@ -48,6 +89,18 @@ function crearTarjetaConversacion(conversacion) {
     ver.className = "btn btn-sm btn-outline-primary";
     ver.textContent = "Ver";
     ver.setAttribute("aria-label", `Abrir conversación ${conversacion.whatsapp}`);
+
+    // Borrar es de aprobadores; la API lo exige igual, esto evita ofrecer un
+    // botón que va a contestar 403.
+    let borrar = null;
+    if (esAprobador) {
+        borrar = document.createElement("button");
+        borrar.type = "button";
+        borrar.className = "btn btn-sm btn-outline-danger";
+        borrar.textContent = "Borrar";
+        borrar.setAttribute("aria-label", `Borrar conversación ${conversacion.whatsapp}`);
+        borrar.addEventListener("click", () => pedirBorrado(conversacion));
+    }
 
     return crearTarjeta({
         titulo: nombreCliente(conversacion.cliente),
@@ -69,7 +122,7 @@ function crearTarjetaConversacion(conversacion) {
             )],
             ["Atiende", conversacion.atendida_por?.nombre ?? "—"],
         ],
-        acciones: [ver],
+        acciones: [ver, borrar],
     });
 }
 
@@ -158,5 +211,15 @@ botonSiguiente.addEventListener("click", () => {
     }
 });
 
+dialogoBorrarCancelar.addEventListener("click", () => dialogoBorrar.close());
+dialogoBorrarConfirmar.addEventListener("click", confirmarBorrado);
+
 inicializarNav();
-cargarConversaciones();
+// El botón de borrar depende del rol: se sabe antes de pintar las tarjetas. Si
+// no se puede saber, la bandeja se muestra igual, sin el botón.
+api.get("/api/auth/me/")
+    .then((me) => {
+        esAprobador = Boolean(me?.puede_aprobar);
+    })
+    .catch(() => {})
+    .finally(() => cargarConversaciones());

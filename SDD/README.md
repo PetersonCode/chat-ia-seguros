@@ -45,6 +45,9 @@ Se hace **de abajo hacia arriba**, porque cada capa usa la anterior:
 
 > Los números de tarea son los que eligieron; el orden de ejecución es 4 → 3 → 2 → 1. Si se hiciera al revés, el front se construiría contra una API que todavía no existe.
 
+## Funcionalidad nueva: paquetes P1 a P9
+Después de T1 a T4 Roberto pidió ampliar el sistema (vender, renovar, cobrar, documentos, siniestros, equipo, fidelización). Esas specs viven en [`paquetes/`](paquetes/README.md): cada **paquete** cruza las 4 capas y se hace en un chat nuevo, en este orden recomendado: P1 y P2 (independientes) → P3 → P4 → P5 → P6 → P7 → P8 → P9. `python SDD/verificar.py T1` a `T4` ya cuenta también sus AC.
+
 ## Flujo de git (cada persona)
 ```bash
 git checkout main && git pull                 # trae lo que integraron las tareas anteriores

@@ -110,8 +110,9 @@ class ImportarConsultasTests(TestCase):
         self.assertEqual(resolucion_anterior.funcionario_asignado, self.roberto)
         self.assertIsNone(resolucion_anterior.fecha_resolucion)
         self.assertIn("anterior", resolucion_anterior.notas_importacion)
-        # Los doce del seed original más registro, asistencia y pago.
-        self.assertEqual(TipoConsulta.objects.count(), 15)
+        # Los doce del seed original más registro, asistencia, pago,
+        # agradecimiento y fuera de tema.
+        self.assertEqual(TipoConsulta.objects.count(), 17)
 
     # AC-T4-27
     def test_omite_duplicados_importa_el_resto_y_continua_tras_error(self):

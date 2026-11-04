@@ -17,8 +17,8 @@ from pathlib import Path
 
 SDD = Path(__file__).resolve().parent
 RAIZ = SDD.parent
-RE_AC = re.compile(r"\bAC-T[1-4]-\d{2}\b")
-RE_DEFINICION = re.compile(r"^\|\s*(AC-T[1-4]-\d{2})\s*\|\s*(\*\*\(QA\)\*\*)?", re.M)
+RE_AC = re.compile(r"\bAC-T[1-4]-\d{2,3}\b")
+RE_DEFINICION = re.compile(r"^\|\s*(AC-T[1-4]-\d{2,3})\s*\|\s*(\*\*\(QA\)\*\*)?", re.M)
 RE_TILDADO = re.compile(r"^\s*[-*]\s*\[[xX]\]")
 IGNORAR = {".git", ".venv", "venv", "node_modules", "__pycache__", "SDD"}
 
@@ -26,10 +26,11 @@ IGNORAR = {".git", ".venv", "venv", "node_modules", "__pycache__", "SDD"}
 def definidos() -> dict[str, dict[str, bool]]:
     """{tarea: {AC: es_qa}}"""
     salida: dict[str, dict[str, bool]] = {}
-    for spec in sorted(SDD.glob("T[1-4]-*.md")):
-        tarea = spec.name[:2]
+    # Los AC de cada paquete (SDD/paquetes/P*.md) cuentan para la capa que dice su id.
+    specs = sorted(SDD.glob("T[1-4]-*.md")) + sorted((SDD / "paquetes").glob("P[1-9]-*.md"))
+    for spec in specs:
         for ac, qa in RE_DEFINICION.findall(spec.read_text(encoding="utf-8")):
-            salida.setdefault(tarea, {})[ac] = bool(qa)
+            salida.setdefault(ac[3:5], {})[ac] = bool(qa)
     return salida
 
 

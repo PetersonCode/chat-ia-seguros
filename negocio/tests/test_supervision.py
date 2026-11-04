@@ -10,6 +10,9 @@ from django.utils import timezone
 from datos import fabricas
 from datos.models import (
     Alerta,
+    ConsultaBot,
+    Conversacion,
+    Derivacion,
     EstadoAlerta,
     EstadoConsulta,
     EstadoEnvio,
@@ -22,6 +25,7 @@ from negocio.errores import (
     PermisoDenegado,
 )
 from negocio.supervision import (
+    borrar_conversacion,
     cerrar_casos,
     descartar_respuesta,
     devolver_al_bot,
@@ -29,6 +33,7 @@ from negocio.supervision import (
     reabrir_consulta,
     responder_como_humano,
     tomar_conversacion,
+    vaciar_alertas,
     vaciar_chat,
 )
 from negocio.bot.plantillas import DERIVACION, DERIVACION_URGENTE
@@ -463,3 +468,147 @@ class VaciarChatTests(BaseSupervisionTests):
 
         with self.assertRaises(EstadoInvalido):
             vaciar_chat(self.conversacion.id, self.operador.id)
+
+
+class VaciarAlertasTests(BaseSupervisionTests):
+    """Vaciar las alertas las descarta, firmadas, y no toca nada más."""
+
+    def _alertas(self, cuantas: int = 2):
+        return [
+            fabricas.crear_alerta(self.consulta, descripcion=f"Alerta {n}")
+            for n in range(cuantas)
+        ]
+
+    def test_descarta_las_abiertas_y_devuelve_cuantas(self):
+        self._alertas(3)
+
+        cantidad = vaciar_alertas(self.conversacion.id, self.aprobador.id)
+
+        self.assertEqual(cantidad, 3)
+        for alerta in Alerta.objects.filter(consulta=self.consulta):
+            self.assertEqual(alerta.estado, EstadoAlerta.DESCARTADA)
+            self.assertEqual(alerta.resuelta_por_id, self.aprobador.id)
+            self.assertIsNotNone(alerta.resuelta_en)
+
+    def test_no_las_borra_ni_toca_las_ya_resueltas(self):
+        self._alertas(1)
+        resuelta = fabricas.crear_alerta(
+            self.consulta,
+            estado=EstadoAlerta.RESUELTA,
+            resuelta_por=self.aprobador,
+            resuelta_en=timezone.now(),
+            resolucion="Revisada",
+        )
+
+        cantidad = vaciar_alertas(self.conversacion.id, self.aprobador.id)
+
+        self.assertEqual(cantidad, 1)
+        self.assertEqual(Alerta.objects.filter(consulta=self.consulta).count(), 2)
+        resuelta.refresh_from_db()
+        self.assertEqual(resuelta.resolucion, "Revisada")
+
+    def test_no_toca_las_alertas_de_otra_conversacion(self):
+        otra = fabricas.crear_conversacion(fabricas.crear_contacto(fabricas.crear_cliente()))
+        ajena = fabricas.crear_alerta(fabricas.crear_consulta(otra))
+        self._alertas(1)
+
+        vaciar_alertas(self.conversacion.id, self.aprobador.id)
+
+        ajena.refresh_from_db()
+        self.assertEqual(ajena.estado, EstadoAlerta.ABIERTA)
+
+    def test_sin_alertas_devuelve_cero(self):
+        self.assertEqual(vaciar_alertas(self.conversacion.id, self.aprobador.id), 0)
+
+    def test_hace_falta_ser_aprobador(self):
+        self._alertas(1)
+
+        with self.assertRaises(PermisoDenegado):
+            vaciar_alertas(self.conversacion.id, self.operador.id)
+
+        self.assertEqual(Alerta.objects.filter(estado=EstadoAlerta.ABIERTA).count(), 1)
+
+    def test_no_vacia_con_una_respuesta_retenida(self):
+        self._retenido()
+
+        with self.assertRaises(EstadoInvalido):
+            vaciar_alertas(self.conversacion.id, self.aprobador.id)
+
+        self.alerta.refresh_from_db()
+        self.assertEqual(self.alerta.estado, EstadoAlerta.ABIERTA)
+
+    def test_una_conversacion_inexistente_es_no_encontrado(self):
+        with self.assertRaises(NoEncontrado):
+            vaciar_alertas(999999, self.aprobador.id)
+
+
+class BorrarConversacionTests(BaseSupervisionTests):
+    """Borrar la conversación se lleva sus mensajes, casos y alertas."""
+
+    def test_borra_la_conversacion_con_todo_lo_que_cuelga_de_ella(self):
+        fabricas.crear_mensaje(self.conversacion, consulta=self.consulta)
+        fabricas.crear_mensaje(
+            self.conversacion,
+            consulta=self.consulta,
+            direccion="saliente",
+            emisor="bot",
+            estado_envio=EstadoEnvio.ENVIADO,
+        )
+        fabricas.crear_alerta(self.consulta)
+        fabricas.crear_derivacion(self.consulta, self.aprobador)
+
+        borrados = borrar_conversacion(self.conversacion.id, self.aprobador.id)
+
+        self.assertEqual(borrados, {"mensajes": 2, "casos": 1, "alertas": 1})
+        self.assertFalse(Conversacion.objects.filter(pk=self.conversacion.id).exists())
+        self.assertFalse(ConsultaBot.objects.filter(pk=self.consulta.id).exists())
+        self.assertFalse(Mensaje.objects.exists())
+        self.assertFalse(Alerta.objects.exists())
+        self.assertFalse(Derivacion.objects.exists())
+
+    def test_borra_tambien_una_respuesta_retenida_con_su_alerta(self):
+        self._retenido()
+
+        borrar_conversacion(self.conversacion.id, self.aprobador.id)
+
+        self.assertFalse(Mensaje.objects.exists())
+        self.assertFalse(Alerta.objects.exists())
+
+    def test_no_toca_otras_conversaciones(self):
+        otra = fabricas.crear_conversacion(fabricas.crear_contacto(fabricas.crear_cliente()))
+        fabricas.crear_mensaje(otra)
+        fabricas.crear_alerta(fabricas.crear_consulta(otra))
+
+        borrar_conversacion(self.conversacion.id, self.aprobador.id)
+
+        self.assertTrue(Conversacion.objects.filter(pk=otra.id).exists())
+        self.assertEqual(Mensaje.objects.filter(conversacion=otra).count(), 1)
+        self.assertEqual(Alerta.objects.count(), 1)
+
+    def test_una_conversacion_sin_nada_se_borra(self):
+        ConsultaBot.objects.filter(pk=self.consulta.id).delete()
+
+        borrados = borrar_conversacion(self.conversacion.id, self.aprobador.id)
+
+        self.assertEqual(borrados, {"mensajes": 0, "casos": 0, "alertas": 0})
+
+    def test_se_niega_si_hay_una_accion_administrativa(self):
+        fabricas.crear_accion(self.consulta)
+
+        with self.assertRaises(EstadoInvalido) as contexto:
+            borrar_conversacion(self.conversacion.id, self.aprobador.id)
+
+        self.assertIn("acción", contexto.exception.mensaje)
+        self.assertIn("Vaciar chat", contexto.exception.mensaje)
+        self.assertTrue(Conversacion.objects.filter(pk=self.conversacion.id).exists())
+        self.assertTrue(ConsultaBot.objects.filter(pk=self.consulta.id).exists())
+
+    def test_hace_falta_ser_aprobador(self):
+        with self.assertRaises(PermisoDenegado):
+            borrar_conversacion(self.conversacion.id, self.operador.id)
+
+        self.assertTrue(Conversacion.objects.filter(pk=self.conversacion.id).exists())
+
+    def test_una_conversacion_inexistente_es_no_encontrado(self):
+        with self.assertRaises(NoEncontrado):
+            borrar_conversacion(999999, self.aprobador.id)

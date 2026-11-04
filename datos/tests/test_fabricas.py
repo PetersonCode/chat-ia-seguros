@@ -57,6 +57,8 @@ class FabricasTests(TestCase):
             ("registro", "Alta de cliente", "requiere_aprobacion"),
             ("asistencia", "Asistencia en el camino", "bot_responde"),
             ("pago", "Pagos y cuotas", "derivar_humano"),
+            ("agradecimiento", "Agradecimiento o despedida", "bot_responde"),
+            ("ajeno", "Fuera de tema", "bot_responde"),
         }
 
         fabricas.crear_catalogos()
@@ -73,8 +75,9 @@ class FabricasTests(TestCase):
             consultas_esperadas,
         )
         self.assertEqual(TipoSeguro.objects.count(), 5)
-        # Los doce del seed original más registro, asistencia y pago.
-        self.assertEqual(TipoConsulta.objects.count(), 15)
+        # Los doce del seed original más registro, asistencia, pago,
+        # agradecimiento y fuera de tema.
+        self.assertEqual(TipoConsulta.objects.count(), 17)
 
     # AC-T4-11
     def test_fabricas_crean_registros_validos_con_defaults_unicos(self):
