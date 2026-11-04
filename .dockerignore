@@ -6,3 +6,5 @@ __pycache__
 *.pyc
 SDD
 private_media
+docker-compose.yml
+Dockerfile
