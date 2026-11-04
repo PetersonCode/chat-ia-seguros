@@ -6,49 +6,56 @@
    ===================================================================== */
 
 :root {
-    color-scheme: light;
+    color-scheme: dark;
 
-    /* Tokens propios, con prefijo para no mezclarlos con los de Bootstrap. */
-    --sc-fondo: #f5f6fa;
-    --sc-superficie: #ffffff;
-    --sc-borde: #e7e9f0;
-    --sc-borde-fuerte: #d6dae5;
-    --sc-texto: #1b2130;
-    --sc-texto-suave: #697186;
-    /* Azul marino: color de marca. Cambiando estos valores cambia todo el front. */
-    --sc-marino: #0a2342;
-    --sc-marino-hover: #14325c;
-    --sc-acento: #123a6f;
-    --sc-acento-oscuro: #0a2342;
-    --sc-acento-suave: #e8eef7;
+    /* Tokens propios, con prefijo para no mezclarlos con los de Bootstrap.
+       Tema azul marino: cambiando estos valores cambia todo el front. */
+    --sc-marino: #0a2342;          /* fondo general */
+    --sc-marino-profundo: #06192f; /* barra superior */
+    --sc-fondo: #0a2342;
+    --sc-superficie: #12315c;      /* tarjetas */
+    --sc-superficie-hundida: #0e2a50;
+    --sc-borde: #24456f;
+    --sc-borde-fuerte: #35587f;
+    --sc-texto: #eef3fa;
+    --sc-texto-suave: #a9b8cf;
+    --sc-acento: #2f6fc4;          /* botones */
+    --sc-acento-oscuro: #4a86d8;   /* botones al pasar el mouse */
+    --sc-acento-claro: #8fb8f2;    /* enlaces y foco sobre fondo oscuro */
+    --sc-acento-texto: #cfe0f7;
+    --sc-acento-suave: #1b3f6e;
 
     --sc-radio: 0.875rem;
     --sc-radio-chico: 0.5rem;
-    --sc-sombra: 0 1px 2px rgb(16 24 40 / 5%), 0 2px 6px rgb(16 24 40 / 4%);
-    --sc-sombra-alta: 0 8px 28px rgb(16 24 40 / 10%);
+    --sc-sombra: 0 1px 2px rgb(0 0 0 / 25%), 0 2px 6px rgb(0 0 0 / 20%);
+    --sc-sombra-alta: 0 8px 28px rgb(0 0 0 / 40%);
 
     /* Un color por severidad. Lo comparten la etiqueta de la fila y el borde
        lateral, así que el nivel se lee igual en los dos lugares. */
-    --sev-critica: #b42318;
-    --sev-critica-fondo: #fef3f2;
-    --sev-alta: #b54708;
-    --sev-alta-fondo: #fff8f0;
-    --sev-media: #8a6100;
-    --sev-media-fondo: #fffaeb;
-    --sev-baja: #3f6212;
-    --sev-baja-fondo: #f4faf0;
-    --sev-neutra: #667085;
-    --sev-neutra-fondo: #f3f4f7;
+    --sev-critica: #ff8a80;
+    --sev-critica-fondo: #3d1f33;
+    --sev-alta: #ffb366;
+    --sev-alta-fondo: #3b2b2a;
+    --sev-media: #f0cf65;
+    --sev-media-fondo: #38362a;
+    --sev-baja: #9fd48a;
+    --sev-baja-fondo: #1c3d3a;
+    --sev-neutra: #a9b8cf;
+    --sev-neutra-fondo: #1b3a63;
 
     /* Bootstrap lee estas al pintar el cuerpo, los bordes y los enlaces. */
     --bs-body-bg: var(--sc-fondo);
     --bs-body-color: var(--sc-texto);
     --bs-border-color: var(--sc-borde);
     --bs-border-radius: var(--sc-radio-chico);
-    --bs-link-color: var(--sc-acento);
-    --bs-link-hover-color: var(--sc-acento-oscuro);
+    --bs-link-color: var(--sc-acento-claro);
+    --bs-link-hover-color: #b9d3f8;
+    --bs-link-color-rgb: 143, 184, 242;
+    --bs-link-hover-color-rgb: 185, 211, 248;
     --bs-emphasis-color: var(--sc-texto);
     --bs-secondary-color: var(--sc-texto-suave);
+    --bs-heading-color: var(--sc-texto);
+    --bs-code-color: #f0a6ca;
 }
 
 body {
@@ -68,7 +75,7 @@ table,
 
 h1, h2, h3, h4, h5, h6 {
     letter-spacing: -0.015em;
-    color: var(--sc-marino);
+    color: var(--sc-texto);
 }
 
 .text-muted {
@@ -84,7 +91,7 @@ a:hover {
 }
 
 :focus-visible {
-    outline: 2px solid var(--sc-acento);
+    outline: 2px solid var(--sc-acento-claro);
     outline-offset: 2px;
 }
 
@@ -95,12 +102,13 @@ a:hover {
    entre la marca y los enlaces, así que no se distinguía la navegación de los
    contadores ni el dato de los controles. */
 
-.navbar {
+.navbar,
+.navbar.bg-white {
     position: sticky;
     top: 0;
     z-index: 1030;
-    background-color: var(--sc-marino) !important;
-    border-bottom: 1px solid rgb(255 255 255 / 10%) !important;
+    background-color: var(--sc-marino-profundo) !important;
+    border-bottom: 1px solid var(--sc-borde) !important;
     padding-block: 0.5rem;
 }
 
@@ -230,7 +238,7 @@ a:hover {
 
 .nav-contador.urgente {
     background-color: var(--sev-critica);
-    color: #fff;
+    color: #3a0f0f;
 }
 
 .nav-separador {
@@ -341,13 +349,17 @@ main > header p {
 
 .table {
     --bs-table-bg: transparent;
-    --bs-table-hover-bg: #f8f9fc;
+    --bs-table-hover-bg: rgb(255 255 255 / 5%);
+    --bs-table-hover-color: var(--sc-texto);
+    --bs-table-border-color: var(--sc-borde);
+    --bs-table-striped-bg: rgb(255 255 255 / 3%);
+    --bs-table-striped-color: var(--sc-texto);
     --bs-table-color: var(--sc-texto);
     margin-bottom: 0;
 }
 
 .table > thead {
-    background-color: #fbfcfe;
+    background-color: var(--sc-superficie-hundida);
 }
 
 .table > thead th {
@@ -364,6 +376,8 @@ main > header p {
 .table > tbody td {
     padding-block: 0.8125rem;
     border-bottom-color: var(--sc-borde);
+    color: var(--sc-texto);
+    background-color: transparent;
     font-size: 0.9375rem;
     vertical-align: middle;
 }
@@ -382,7 +396,7 @@ main > header p {
     position: sticky;
     top: 0;
     z-index: 1;
-    background-color: #fbfcfe;
+    background-color: var(--sc-superficie-hundida);
 }
 
 /* --- Severidad --------------------------------------------------------- */
@@ -482,7 +496,7 @@ main > header p {
 /* Dentro de una `.card` la grilla va sobre un fondo apenas gris, para que las
    tarjetas se despeguen del contenedor. */
 .card > .grilla-tarjetas {
-    background-color: #f8f9fc;
+    background-color: var(--sc-superficie-hundida);
 }
 
 /* Una sola columna y sin margen: para paneles laterales angostos. */
@@ -538,7 +552,7 @@ main > header p {
 }
 
 .tarjeta.seleccionada {
-    outline: 2px solid var(--sc-acento);
+    outline: 2px solid var(--sc-acento-claro);
     outline-offset: 2px;
 }
 
@@ -553,12 +567,12 @@ main > header p {
 }
 
 .tarjeta-amarillo {
-    --tarjeta-color: #d6a100;
+    --tarjeta-color: #e0b52f;
     --tarjeta-fondo: var(--sev-media-fondo);
 }
 
 .tarjeta-verde {
-    --tarjeta-color: #7fb069;
+    --tarjeta-color: #6fae5a;
     --tarjeta-fondo: var(--sev-baja-fondo);
 }
 
@@ -570,7 +584,7 @@ main > header p {
 /* Algo que ya no está en uso (un usuario desactivado, un cliente de baja). */
 .tarjeta-apagada {
     --tarjeta-color: var(--sc-borde-fuerte);
-    --tarjeta-fondo: #f3f4f7;
+    --tarjeta-fondo: var(--sc-superficie-hundida);
     opacity: 0.72;
 }
 
@@ -614,7 +628,7 @@ main > header p {
 }
 
 .tarjeta-enlace:hover {
-    color: var(--sc-acento);
+    color: var(--sc-acento-claro);
     text-decoration: none;
 }
 
@@ -694,7 +708,7 @@ main > header p {
     padding: 0.1875rem 0.5rem;
     border: 1px solid var(--sc-borde-fuerte);
     border-radius: 999px;
-    background-color: #fafbfd;
+    background-color: var(--sc-superficie-hundida);
     font-size: 0.75rem;
     font-weight: 600;
     line-height: 1.3;
@@ -703,9 +717,9 @@ main > header p {
 }
 
 .pildora-activa {
-    border-color: color-mix(in srgb, var(--sc-acento) 25%, transparent);
+    border-color: color-mix(in srgb, var(--sc-acento-claro) 35%, transparent);
     background-color: var(--sc-acento-suave);
-    color: var(--sc-acento-oscuro);
+    color: var(--sc-acento-texto);
 }
 
 .pildora-aviso {
@@ -725,6 +739,8 @@ main > header p {
 
 .form-control,
 .form-select {
+    background-color: rgb(255 255 255 / 7%);
+    color: var(--sc-texto);
     border-color: var(--sc-borde-fuerte);
     border-radius: var(--sc-radio-chico);
     font-size: 0.9375rem;
@@ -734,12 +750,35 @@ main > header p {
 
 .form-control:focus,
 .form-select:focus {
-    border-color: var(--sc-acento);
-    box-shadow: 0 0 0 3px var(--sc-acento-suave);
+    background-color: rgb(255 255 255 / 11%);
+    color: var(--sc-texto);
+    border-color: var(--sc-acento-claro);
+    box-shadow: 0 0 0 3px rgb(143 184 242 / 28%);
 }
 
 .form-control::placeholder {
-    color: #aab1c0;
+    color: rgb(255 255 255 / 42%);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+    background-color: rgb(255 255 255 / 4%);
+    color: var(--sc-texto-suave);
+}
+
+/* La flecha del desplegable, clara para que se vea sobre fondo oscuro. */
+.form-select {
+    --bs-form-select-bg-img: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23cfe0f7' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+}
+
+.form-select option {
+    background-color: var(--sc-superficie);
+    color: var(--sc-texto);
+}
+
+.form-check-input {
+    background-color: rgb(255 255 255 / 8%);
+    border-color: var(--sc-borde-fuerte);
 }
 
 .form-check-input:checked {
@@ -748,8 +787,8 @@ main > header p {
 }
 
 .form-check-input:focus {
-    border-color: var(--sc-acento);
-    box-shadow: 0 0 0 3px var(--sc-acento-suave);
+    border-color: var(--sc-acento-claro);
+    box-shadow: 0 0 0 3px rgb(143 184 242 / 28%);
 }
 
 .form-text {
@@ -784,25 +823,28 @@ main > header p {
     --bs-btn-hover-border-color: var(--sc-acento-oscuro);
     --bs-btn-active-bg: var(--sc-acento-oscuro);
     --bs-btn-active-border-color: var(--sc-acento-oscuro);
-    --bs-btn-disabled-bg: #8da0bd;
-    --bs-btn-disabled-border-color: #8da0bd;
+    --bs-btn-disabled-bg: #3a5a86;
+    --bs-btn-disabled-border-color: #3a5a86;
+    --bs-btn-disabled-color: #a9b8cf;
 }
 
 .btn-outline-secondary {
     --bs-btn-color: var(--sc-texto-suave);
     --bs-btn-border-color: var(--sc-borde-fuerte);
-    --bs-btn-hover-bg: #f1f3f8;
+    --bs-btn-hover-bg: rgb(255 255 255 / 10%);
     --bs-btn-hover-border-color: var(--sc-borde-fuerte);
     --bs-btn-hover-color: var(--sc-texto);
-    --bs-btn-active-bg: #e9ecf4;
+    --bs-btn-active-bg: rgb(255 255 255 / 16%);
     --bs-btn-active-border-color: var(--sc-borde-fuerte);
     --bs-btn-active-color: var(--sc-texto);
 }
 
 .btn-outline-primary {
-    --bs-btn-color: var(--sc-acento);
-    --bs-btn-border-color: color-mix(in srgb, var(--sc-acento) 35%, transparent);
+    --bs-btn-color: var(--sc-acento-claro);
+    --bs-btn-border-color: color-mix(in srgb, var(--sc-acento-claro) 45%, transparent);
     --bs-btn-hover-bg: var(--sc-acento);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-color: #fff;
     --bs-btn-hover-border-color: var(--sc-acento);
     --bs-btn-active-bg: var(--sc-acento-oscuro);
     --bs-btn-active-border-color: var(--sc-acento-oscuro);
@@ -817,11 +859,90 @@ main > header p {
     padding: 0.75rem 1rem;
 }
 
+/* Avisos con tinte oscuro: los pasteles de Bootstrap encandilan sobre azul marino. */
+.alert-danger {
+    --bs-alert-bg: #3d1f33;
+    --bs-alert-color: #ffc2bd;
+    --bs-alert-border-color: #7a3445;
+}
+
+.alert-success {
+    --bs-alert-bg: #163d3a;
+    --bs-alert-color: #b6e5c4;
+    --bs-alert-border-color: #2c6a54;
+}
+
+.alert-warning {
+    --bs-alert-bg: #3b3426;
+    --bs-alert-color: #f6dc8f;
+    --bs-alert-border-color: #7a6528;
+}
+
+.alert-info {
+    --bs-alert-bg: #17406b;
+    --bs-alert-color: #bddcf9;
+    --bs-alert-border-color: #2f6fa8;
+}
+
 /* --- Listas ------------------------------------------------------------ */
 
 .list-group-item {
     border-color: var(--sc-borde);
     background-color: transparent;
+    color: var(--sc-texto);
+}
+
+/* --- Utilidades de Bootstrap que traen colores claros ------------------- */
+
+.bg-white,
+.bg-light {
+    background-color: var(--sc-superficie) !important;
+}
+
+.text-dark,
+.text-body {
+    color: var(--sc-texto) !important;
+}
+
+.text-primary { color: var(--sc-acento-claro) !important; }
+.text-success { color: #8fd6a4 !important; }
+.text-danger { color: #ff9b92 !important; }
+.text-warning,
+.text-warning-emphasis { color: #f0cf65 !important; }
+.text-info { color: #7fc4f0 !important; }
+
+.bg-primary-subtle { background-color: #1b3f6e !important; }
+.bg-success-subtle { background-color: #16443c !important; }
+.bg-warning-subtle { background-color: #3f3a24 !important; }
+.bg-info-subtle { background-color: #174a6b !important; }
+
+.text-bg-secondary {
+    background-color: #35587f !important;
+    color: #fff !important;
+}
+
+.btn-outline-danger {
+    --bs-btn-color: #ff9b92;
+    --bs-btn-border-color: #7a3445;
+    --bs-btn-hover-bg: #b4373a;
+    --bs-btn-hover-border-color: #b4373a;
+    --bs-btn-hover-color: #fff;
+}
+
+.btn-outline-success {
+    --bs-btn-color: #8fd6a4;
+    --bs-btn-border-color: #2c6a54;
+    --bs-btn-hover-bg: #1f7a58;
+    --bs-btn-hover-border-color: #1f7a58;
+    --bs-btn-hover-color: #fff;
+}
+
+.progress {
+    --bs-progress-bg: rgb(255 255 255 / 10%);
+}
+
+.bg-primary {
+    background-color: var(--sc-acento) !important;
 }
 
 /* --- Bandeja de la conversación ---------------------------------------- */
@@ -834,9 +955,9 @@ main > header p {
     max-height: 65vh;
     overflow-y: auto;
     padding: 1.25rem;
-    background-color: #eceff5;
+    background-color: #08203c;
     background-image:
-        radial-gradient(circle at 1px 1px, rgb(27 33 48 / 5%) 1px, transparent 0);
+        radial-gradient(circle at 1px 1px, rgb(255 255 255 / 5%) 1px, transparent 0);
     background-size: 1.25rem 1.25rem;
 }
 
@@ -847,7 +968,7 @@ main > header p {
     border: 1px solid var(--sc-borde);
     border-radius: 1rem;
     background-color: var(--sc-superficie);
-    box-shadow: 0 1px 2px rgb(16 24 40 / 6%);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
     font-size: 0.9375rem;
     line-height: 1.5;
     overflow-wrap: anywhere;
@@ -864,13 +985,13 @@ main > header p {
 }
 
 .mensaje-chat.msg-saliente {
-    border-color: #bfe3cf;
-    background-color: #e7f7ee;
+    border-color: #2c6a54;
+    background-color: #174d45;
 }
 
 /* Retenido: lo que el bot quiso decir y alguien tiene que mirar antes. */
 .msg-retenido {
-    border: 2px solid #dc3545;
+    border: 2px solid #ff8a80;
 }
 
 .mensaje-chat.msg-retenido {
@@ -884,7 +1005,7 @@ main > header p {
 
 .mensaje-chat.msg-descartado {
     border-color: var(--sc-borde-fuerte);
-    background-color: #eef0f4;
+    background-color: var(--sc-superficie-hundida);
     color: var(--sc-texto-suave);
 }
 
@@ -892,14 +1013,16 @@ main > header p {
 
 .dialog-accion {
     width: min(36rem, calc(100% - 2rem));
-    border: 0;
+    background-color: var(--sc-superficie);
+    color: var(--sc-texto);
+    border: 1px solid var(--sc-borde);
     border-radius: var(--sc-radio);
     box-shadow: var(--sc-sombra-alta);
     padding: 0;
 }
 
 .dialog-accion::backdrop {
-    background-color: rgb(27 33 48 / 45%);
+    background-color: rgb(3 12 25 / 65%);
     backdrop-filter: blur(2px);
 }
 
@@ -914,10 +1037,10 @@ main > header p {
     min-height: 11rem;
     height: 100%;
     padding: 1.5rem;
-    border: 2px dashed color-mix(in srgb, var(--sc-acento) 40%, transparent);
+    border: 2px dashed color-mix(in srgb, var(--sc-acento-claro) 45%, transparent);
     border-radius: var(--sc-radio);
     background-color: color-mix(in srgb, var(--sc-acento-suave) 55%, transparent);
-    color: var(--sc-acento-oscuro);
+    color: var(--sc-acento-texto);
     text-align: center;
     cursor: pointer;
     list-style: none;
@@ -930,7 +1053,7 @@ main > header p {
 
 .caja-nueva-poliza:hover,
 .caja-nueva-poliza:focus-visible {
-    border-color: var(--sc-acento);
+    border-color: var(--sc-acento-claro);
     background-color: var(--sc-acento-suave);
 }
 
@@ -981,7 +1104,7 @@ details[open] > .caja-nueva-poliza .caja-nueva-poliza-mas {
     flex-direction: column;
     background:
         radial-gradient(60rem 40rem at 50% -10%, #1d4a85 0%, transparent 65%),
-        var(--sc-marino);
+        var(--sc-fondo);
 }
 
 .login-card {

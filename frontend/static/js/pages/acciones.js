@@ -28,6 +28,14 @@ const motivoResolucion = document.getElementById("motivo-resolucion");
 const errorResolucion = document.getElementById("error-resolucion");
 const botonCancelar = document.getElementById("cancelar-resolucion");
 const botonConfirmar = document.getElementById("confirmar-resolucion");
+const botonVistaPendiente = document.getElementById("vista-pendiente");
+const botonVistaAprobada = document.getElementById("vista-aprobada");
+const bloqueFinalizar = document.getElementById("acciones-finalizar");
+const dialogoFinalizar = document.getElementById("dialogo-finalizar");
+const referenciaFinalizar = document.getElementById("referencia-finalizar");
+const motivoFinalizar = document.getElementById("motivo-finalizar");
+const errorFinalizar = document.getElementById("error-finalizar");
+const botonConfirmarFinalizar = document.getElementById("confirmar-finalizar");
 
 let funcionario = null;
 let accionSeleccionada = null;
@@ -35,6 +43,11 @@ let resolucionSeleccionada = null;
 let paginaSeleccionada = 1;
 let paginasTotales = 1;
 let solicitudActual = 0;
+// "pendiente" (por aprobar o rechazar) o "aprobada" (aprobadas; algunas requieren gestión externa).
+let vista = "pendiente";
+
+// Solo estas acciones se gestionan por fuera del sistema y se pueden finalizar.
+const tiposGestionExterna = new Set(["reembolso", "modificar_poliza"]);
 
 const etiquetasParametros = {
     nombre: "Nombre del conductor",
@@ -118,7 +131,7 @@ async function cargarAcciones(pagina = paginaSeleccionada) {
 
     try {
         const datos = await api.get(`/api/acciones/${armarQuery({
-            estado: "pendiente",
+            estado: vista,
             pagina: paginaSeleccionada,
         })}`);
         if (idSolicitud !== solicitudActual) {
@@ -134,7 +147,9 @@ async function cargarAcciones(pagina = paginaSeleccionada) {
             throw new Error("La respuesta de acciones no tiene el formato esperado.");
         }
         if (datos.resultados.length === 0) {
-            filas.append(crearTarjetaVacia("No hay acciones pendientes."));
+            filas.append(crearTarjetaVacia(
+                vista === "pendiente" ? "No hay acciones pendientes." : "No hay acciones aprobadas.",
+            ));
         } else {
             filas.append(...datos.resultados.map(crearTarjetaAccion));
         }
@@ -214,14 +229,20 @@ function renderizarDetalle(accion) {
         listaParametros.append(termino, definicion);
     }
 
-    const campos = faltantes(accion);
+    const esPendiente = accion.estado === "pendiente";
+    const campos = esPendiente ? faltantes(accion) : [];
     camposFaltantes.replaceChildren(...campos.map(crearCampoParametro));
     formularioParametros.hidden = campos.length === 0 || !funcionario.puede_aprobar;
     avisoParametros.hidden = campos.length === 0 || funcionario.puede_aprobar;
     avisoParametros.textContent = campos.length > 0 && !funcionario.puede_aprobar
         ? "Faltan datos requeridos. Solo un aprobador puede completarlos."
         : "";
-    botonesResolucion.hidden = !funcionario.puede_aprobar;
+    botonesResolucion.hidden = !funcionario.puede_aprobar || !esPendiente;
+    bloqueFinalizar.hidden = !(
+        funcionario.puede_aprobar
+        && accion.estado === "aprobada"
+        && tiposGestionExterna.has(accion.tipo_accion)
+    );
 }
 
 async function cargarDetalle(id) {
@@ -328,7 +349,71 @@ async function confirmarResolucion() {
     }
 }
 
+function abrirDialogoFinalizar() {
+    errorFinalizar.textContent = "";
+    referenciaFinalizar.value = "";
+    motivoFinalizar.value = "";
+    dialogoFinalizar.showModal();
+}
+
+async function confirmarFinalizar() {
+    if (!accionSeleccionada) {
+        return;
+    }
+    const referencia = referenciaFinalizar.value.trim();
+    const motivo = motivoFinalizar.value.trim();
+    if (referencia.length < 3 || referencia.length > 100) {
+        errorFinalizar.textContent = "La referencia debe tener entre 3 y 100 caracteres.";
+        return;
+    }
+    if (motivo.length < 3) {
+        errorFinalizar.textContent = "Indicá el motivo (mínimo 3 caracteres).";
+        return;
+    }
+
+    botonConfirmarFinalizar.disabled = true;
+    errorFinalizar.textContent = "";
+    try {
+        await api.post(`/api/acciones/${accionSeleccionada.id}/finalizar/`, { referencia, motivo });
+        dialogoFinalizar.close();
+        panelDetalle.hidden = true;
+        accionSeleccionada = null;
+        mostrarEstado("Gestión finalizada.");
+        notificarActualizacionPendientes();
+        await cargarAcciones(paginaSeleccionada);
+    } catch (error) {
+        errorFinalizar.textContent = error.mensaje ?? error.message ?? "No se pudo finalizar la gestión.";
+    } finally {
+        botonConfirmarFinalizar.disabled = false;
+    }
+}
+
+function cambiarVista(nuevaVista) {
+    if (nuevaVista === vista) {
+        return;
+    }
+    vista = nuevaVista;
+    botonVistaPendiente.classList.toggle("active", vista === "pendiente");
+    botonVistaPendiente.setAttribute("aria-pressed", String(vista === "pendiente"));
+    botonVistaAprobada.classList.toggle("active", vista === "aprobada");
+    botonVistaAprobada.setAttribute("aria-pressed", String(vista === "aprobada"));
+    panelDetalle.hidden = true;
+    accionSeleccionada = null;
+    mostrarEstado("");
+    cargarAcciones(1);
+}
+
 formularioParametros.addEventListener("submit", guardarParametros);
+botonVistaPendiente.addEventListener("click", () => cambiarVista("pendiente"));
+botonVistaAprobada.addEventListener("click", () => cambiarVista("aprobada"));
+document.getElementById("finalizar-accion").addEventListener("click", abrirDialogoFinalizar);
+document.getElementById("cancelar-finalizar").addEventListener("click", () => dialogoFinalizar.close());
+botonConfirmarFinalizar.addEventListener("click", confirmarFinalizar);
+for (const campo of [referenciaFinalizar, motivoFinalizar]) {
+    campo.addEventListener("input", () => {
+        errorFinalizar.textContent = "";
+    });
+}
 botonAnterior.addEventListener("click", () => {
     if (paginaSeleccionada > 1) {
         cargarAcciones(paginaSeleccionada - 1);
