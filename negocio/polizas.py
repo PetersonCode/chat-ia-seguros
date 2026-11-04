@@ -26,6 +26,7 @@ from django.utils import timezone
 from datos.models import (
     Cliente,
     Cobertura,
+    Compania,
     Cuota,
     EstadoCuota,
     EstadoPoliza,
@@ -33,7 +34,9 @@ from datos.models import (
     Pago,
     Poliza,
     TipoSeguro,
+    Vehiculo,
 )
+from negocio.companias import porcentaje_validado
 from negocio.errores import (
     DatosInvalidos,
     EstadoInvalido,
@@ -141,6 +144,33 @@ def _prima_validada(valor) -> Decimal:
     return centavos
 
 
+def _vehiculo_del_cliente(vehiculo_id: int | None, cliente: Cliente) -> Vehiculo | None:
+    if vehiculo_id is None:
+        return None
+    vehiculo = Vehiculo.objects.filter(pk=vehiculo_id).first()
+    if vehiculo is None or vehiculo.cliente_id != cliente.id:
+        raise DatosInvalidos("El vehículo tiene que ser del cliente de la póliza.")
+    if not vehiculo.activo:
+        raise DatosInvalidos("El vehículo está dado de baja.")
+    return vehiculo
+
+
+def _compania_activa(compania_id: int | None) -> Compania | None:
+    if compania_id is None:
+        return None
+    compania = Compania.objects.filter(pk=compania_id).first()
+    if compania is None:
+        raise DatosInvalidos("La compañía no existe.")
+    if not compania.activa:
+        raise DatosInvalidos("La compañía está desactivada: no se le pueden emitir pólizas nuevas.")
+    return compania
+
+
+def descripcion_de_vehiculo(vehiculo: Vehiculo) -> str:
+    """«Toyota Corolla 2020 (AB123CD)»: el bien asegurado cuando no se escribió otro."""
+    return f"{vehiculo.marca} {vehiculo.modelo} {vehiculo.anio} ({vehiculo.patente})"
+
+
 def _fechas_validadas(inicio, vencimiento) -> tuple[date, date]:
     if not isinstance(inicio, date) or not isinstance(vencimiento, date):
         raise DatosInvalidos("Las fechas de inicio y vencimiento son obligatorias.")
@@ -210,11 +240,19 @@ def alta_poliza(
     prima_mensual,
     bien_asegurado: str | None = None,
     numero_poliza: str | None = None,
+    vehiculo_id: int | None = None,
+    compania_id: int | None = None,
+    comision_pct=None,
 ) -> Poliza:
     """Crea la póliza con su plan de cuotas, o no crea nada.
 
     `numero_poliza` vacío toma el próximo libre; si viene, se respeta el que
     eligió el funcionario, validando formato y que no esté repetido.
+
+    P1: el vehículo tiene que ser del cliente y la compañía estar activa. La
+    comisión se **congela** en la póliza: es la de la compañía en este momento
+    (o la que se pase), así que cambiarla después no reescribe lo ya emitido.
+    Sin `bien_asegurado`, el vehículo lo completa con marca, modelo, año y patente.
     """
     if tipo_seguro != 'automotor':
         raise DatosInvalidos('Actualmente la agencia trabaja solo con seguros automotores.')
@@ -226,6 +264,15 @@ def alta_poliza(
         )
 
     inicio, vencimiento = _fechas_validadas(fecha_inicio, fecha_vencimiento)
+    vehiculo = _vehiculo_del_cliente(vehiculo_id, cliente)
+    compania = _compania_activa(compania_id)
+    if comision_pct is not None:
+        comision = porcentaje_validado(comision_pct)
+    else:
+        comision = compania.comision_pct if compania is not None else None
+    bien = (bien_asegurado or "").strip() or None
+    if bien is None and vehiculo is not None:
+        bien = descripcion_de_vehiculo(vehiculo)
     poliza = Poliza.objects.create(
         numero_poliza=_numero_validado(numero_poliza),
         cliente=cliente,
@@ -241,7 +288,10 @@ def alta_poliza(
         fecha_inicio=inicio,
         fecha_vencimiento=vencimiento,
         prima_mensual=_prima_validada(prima_mensual),
-        bien_asegurado=(bien_asegurado or "").strip() or None,
+        bien_asegurado=bien,
+        vehiculo=vehiculo,
+        compania=compania,
+        comision_pct=comision,
     )
     Cuota.objects.bulk_create(plan_de_cuotas(poliza))
     return poliza

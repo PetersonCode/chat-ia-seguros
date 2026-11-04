@@ -131,8 +131,10 @@ ACCION_RECHAZADA = "No pudimos procesar tu solicitud. Un asesor se va a comunica
 # no es entero. Fechas `dd/mm/aaaa`.
 # `{bien}` nombra lo asegurado cuando está cargado: a quien pregunta "¿tengo
 # vehículos registrados?" el número de póliza solo no le dice nada.
-LINEA_VENCIMIENTO = "• {numero_poliza} ({tipo_seguro}{bien}): vence el {fecha}{marca}"
+# `{patente}` queda vacío salvo que la póliza tenga vehículo (P1).
+LINEA_VENCIMIENTO = "• {numero_poliza} ({tipo_seguro}{bien}): vence el {fecha}{marca}{patente}"
 MARCA_VENCIDA = " — VENCIDA"
+MARCA_PATENTE = " · {patente}"
 
 
 def formatear_monto(valor) -> str:

@@ -45,6 +45,21 @@ def normalizar_dni(raw: str) -> str:
     return dni
 
 
+# Auto viejo (ABC123), auto nuevo (AB123CD), moto vieja (123ABC), moto nueva (A123BCD).
+# Es la misma expresión del CHECK de `vehiculos.patente` (SDD/sql/13).
+PATENTE_RE = re.compile(
+    r"([A-Z]{3}[0-9]{3}|[A-Z]{2}[0-9]{3}[A-Z]{2}|[0-9]{3}[A-Z]{3}|[A-Z][0-9]{3}[A-Z]{3})"
+)
+
+
+def normalizar_patente(raw: str) -> str:
+    """'ab 123 cd' o 'AB-123-CD' -> 'AB123CD'. ValueError si no es una patente argentina."""
+    patente = re.sub(r"[\s.\-]", "", raw or "").upper()
+    if PATENTE_RE.fullmatch(patente) is None:
+        raise ValueError("La patente no tiene un formato válido (ej.: ABC123 o AB123CD).")
+    return patente
+
+
 def normalizar_telefono(raw: str) -> str:
     if not raw or not raw.strip() or any(caracter.isalpha() for caracter in raw):
         raise ValueError("El teléfono no tiene un formato válido.")

@@ -479,7 +479,8 @@ class SelectorsTests(TestCase):
         self.assertEqual(por_nombre, cliente)
         self.assertEqual(por_dni.polizas_vigentes, 1)
 
-        with self.assertNumQueries(4):
+        # Contactos, pólizas, siniestros y (P1) vehículos: una consulta cada uno.
+        with self.assertNumQueries(5):
             detalle = selectors.detalle_cliente(cliente.pk)
             contactos = list(detalle.contactos.all())
             polizas = list(detalle.polizas.all())

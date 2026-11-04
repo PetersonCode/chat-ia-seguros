@@ -112,6 +112,14 @@ class PolizaAltaSerializer(serializers.Serializer):
     numero_poliza = serializers.CharField(
         required=False, allow_blank=True, allow_null=True
     )
+    # P1: opcionales; el contenido (¿es del cliente? ¿está activa?) lo valida negocio.
+    vehiculo_id = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+    compania_id = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+    comision_pct = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    def validate_comision_pct(self, valor):
+        """Vacío = «la de la compañía»: no se manda como texto a validar."""
+        return (valor or "").strip() or None
 
 
 class PagoRegistroSerializer(serializers.Serializer):
@@ -158,3 +166,43 @@ class ClienteModificacionSerializer(serializers.Serializer):
     apellido = serializers.CharField(required=False)
     telefono = serializers.CharField(required=False)
     email = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class VehiculoAltaSerializer(serializers.Serializer):
+    """El contenido se valida en `negocio.vehiculos`; acá solo la forma.
+
+    Los textos admiten vacío a propósito: así el mensaje de «la marca es
+    obligatoria» es el de negocio y no el genérico del serializador.
+    """
+
+    cliente = serializers.IntegerField(min_value=1)
+    patente = serializers.CharField(allow_blank=True)
+    marca = serializers.CharField(allow_blank=True)
+    modelo = serializers.CharField(allow_blank=True)
+    anio = serializers.IntegerField()
+    uso = serializers.CharField(required=False, allow_blank=True)
+    chasis = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    valor_asegurado = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class VehiculoModificacionSerializer(serializers.Serializer):
+    """Todos opcionales: se actualiza solo lo que venga."""
+
+    patente = serializers.CharField(required=False, allow_blank=True)
+    marca = serializers.CharField(required=False, allow_blank=True)
+    modelo = serializers.CharField(required=False, allow_blank=True)
+    anio = serializers.IntegerField(required=False)
+    uso = serializers.CharField(required=False, allow_blank=True)
+    chasis = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    valor_asegurado = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class CompaniaAltaSerializer(serializers.Serializer):
+    nombre = serializers.CharField(allow_blank=True)
+    comision_pct = serializers.CharField(allow_blank=True)
+
+
+class CompaniaModificacionSerializer(serializers.Serializer):
+    nombre = serializers.CharField(required=False, allow_blank=True)
+    comision_pct = serializers.CharField(required=False, allow_blank=True)
+    activa = serializers.BooleanField(required=False)

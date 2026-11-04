@@ -9,6 +9,7 @@ from datos.models import (
     AccionPendiente,
     Alerta,
     Cliente,
+    Compania,
     ContactoWhatsapp,
     Conversacion,
     ConsultaBot,
@@ -32,6 +33,7 @@ from datos.models import (
     TipoAlerta,
     TipoConsulta,
     TipoSeguro,
+    Vehiculo,
 )
 
 _funcionarios = count(1)
@@ -41,6 +43,8 @@ _polizas = count(1)
 _cuotas = count(0)
 _mensajes = count(1)
 _consultas = count(1)
+_companias = count(1)
+_vehiculos = count(0)
 
 _TIPOS_SEGURO = (
     ("automotor", "Automotor"),
@@ -150,6 +154,38 @@ def crear_poliza(
     }
     valores.update(campos)
     return Poliza.objects.create(**valores)
+
+
+def crear_compania(**campos: Any) -> Compania:
+    numero = next(_companias)
+    valores: dict[str, Any] = {
+        "nombre": f"Compañía de Prueba {numero}",
+        "comision_pct": "10.00",
+        "activa": True,
+    }
+    valores.update(campos)
+    return Compania.objects.create(**valores)
+
+
+def _patente_unica(numero: int) -> str:
+    """AA000ZZ, AA001ZZ, … (formato de auto nuevo; las letras avanzan cada 1000)."""
+    letras = chr(65 + (numero // 1000 // 26) % 26) + chr(65 + (numero // 1000) % 26)
+    return f"{letras}{numero % 1000:03d}ZZ"
+
+
+def crear_vehiculo(cliente: Cliente | None = None, **campos: Any) -> Vehiculo:
+    numero = next(_vehiculos)
+    valores: dict[str, Any] = {
+        "cliente": cliente or crear_cliente(),
+        "patente": _patente_unica(numero),
+        "marca": "Marca",
+        "modelo": f"Modelo {numero}",
+        "anio": 2020,
+        "uso": "particular",
+        "activo": True,
+    }
+    valores.update(campos)
+    return Vehiculo.objects.create(**valores)
 
 
 def crear_cuota(poliza: Poliza, **campos: Any) -> Cuota:

@@ -43,6 +43,8 @@ from api.serializers import (
     FinalizacionAccionSerializer,
     ParametrosSerializer,
     PagoRegistroSerializer,
+    CompaniaAltaSerializer,
+    CompaniaModificacionSerializer,
     PolizaAltaSerializer,
     ResponderSerializer,
     ReporteGestionFiltroSerializer,
@@ -50,6 +52,8 @@ from api.serializers import (
     TransicionSiniestroSerializer,
     UsuarioAltaSerializer,
     UsuarioModificacionSerializer,
+    VehiculoAltaSerializer,
+    VehiculoModificacionSerializer,
 )
 from negocio.usuarios import cambiar_clave, crear_usuario, listar_usuarios, modificar_usuario
 from datos import selectors
@@ -57,6 +61,7 @@ from datos.models import (
     AccionPendiente,
     Alerta,
     Cliente,
+    Compania,
     ConsultaBot,
     Conversacion,
     Derivacion,
@@ -70,6 +75,7 @@ from datos.models import (
     EstadoSiniestro,
     Siniestro,
     TipoSeguro,
+    Vehiculo,
 )
 from negocio.adjuntos_siniestros import (
     AdjuntoInvalido,
@@ -99,7 +105,9 @@ from negocio.clientes import (
     modificar_cliente,
     reactivar_cliente,
 )
+from negocio.companias import alta_compania, modificar_compania
 from negocio.errores import DatosInvalidos, NoEncontrado, PermisoDenegado
+from negocio.vehiculos import alta_vehiculo, dar_de_baja_vehiculo, modificar_vehiculo
 from negocio.reglas import (
     RANGO_SEVERIDAD,
     color_por_severidad,
@@ -458,6 +466,58 @@ def _derivacion(derivacion: Derivacion) -> dict:
     }
 
 
+def _vehiculo(vehiculo: Vehiculo | None) -> dict | None:
+    if vehiculo is None:
+        return None
+    return {
+        "id": vehiculo.id,
+        "cliente": vehiculo.cliente_id,
+        "patente": vehiculo.patente,
+        "marca": vehiculo.marca,
+        "modelo": vehiculo.modelo,
+        "anio": vehiculo.anio,
+        "uso": vehiculo.uso,
+        "chasis": vehiculo.chasis,
+        "valor_asegurado": _dinero(vehiculo.valor_asegurado),
+        "activo": vehiculo.activo,
+    }
+
+
+def _comision(valor, ver_comision: bool) -> str | None:
+    """La comisión es información del dueño: un operador la recibe en `null`."""
+    if not ver_comision or valor is None:
+        return None
+    return _dinero(valor)
+
+
+def _compania(compania: Compania | None, ver_comision: bool) -> dict | None:
+    if compania is None:
+        return None
+    return {
+        "id": compania.id,
+        "nombre": compania.nombre,
+        "comision_pct": _comision(compania.comision_pct, ver_comision),
+        "activa": compania.activa,
+    }
+
+
+def _ve_comision(request) -> bool:
+    return bool(request.funcionario.puede_aprobar)
+
+
+def _poliza_con_bien(poliza: Poliza, ver_comision: bool) -> dict:
+    """`poliza_resumen` + vehículo, compañía y comisión (esta última, solo si se ve)."""
+    payload = _poliza_resumen(poliza)
+    payload.update(
+        {
+            "vehiculo": _vehiculo(poliza.vehiculo),
+            "compania": _compania(poliza.compania, ver_comision),
+            "comision_pct": _comision(poliza.comision_pct, ver_comision),
+        }
+    )
+    return payload
+
+
 def _cliente_resumen(cliente: Cliente) -> dict:
     return {
         "id": cliente.id,
@@ -470,7 +530,7 @@ def _cliente_resumen(cliente: Cliente) -> dict:
     }
 
 
-def _cliente_detalle(cliente: Cliente) -> dict:
+def _cliente_detalle(cliente: Cliente, ver_comision: bool = False) -> dict:
     polizas = list(cliente.polizas.all())
     return {
         "id": cliente.id,
@@ -480,7 +540,10 @@ def _cliente_detalle(cliente: Cliente) -> dict:
         "email": cliente.email,
         "activo": cliente.activo,
         "contactos": [contacto.numero for contacto in cliente.contactos.all()],
-        "polizas": [_poliza_resumen(poliza) for poliza in polizas],
+        "polizas": [_poliza_con_bien(poliza, ver_comision) for poliza in polizas],
+        "vehiculos": [
+            _vehiculo(vehiculo) for vehiculo in cliente.vehiculos.all() if vehiculo.activo
+        ],
         "siniestros": [
             _siniestro(siniestro)
             for poliza in polizas
@@ -489,8 +552,8 @@ def _cliente_detalle(cliente: Cliente) -> dict:
     }
 
 
-def _poliza_detalle(poliza: Poliza) -> dict:
-    payload = _poliza_resumen(poliza)
+def _poliza_detalle(poliza: Poliza, ver_comision: bool = False) -> dict:
+    payload = _poliza_con_bien(poliza, ver_comision)
     payload.update(
         {
             "cliente": _cliente_breve(poliza.cliente),
@@ -980,7 +1043,9 @@ def clientes_listar_o_crear(request):
         datos.is_valid(raise_exception=True)
         cliente = alta_cliente(**datos.validated_data)
         return Response(
-            _cliente_detalle(selectors.detalle_cliente(cliente.id)),
+            _cliente_detalle(
+                selectors.detalle_cliente(cliente.id), _ve_comision(request)
+            ),
             status=status.HTTP_201_CREATED,
         )
 
@@ -999,7 +1064,9 @@ def cliente_detalle_o_modificar(request, id):
         campos = dict(datos.validated_data)
         campos.setdefault("email", SIN_CAMBIO)
         modificar_cliente(id, **campos)
-    return Response(_cliente_detalle(selectors.detalle_cliente(id)))
+    return Response(
+        _cliente_detalle(selectors.detalle_cliente(id), _ve_comision(request))
+    )
 
 
 @api_view(["POST"])
@@ -1007,7 +1074,9 @@ def cliente_detalle_o_modificar(request, id):
 @permission_classes([EsAprobador])
 def cliente_baja(request, id):
     dar_de_baja_cliente(id)
-    return Response(_cliente_detalle(selectors.detalle_cliente(id)))
+    return Response(
+        _cliente_detalle(selectors.detalle_cliente(id), _ve_comision(request))
+    )
 
 
 @api_view(["POST"])
@@ -1015,14 +1084,18 @@ def cliente_baja(request, id):
 @permission_classes([EsAprobador])
 def cliente_reactivar(request, id):
     reactivar_cliente(id)
-    return Response(_cliente_detalle(selectors.detalle_cliente(id)))
+    return Response(
+        _cliente_detalle(selectors.detalle_cliente(id), _ve_comision(request))
+    )
 
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([EsFuncionario])
 def poliza_detalle(request, id):
-    return Response(_poliza_detalle(selectors.detalle_poliza(id)))
+    return Response(
+        _poliza_detalle(selectors.detalle_poliza(id), _ve_comision(request))
+    )
 
 
 @api_view(["GET"])
@@ -1184,7 +1257,7 @@ def poliza_pago(request, id):
         importe=datos.validated_data["importe"],
         funcionario_id=request.funcionario.id,
     )
-    respuesta = _poliza_detalle(selectors.detalle_poliza(id))
+    respuesta = _poliza_detalle(selectors.detalle_poliza(id), _ve_comision(request))
     respuesta["pago"] = {
         "id": pago.id,
         "referencia": pago.referencia,
@@ -1291,9 +1364,98 @@ def poliza_crear(request, id):
     datos.is_valid(raise_exception=True)
     poliza = alta_poliza(id, **datos.validated_data)
     return Response(
-        _poliza_detalle(selectors.detalle_poliza(poliza.id)),
+        _poliza_detalle(selectors.detalle_poliza(poliza.id), _ve_comision(request)),
         status=status.HTTP_201_CREATED,
     )
+
+
+# --- Vehículos y compañías (P1) --------------------------------------------
+
+
+def _cliente_de_la_consulta(request) -> int:
+    crudo = request.query_params.get("cliente")
+    if crudo is None or crudo == "":
+        raise DatosInvalidos("Indicá el cliente (?cliente=N).")
+    try:
+        cliente_id = int(crudo)
+    except ValueError as error:
+        raise DatosInvalidos("El cliente tiene que ser un número.") from error
+    if cliente_id < 1:
+        raise DatosInvalidos("El cliente tiene que ser un número positivo.")
+    return cliente_id
+
+
+@api_view(["GET", "POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsAprobadorParaEscribir])
+def vehiculos_listar_o_crear(request):
+    if request.method == "POST":
+        datos = VehiculoAltaSerializer(data=request.data)
+        datos.is_valid(raise_exception=True)
+        campos = dict(datos.validated_data)
+        vehiculo = alta_vehiculo(
+            campos.pop("cliente"), funcionario_id=request.funcionario.id, **campos
+        )
+        return Response(_vehiculo(vehiculo), status=status.HTTP_201_CREATED)
+
+    vehiculos = selectors.vehiculos_de(_cliente_de_la_consulta(request))
+    return Response({"resultados": [_vehiculo(vehiculo) for vehiculo in vehiculos]})
+
+
+@api_view(["PATCH"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsAprobadorParaEscribir])
+def vehiculo_modificar(request, id):
+    datos = VehiculoModificacionSerializer(data=request.data)
+    datos.is_valid(raise_exception=True)
+    # Ausente deja el valor actual; presente pero vacío lo borra. Son distintos.
+    campos = dict(datos.validated_data)
+    campos.setdefault("chasis", SIN_CAMBIO)
+    campos.setdefault("valor_asegurado", SIN_CAMBIO)
+    vehiculo = modificar_vehiculo(id, funcionario_id=request.funcionario.id, **campos)
+    return Response(_vehiculo(vehiculo))
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsAprobador])
+def vehiculo_baja(request, id):
+    vehiculo = dar_de_baja_vehiculo(id, funcionario_id=request.funcionario.id)
+    return Response(_vehiculo(vehiculo))
+
+
+@api_view(["GET", "POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsAprobadorParaEscribir])
+def companias_listar_o_crear(request):
+    ver_comision = _ve_comision(request)
+    if request.method == "POST":
+        datos = CompaniaAltaSerializer(data=request.data)
+        datos.is_valid(raise_exception=True)
+        compania = alta_compania(
+            funcionario_id=request.funcionario.id, **datos.validated_data
+        )
+        return Response(
+            _compania(compania, ver_comision), status=status.HTTP_201_CREATED
+        )
+
+    solo_activas = request.query_params.get("activas") in ("1", "true")
+    companias = selectors.listar_companias(solo_activas=solo_activas)
+    return Response(
+        {"resultados": [_compania(compania, ver_comision) for compania in companias]}
+    )
+
+
+@api_view(["PATCH"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsAprobadorParaEscribir])
+def compania_modificar(request, id):
+    datos = CompaniaModificacionSerializer(data=request.data)
+    datos.is_valid(raise_exception=True)
+    compania = modificar_compania(
+        id, funcionario_id=request.funcionario.id, **datos.validated_data
+    )
+    return Response(_compania(compania, _ve_comision(request)))
 
 
 # --- Usuarios (solo el propietario) ----------------------------------------

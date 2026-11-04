@@ -98,7 +98,40 @@ def atender_derivacion(derivacion_id: int, funcionario_id: int) -> Derivacion
 ```
 Aprobador requerido en: `completar_parametros`, `aprobar_accion`, `rechazar_accion`.
 
-## 8. Qué excepción lanza cada caso (para que T2 la traduzca)
+## 8. Vehículos y compañías (P1: `negocio/vehiculos.py`, `negocio/companias.py`, `negocio/polizas.py`)
+```python
+# negocio/vehiculos.py — todas exigen aprobador activo (PermisoDenegado; funcionario inexistente: NoEncontrado)
+def alta_vehiculo(cliente_id: int, patente: str, marca: str, modelo: str, anio: int, uso: str = "particular",
+                  chasis: str | None = None, valor_asegurado=None, *, funcionario_id: int) -> Vehiculo
+    # patente normalizada; DatosInvalidos: patente repetida o inválida, año fuera de 1950..año actual+1, marca/modelo vacíos,
+    # uso desconocido, valor_asegurado <= 0, cliente inactivo. Cliente inexistente: NoEncontrado.
+def modificar_vehiculo(vehiculo_id: int, *, funcionario_id: int, patente=None, marca=None, modelo=None, anio=None, uso=None,
+                       chasis=SIN_CAMBIO, valor_asegurado=SIN_CAMBIO) -> Vehiculo
+    # solo lo recibido; None en patente/marca/modelo/anio/uso = no cambiar; chasis y valor_asegurado: None o "" los borra.
+    # La patente propia no cuenta como repetida. El dueño no se cambia.
+def dar_de_baja_vehiculo(vehiculo_id: int, *, funcionario_id: int) -> Vehiculo
+    # baja lógica (activo=False); EstadoInvalido si ya estaba de baja o si tiene una póliza 'vigente' que no venció.
+
+# negocio/companias.py — todas exigen aprobador activo
+def alta_compania(nombre: str, comision_pct, *, funcionario_id: int) -> Compania
+    # nombre único sin distinguir mayúsculas ni espacios (se guarda con espacios colapsados); comisión 0..100, 2 decimales.
+def modificar_compania(compania_id: int, *, funcionario_id: int, nombre=None, comision_pct=None, activa: bool | None = None) -> Compania
+    # solo lo recibido; `activa=True` reactiva. No toca las pólizas ya emitidas.
+def desactivar_compania(compania_id: int, *, funcionario_id: int) -> Compania     # = modificar_compania(activa=False)
+def porcentaje_validado(valor, campo: str = "La comisión") -> Decimal              # 0..100, 2 decimales, acepta coma; DatosInvalidos
+
+# negocio/polizas.py
+def alta_poliza(cliente_id, *, tipo_seguro, cobertura, fecha_inicio, fecha_vencimiento, prima_mensual,
+                bien_asegurado=None, numero_poliza=None,
+                vehiculo_id: int | None = None, compania_id: int | None = None, comision_pct=None) -> Poliza
+    # vehiculo_id: del cliente de la póliza y activo; compania_id: existente y activa (si no, DatosInvalidos).
+    # comision_pct de la póliza = el pasado, o el de la compañía en ese momento (queda congelado); sin compañía ni valor, None.
+    # bien_asegurado vacío + vehículo -> "<marca> <modelo> <año> (<patente>)". Sin vehículo ni compañía se comporta como antes.
+def descripcion_de_vehiculo(vehiculo: Vehiculo) -> str
+```
+Plantilla del bot `LINEA_VENCIMIENTO` (`negocio/bot/plantillas.py`): ahora termina en `{patente}`, que vale `" · <patente>"` si la póliza tiene vehículo y `""` si no. La patente va en `datos_verificados`.
+
+## 9. Qué excepción lanza cada caso (para que T2 la traduzca)
 | Situación | Excepción |
 |---|---|
 | Funcionario sin `puede_aprobar` en una operación de aprobador, o que no es el asignado | `PermisoDenegado` |
