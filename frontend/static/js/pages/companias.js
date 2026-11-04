@@ -1,6 +1,6 @@
-import { api } from "../api.js?v=20261104integrado1";
-import { inicializarNav } from "../nav.js?v=20261104integrado1";
-import { formatearPorcentaje, validarCompania } from "../lib/companias.js?v=20261104integrado1";
+import { api } from "../api.js?v=20261104vencimientos2";
+import { inicializarNav } from "../nav.js?v=20261104vencimientos2";
+import { formatearPorcentaje, validarCompania } from "../lib/companias.js?v=20261104vencimientos2";
 
 const mensajePagina = document.getElementById("mensaje-pagina");
 const contenido = document.getElementById("contenido-companias");

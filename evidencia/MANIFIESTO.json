@@ -4,7 +4,7 @@
     "chat-ia-seguros-daniel-orm-bdd (1).zip": "6700aa7cff66f9b707a49f6360f6ffc747faafbce6a896bffd8b76a44136c77a",
     "chat-ia-seguros-daniel-orm-bdd (2).zip": "c4b609c49ea450588cbdcad639950522b9bbae9ff694bb79a0ae23080ae6f338"
   },
-  "nota": "Lista los archivos de la entrega excepto este manifiesto. Texto normalizado a LF para Git. Se excluyen secretos y artefactos de ejecución.",
+  "nota": "Entrega con pantalla de vencimientos, prioridad de pagos atrasados y recordatorios. Texto LF; sin secretos ni artefactos de ejecución. Excluye este manifiesto de la lista de hashes.",
   "archivos": [
     {
       "archivo": ".dockerignore",
@@ -73,8 +73,8 @@
     },
     {
       "archivo": "api/paginas.py",
-      "bytes": 1061,
-      "sha256": "ba13f5285b7c8aed00c092aead1b9c4743205817bfbac31f60a314d9e59f2105"
+      "bytes": 1110,
+      "sha256": "7497185a375ef729ffb88fe9ae49185a5ba35c79a87e06757c570ff9295da28c"
     },
     {
       "archivo": "api/permisos.py",
@@ -157,14 +157,24 @@
       "sha256": "907655368347b904d95d39365ac826bfce8a622f235f49b4c571d246cafb2020"
     },
     {
+      "archivo": "api/tests/test_vencimientos.py",
+      "bytes": 10737,
+      "sha256": "18633fd52947076e82b2a986191c23026b89b5c7135899eb272c087df1a1c0e4"
+    },
+    {
       "archivo": "api/tests/test_webhook_y_paginas.py",
       "bytes": 9037,
       "sha256": "0af1e4b46659e1c48eea54eaeab39ad5bfdf834661435dc95a1f856d06ff7305"
     },
     {
       "archivo": "api/urls.py",
-      "bytes": 7359,
-      "sha256": "52487317f0b2c11eb73b0833fc96905b94bf085ad6ae1d1240375bc02067d164"
+      "bytes": 7648,
+      "sha256": "1ffca524ebde39ff469f44cc4dbb5ec0794902b4f56af83691c5549a8156f467"
+    },
+    {
+      "archivo": "api/vencimientos.py",
+      "bytes": 3762,
+      "sha256": "1fae764eb1cb08c7eecb4b3c5be7b32a30949747bbd0072a17e37af7d361639d"
     },
     {
       "archivo": "api/views.py",
@@ -208,8 +218,8 @@
     },
     {
       "archivo": "config/test_runner.py",
-      "bytes": 2667,
-      "sha256": "b78601e466bd4cf6540f91097754334026c80b23ae6043b2fd2db49d212b517c"
+      "bytes": 2711,
+      "sha256": "2b2e0e3436d55e27ddefd851d46a9ffc7495cf1354f28d6c2e681bac694d10a3"
     },
     {
       "archivo": "config/urls.py",
@@ -263,8 +273,8 @@
     },
     {
       "archivo": "datos/models.py",
-      "bytes": 23842,
-      "sha256": "22200ffcddaf1720f5dd7d500b3f3b1185d77f3ea9bbae56485b4c89eeed447e"
+      "bytes": 24618,
+      "sha256": "82c28e10ae8ad3fd0ab372c0d7fec247871eb1c59322ca657b2028182b0ffed8"
     },
     {
       "archivo": "datos/selectors.py",
@@ -348,8 +358,8 @@
     },
     {
       "archivo": "docs/INTEGRACION.md",
-      "bytes": 3535,
-      "sha256": "944944b38a9f2c3f208b0101d103db5e525d135e191be1c67e23bce3a9991bb6"
+      "bytes": 3705,
+      "sha256": "a94062f95a2b4c41d75959e9c5c34632cb37e16571e0de7332edb0e8b6e894b7"
     },
     {
       "archivo": "docs/OPERACION.md",
@@ -365,6 +375,11 @@
       "archivo": "docs/SEGURIDAD.md",
       "bytes": 9150,
       "sha256": "adf2125eceea2c01e94bed2052f7eeb68fc62d36347ca4dba10fbe07394afc3d"
+    },
+    {
+      "archivo": "docs/VENCIMIENTOS.md",
+      "bytes": 6817,
+      "sha256": "da507f22a0b7b2b737b6b8efce62ee207df0f15379ca245bb4c617e36510bd2b"
     },
     {
       "archivo": "evidencia/avisos-pypi.json",
@@ -417,6 +432,11 @@
       "sha256": "b05ffd9eb161171e8df3fbd2925980ebca25474d3a9593a0f4066c271e3cd05e"
     },
     {
+      "archivo": "evidencia/flujo-vencimientos.json",
+      "bytes": 1572,
+      "sha256": "ed7e2b28f8eca3cb133e45cbb981311f2b0fec803137d62fa75c6fa43bb6b793"
+    },
+    {
       "archivo": "evidencia/integridad-previa.json",
       "bytes": 192,
       "sha256": "6551594a43704fadc2f2c517cdbd4ca78ebedd41a32bb890b52af1935ba54d1f"
@@ -447,79 +467,119 @@
       "sha256": "8b0fba09f430b5abef57e43f9a7ae86ab1872974467b607455c48800becfd9e7"
     },
     {
+      "archivo": "evidencia/RESULTADOS_VENCIMIENTOS.md",
+      "bytes": 2611,
+      "sha256": "78e662cb4b4dd151e6dd7bc8292301461405f643b868600c94b14f415207fe7f"
+    },
+    {
       "archivo": "evidencia/siniestro-final.png",
       "bytes": 182755,
       "sha256": "84f61e20b3de7bf93d8f965f1ff8c4facd7ca21293f6199bfb018db260fdf68e"
     },
     {
+      "archivo": "evidencia/vencimientos-atrasos.png",
+      "bytes": 55599,
+      "sha256": "9c3ee46f4f40a14b0868de51cc033282dce1ca6292c522605a48a0bf0e511088"
+    },
+    {
+      "archivo": "evidencia/vencimientos-bandit.json",
+      "bytes": 1432,
+      "sha256": "2ad2a520f2f9b5a786114bef4cfabdeb1dfbdf1754f59ab7b443354fb0177073"
+    },
+    {
+      "archivo": "evidencia/vencimientos-django.txt",
+      "bytes": 107667,
+      "sha256": "e17145ff4113736e5a764e7b70d3dd5db34547f17b19cd4ca42fe26076fd5c57"
+    },
+    {
+      "archivo": "evidencia/vencimientos-javascript.txt",
+      "bytes": 3567,
+      "sha256": "29790305d56713aebda8e5887a78235f993a2a51904102dfbd84b58ce96ebc26"
+    },
+    {
+      "archivo": "evidencia/vencimientos-mensaje.png",
+      "bytes": 53084,
+      "sha256": "4c968f78415765936de29ccf717e1fce17ce3e6f5af17dd0dc46ecb85fed567c"
+    },
+    {
+      "archivo": "evidencia/vencimientos-pantalla.png",
+      "bytes": 90205,
+      "sha256": "6b057e6eca7ca3f8bd35943dc0636aeb7a3072842d990799d83a64ef53661807"
+    },
+    {
       "archivo": "frontend/pages/acciones.html",
-      "bytes": 6250,
-      "sha256": "0cd2e2dbf1f8f977fd62570630e57fb0a2ed0b89ddbf78a85662b86aaa1ef359"
+      "bytes": 6256,
+      "sha256": "2050f0ac1617f7d38d4eb98941111b022ab80cad4d4d6d77f401a5a1f3d76f6a"
     },
     {
       "archivo": "frontend/pages/alertas.html",
-      "bytes": 3896,
-      "sha256": "cbc0477fc75bf36a79ed1d7ab1ccb0c5527439b6143d4c000b696b97d4ff9ec5"
+      "bytes": 3902,
+      "sha256": "8d12c01e7e1be3b7866bcfb1ffcacfb83585941d82cd45ea7180db010535dc1d"
     },
     {
       "archivo": "frontend/pages/bandeja.html",
-      "bytes": 4258,
-      "sha256": "e466877e0153b2c46e90fcc1171edb482813eac378483a29a7daca6149b1d743"
+      "bytes": 4264,
+      "sha256": "3627dce14e3490c57f0f73357a6d166fa06e976e44ac7c2246e93af61d61d90d"
     },
     {
       "archivo": "frontend/pages/cerrados.html",
-      "bytes": 1890,
-      "sha256": "db24c66f4c31c9e8fb62e6ed93d881dc0c9734e7f6ee964015b43cd418a49938"
+      "bytes": 1896,
+      "sha256": "3d778e549a0919052401eb396969519872e508e889351800c00e06628e8c852a"
     },
     {
       "archivo": "frontend/pages/cliente.html",
-      "bytes": 9390,
-      "sha256": "15e7f83ecdcc15adf513a532cc6cef9301bec8ca5a60153351f6b80c76124a41"
+      "bytes": 9396,
+      "sha256": "187f646e2ccb81b4f263139c7a243954864db3a468487d7befc9c61be64d44cf"
     },
     {
       "archivo": "frontend/pages/clientes.html",
-      "bytes": 5096,
-      "sha256": "470e63eaf48337072548d001baf8fb7469b352bfa9cea540a05b05f2338e2503"
+      "bytes": 5102,
+      "sha256": "6a3bacc34a84352ed44b7a78f937db61bbd6e22d71e3b2e8bab891e99e994257"
     },
     {
       "archivo": "frontend/pages/conversacion.html",
-      "bytes": 4868,
-      "sha256": "02682c88ee7a3829198841bdd126e5ea000f5862342afbcee0f404637a897089"
+      "bytes": 4874,
+      "sha256": "837fa2cfe791bac8b18d2a3adfb8b59b3d754101357be307ef421b803f09ae21"
     },
     {
       "archivo": "frontend/pages/derivaciones.html",
-      "bytes": 1591,
-      "sha256": "d934c6370b1c240890ffeb04d2f132382b76a589e329ca76f8a37a81d5fe40a3"
+      "bytes": 1597,
+      "sha256": "278f4946dacabe152f897634f55e45fdab378fe062016da8a1505efa2ee22258"
     },
     {
       "archivo": "frontend/pages/documentos.html",
-      "bytes": 5565,
-      "sha256": "5014d505379f7bde9302f45361aaa77a48013f625cfb2010ec7c7e801869c3cc"
+      "bytes": 5571,
+      "sha256": "1e9484ea0463e56eb269f0604151a5350945fd1ffcbdfbfc68317bcefac9f6aa"
     },
     {
       "archivo": "frontend/pages/login.html",
-      "bytes": 2317,
-      "sha256": "2fa977801f140b7b9a1735c68903e6fc9a38e4cc1f34cc4584a0264ddf2e5790"
+      "bytes": 2326,
+      "sha256": "056a3ac3a9a9431469dc18041684427437b2d31fe02bc238119bea46b8c24801"
     },
     {
       "archivo": "frontend/pages/panel.html",
-      "bytes": 8980,
-      "sha256": "2e83c19664d1fffd2231fe9c23a18c93309cb2f5d46c6185929150c6dc01f88a"
+      "bytes": 8986,
+      "sha256": "a3bd741d028e805b7a011b590dbe1c41dd147ed54dd89926384dd420269c13f1"
     },
     {
       "archivo": "frontend/pages/reportes.html",
-      "bytes": 3341,
-      "sha256": "956911fbd93d8196f10f3feb4833b88bb62e9c5a49962f49630d68cdf8bf1a72"
+      "bytes": 3347,
+      "sha256": "5ea1f54e1661fe3767404ea3f46e27a4b398f30ab8086d2d2fbfd396a1934d78"
     },
     {
       "archivo": "frontend/pages/siniestros.html",
-      "bytes": 8341,
-      "sha256": "82ab7913de24d0642d26c78381995df8aa4fdad582c4d37f15f4d02707ab3964"
+      "bytes": 8347,
+      "sha256": "2469482a18298ed08243c6c30b3a58bd8c99efa995ca436b48f6c7c0a33bb2cb"
     },
     {
       "archivo": "frontend/pages/usuarios.html",
-      "bytes": 4849,
-      "sha256": "3f4cbc34299aa76980d679a063c72f1c46d56274d48f19ffb50b2c4e93a7d5f0"
+      "bytes": 4855,
+      "sha256": "250445ddad0801792729f1e7999b3b6c6489f6aaba19fbea0a69f13ea9d3846d"
+    },
+    {
+      "archivo": "frontend/pages/vencimientos.html",
+      "bytes": 4759,
+      "sha256": "109558a51c627466f1ebedfb70359414468820c717312206cea06c1bf6c7a42d"
     },
     {
       "archivo": "frontend/static/css/app.css",
@@ -538,8 +598,8 @@
     },
     {
       "archivo": "frontend/static/js/lib/acciones.js",
-      "bytes": 3347,
-      "sha256": "bd7f8e5b136f7500941382c7f13b50a2e3173467934d8c166a485c8fddd08395"
+      "bytes": 3350,
+      "sha256": "f2ccef8354c76a745a2a2710e0194d8abaf8d386f364507ab66c67f57243c4a8"
     },
     {
       "archivo": "frontend/static/js/lib/clientes.js",
@@ -582,79 +642,89 @@
       "sha256": "bfcf9c656fd8aa1f4e701f0d8761e2c84a8da695a0416213ec9621f9177f1553"
     },
     {
+      "archivo": "frontend/static/js/lib/vencimientos.js",
+      "bytes": 451,
+      "sha256": "a73b4daf161d2f9c5288150eb8bdeb15a296395b136516f0ef1a5872c101dbf6"
+    },
+    {
       "archivo": "frontend/static/js/nav.js",
-      "bytes": 9764,
-      "sha256": "d88996a1c3854a207cdad3e3747c9879e82b7dd6c5426a87725b55702ffbd1db"
+      "bytes": 9834,
+      "sha256": "c7356aed25a038b212fbc54a7695f6035893ba5e5ce3542492614f0392901f62"
     },
     {
       "archivo": "frontend/static/js/pages/acciones.js",
-      "bytes": 17507,
-      "sha256": "f25b17863a08a8a3b5fa1d260249989d3245b67bc13293071f70509ec0753408"
+      "bytes": 17525,
+      "sha256": "0e6286f1872e1260b996bd3a70be38a285b5bf1588eba9195f0e92a2c1f67e00"
     },
     {
       "archivo": "frontend/static/js/pages/alertas.js",
-      "bytes": 4698,
-      "sha256": "787fca7e2279c89dbd1a67eb16b7f129177381e3ea88d52e2744eee47be4db16"
+      "bytes": 4716,
+      "sha256": "326a5e0b64dc0856d81c6b447cde1e77d593bb809546c920d4521c0f5b0fb14e"
     },
     {
       "archivo": "frontend/static/js/pages/bandeja.js",
-      "bytes": 9071,
-      "sha256": "b7d47488d045f0da84b73e4ddf02484c5546bc3c4263c15856172d15574f83f0"
+      "bytes": 9089,
+      "sha256": "435572daf800f868c080885ff9f61accbf1fb5ce438c9b644ded4b9a878a749a"
     },
     {
       "archivo": "frontend/static/js/pages/cerrados.js",
-      "bytes": 5244,
-      "sha256": "33187705855a8e1a3fa8c9c1eb83c59cd074bc52c3985a5e7d91ac834b193be1"
+      "bytes": 5256,
+      "sha256": "938bd4a6a83c44c7eae56152faff8705a1978635a48c7f0d05106142e02e0bc0"
     },
     {
       "archivo": "frontend/static/js/pages/cliente.js",
-      "bytes": 16562,
-      "sha256": "c7fc755d7e3e7443769cf161ab55729556db95d216b0ca9d32b68fd71536e4d6"
+      "bytes": 16577,
+      "sha256": "c97c25147329471042452405b470e083f13c9584dea49e50ad531fd0aeba817c"
     },
     {
       "archivo": "frontend/static/js/pages/clientes.js",
-      "bytes": 8027,
-      "sha256": "2901aa3e2b4c3b1482643a9b02e75c33c2350c6e2f4604b7fa3dfa85edb6c460"
+      "bytes": 8045,
+      "sha256": "fb98a5c9d43253d839e9fd305fab29836b321cf2d3691b7c69651dc706b2b9be"
     },
     {
       "archivo": "frontend/static/js/pages/conversacion.js",
-      "bytes": 23038,
-      "sha256": "42f39227a42e29a0cf3b03b1645159cc25389f8028044b59315821deaaa43caf"
+      "bytes": 23056,
+      "sha256": "4356bf44bdcb59f729a1443a8b6efead716e5cd75033aa4ecd3af9eccb5c3e0d"
     },
     {
       "archivo": "frontend/static/js/pages/derivaciones.js",
-      "bytes": 5462,
-      "sha256": "81d1c3379b64c22864ac2b6b539d8ef0ae87e0b61aed4ec5d48ba05832e8fa61"
+      "bytes": 5474,
+      "sha256": "c9c7473772ee46b1fb5bf5bda1930b37b5978fa373fc17e69ea17ee89cb985ea"
     },
     {
       "archivo": "frontend/static/js/pages/documentos.js",
-      "bytes": 7886,
-      "sha256": "7d9d7ac05b874fd11a6b789c2d2eb04edd61fbc2f85d5ccef4e1a06021ed7bac"
+      "bytes": 7892,
+      "sha256": "d5f3ddfa922959a9e860df8d82b7cb5e41d41238f6a5781e74dbc437409531bb"
     },
     {
       "archivo": "frontend/static/js/pages/login.js",
-      "bytes": 1415,
-      "sha256": "06e5eb978018e9b821fd08276dac42973350608b924d577cab78cafb3882a78b"
+      "bytes": 1418,
+      "sha256": "8868196a1a81ecdb06b9fa7089260cf43c29bdc3db8e32d5726d3f98d40d27b4"
     },
     {
       "archivo": "frontend/static/js/pages/panel.js",
-      "bytes": 3147,
-      "sha256": "7988f2411aca3e7797eecf9a4edfdbacac211cf63576201fa9db8dfe548a8576"
+      "bytes": 3150,
+      "sha256": "e865a19d753d70f1d70e84ff7b788c62101da9af1e101df407b8f4da624be17b"
     },
     {
       "archivo": "frontend/static/js/pages/reportes.js",
-      "bytes": 5071,
-      "sha256": "54b4a11d940ab428f175a51ad7a8afd6c3fce222038f33538c550b85c40c37ca"
+      "bytes": 5077,
+      "sha256": "a833087b79dca6f69330fc502e4365b31459cbb5b84db9fe7a6b095b84758770"
     },
     {
       "archivo": "frontend/static/js/pages/siniestros.js",
-      "bytes": 18365,
-      "sha256": "3d05a337794bd879dc0ad6b5dffdba0c973c2adc1cec546e28c9dcc1f78fdde8"
+      "bytes": 18374,
+      "sha256": "9f222272d123701b3030d4c6866e562e8e776babb75a11a75dcd44df8c4c0bfd"
     },
     {
       "archivo": "frontend/static/js/pages/usuarios.js",
-      "bytes": 9043,
-      "sha256": "26cafd729732d52e581b29945a133ba9dcce2d342306ae32c1764dd0c96d0829"
+      "bytes": 9052,
+      "sha256": "012a33aa104f7e014410502ecb9667beb4d4d174ec1b7e58af77dc4a175275c6"
+    },
+    {
+      "archivo": "frontend/static/js/pages/vencimientos.js",
+      "bytes": 8742,
+      "sha256": "fc5a0dfcb5e959f13bb39878c9a9671a057405c1e88722a8db39012ab98ebece"
     },
     {
       "archivo": "frontend/tests/acciones.test.js",
@@ -710,6 +780,11 @@
       "archivo": "frontend/tests/tarjetas.test.js",
       "bytes": 1026,
       "sha256": "034a7926dfc0614f5969204aa6ddacf09f4baccb48091fdf6dfc83e5206f3fc1"
+    },
+    {
+      "archivo": "frontend/tests/vencimientos.test.js",
+      "bytes": 810,
+      "sha256": "61d065021e8d218396c7e293a8616c18534bd31fc7e3c4db04fdd360edd7a479"
     },
     {
       "archivo": "manage.py",
@@ -822,6 +897,11 @@
       "sha256": "70ad3d5bd48eab039977a70a25de923592eac9ebbd57df63dda0f0aa049cd15b"
     },
     {
+      "archivo": "negocio/management/commands/cargar_demo_vencimientos.py",
+      "bytes": 3059,
+      "sha256": "b6f1166ca792544929ee61f6839b040c0ddf6dffce7eff28040a69b7a9a50c17"
+    },
+    {
       "archivo": "negocio/management/commands/preparar_busqueda.py",
       "bytes": 782,
       "sha256": "731c1320138feedacc312ebf82ab184c1de1ef79d7b5b4f3c1e361aaae5000d3"
@@ -852,14 +932,19 @@
       "sha256": "e076e2b62a63012faf4410ce5591b09d4e6ae09f371601559c5ceffc19460614"
     },
     {
+      "archivo": "negocio/recordatorios.py",
+      "bytes": 6984,
+      "sha256": "8f60554627cba7a3a4f037aa9630401d209eda0efd64d191ad34f365410f12de"
+    },
+    {
       "archivo": "negocio/reglas.py",
       "bytes": 1179,
       "sha256": "35e24d3a6eea8ee8aabb631e9bb808807cc2b674ff0c2cce4be6e4277bee9a52"
     },
     {
       "archivo": "negocio/seguridad.py",
-      "bytes": 3648,
-      "sha256": "b172dee89cc9cdd93d42e0ac567ad32c30f9edbae853b1be92cebf93fee5699b"
+      "bytes": 3665,
+      "sha256": "a55694da1dfa99cde23712bc7ea3a4fd3b53f6c3659fe13edc91b72056a5980d"
     },
     {
       "archivo": "negocio/sesion.py",
@@ -993,8 +1078,8 @@
     },
     {
       "archivo": "README.md",
-      "bytes": 8484,
-      "sha256": "156a9f7dba9b374c5f3d8924a30177216f61d16527d9cc7a98de7f723399809f"
+      "bytes": 9403,
+      "sha256": "251b1aaa01a5a591fa2e6ecb9db2c6d2b19e1b56b1d94d59999f7d80aa94a55d"
     },
     {
       "archivo": "requirements-production.txt",
@@ -1187,6 +1272,11 @@
       "sha256": "fcfc8f7e6267e63bd61b3afdecbef87359c04ad2445bbbdd5a0d2a065073883e"
     },
     {
+      "archivo": "SDD/sql/23_recordatorios_polizas.sql",
+      "bytes": 904,
+      "sha256": "f1f42333cdeb12f0c48cde3da8270f352fea06bd17932ec4776632d4b4d58db9"
+    },
+    {
       "archivo": "SDD/T1-frontend.md",
       "bytes": 10316,
       "sha256": "cc5eaea585b21770b81b559e66abd459b8705d82ae8560d8001ce90d40f79632"
@@ -1211,5 +1301,10 @@
       "bytes": 3740,
       "sha256": "b8864fc7a096fea6bd88f66fd81684cdc47d028cdf3f89580e71bc17467bfcab"
     }
-  ]
+  ],
+  "base_git": "f00973d",
+  "pruebas": {
+    "django": 645,
+    "javascript": 42
+  }
 }

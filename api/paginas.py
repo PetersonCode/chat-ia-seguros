@@ -7,6 +7,7 @@ from django.http import FileResponse, Http404
 from config.settings import BASE_DIR
 
 _PAGINAS = {
+    "/panel/vencimientos/": "vencimientos.html",
     "/": "login.html",
     "/panel/": "bandeja.html",
     "/panel/conversacion/": "conversacion.html",

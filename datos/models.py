@@ -793,3 +793,20 @@ class ContextoCobertura(models.Model):
     class Meta:
         managed = False
         db_table = "contextos_cobertura"
+
+
+class RecordatorioPoliza(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.DO_NOTHING, related_name='recordatorios')
+    contacto = models.ForeignKey(ContactoWhatsapp, on_delete=models.DO_NOTHING)
+    funcionario = models.ForeignKey(Funcionario, on_delete=models.DO_NOTHING)
+    mensaje = models.OneToOneField(Mensaje, on_delete=models.SET_NULL, null=True, related_name='recordatorio_poliza')
+    fecha_aviso = models.DateField()
+    fecha_vencimiento = models.DateField()
+    saldo_pendiente = models.DecimalField(max_digits=12, decimal_places=2)
+    texto = models.TextField()
+    canal = models.TextField()
+    creado_en = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = 'recordatorios_polizas'

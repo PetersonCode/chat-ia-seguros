@@ -65,7 +65,7 @@ class ProteccionHTTP:
         # No guarda query strings, textos, DNI, teléfonos ni contraseñas.
         if request.path.startswith('/api/') and (
             request.method not in ('GET', 'HEAD', 'OPTIONS') or
-            any(x in request.path for x in ('adjuntos/', 'reportes/', 'clientes/', 'polizas/'))
+            any(x in request.path for x in ('adjuntos/', 'reportes/', 'clientes/', 'polizas/', 'vencimientos/'))
         ):
             user = getattr(request, 'user', None)
             registrar(request.method, re.sub(r'[^a-zA-Z0-9/_-]', '', request.path),

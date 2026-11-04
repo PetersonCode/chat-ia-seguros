@@ -27,7 +27,7 @@ Copy-Item .env.demo.example .env
 
 Editar `.env` con el secreto generado y la conexión de una base propia. Usar `.venv` para los comandos siguientes (activar el entorno o llamar su `python.exe`). No subir `.env` a GitHub.
 
-En una base nueva de demostración aplicar SQL **01 a 13 y luego 22 en orden**, incluyendo 02 para cargar funcionarios y catálogos ficticios. SQL 12 agrega la charla de tu compañero; SQL 13 (P1) agrega vehículos y compañías; SQL 22 incorpora el hardening. Los números 14–21 están reservados para los planes P2–P9 y todavía no tienen scripts ni implementación. Nunca ejecutar 00 sobre datos que quieran conservar. Ejemplo PowerShell, adaptando la conexión a `.env`:
+En una base nueva de demostración aplicar SQL **01 a 13 y luego 22 y 23 en orden**, incluyendo 02 para cargar funcionarios y catálogos ficticios. SQL 12 agrega la charla de tu compañero; SQL 13 (P1) agrega vehículos y compañías; SQL 22 incorpora el hardening y SQL 23 agrega los recordatorios de vencimiento. Los números 14–21 están reservados para los planes P2–P9 y todavía no tienen scripts ni implementación. Nunca ejecutar 00 sobre datos que quieran conservar. Ejemplo PowerShell, adaptando la conexión a `.env`:
 
 ```powershell
 Get-ChildItem .\SDD\sql\*.sql |
@@ -55,16 +55,27 @@ python manage.py reprocesar_pendientes --continuo
 
 ### Base existente del ZIP final recibido
 
-Respaldar. Si ya se aplicaron 01 a 11, aplicar **SQL 12 (charla) y luego 22 (seguridad), una vez**, y ejecutar `migrate`. No volver a ejecutar el seed ni 00.
+Respaldar. Si ya se aplicaron 01 a 11, aplicar **SQL 12 (charla), 22 (seguridad) y 23 (recordatorios)**, y ejecutar `migrate`. No volver a ejecutar el seed ni 00.
 
 ```powershell
 psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\12_tipos_de_charla.sql
 psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\22_seguridad_y_coberturas.sql
+psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\23_recordatorios_polizas.sql
 python manage.py migrate
 python manage.py check
 ```
 
 Instalar las nuevas dependencias, preparar el modelo y reiniciar web/worker. Django no crea las tablas del negocio con `migrate`, porque son `managed=False`.
+
+## Vencimientos y recordatorios
+
+Desde **Vencimientos** se ven primero las pólizas con cuotas atrasadas, desde el atraso más antiguo; luego las de vencimiento más cercano. Incluye saldo total, importe vencido y un botón que prepara el aviso. Se conserva la identidad visual del panel. Para actualizar una instalación que ya tiene SQL 22, aplicar solo SQL 23 y reiniciar web/worker. [Guía y ejemplo de siete días](docs/VENCIMIENTOS.md).
+
+```powershell
+python manage.py cargar_demo_vencimientos
+```
+
+Este lote opcional habilita datos ficticios y un chat simulado para exponer; no corre al arrancar. El envío directo respeta la ventana de WhatsApp. Fuera de ella ofrece texto para contacto manual; no marca como enviado al abrir el enlace.
 
 ## Exposición lista con el PDF ficticio
 

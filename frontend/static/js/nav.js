@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20261104integrado1";
+import { api } from "./api.js?v=20261104vencimientos2";
 
 const contadores = [
     { clave: "acciones", etiqueta: "Acciones", destino: "/panel/acciones/" },
@@ -14,6 +14,7 @@ const destinos = [
     { etiqueta: "Bandeja", destino: "/panel/" },
     { etiqueta: "Clientes", destino: "/panel/clientes/" },
     { etiqueta: "Compañías", destino: "/panel/companias/" },
+    { etiqueta: "Vencimientos", destino: "/panel/vencimientos/" },
     { etiqueta: "Documentos", destino: "/panel/documentos/" },
     { etiqueta: "Siniestros", destino: "/panel/siniestros/" },
     { etiqueta: "Reportes", destino: "/panel/reportes/" },

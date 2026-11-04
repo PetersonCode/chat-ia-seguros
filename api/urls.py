@@ -63,11 +63,15 @@ from api.views import (
     siniestro_transicionar,
     siniestros_listar_o_crear,
 )
+from api.vencimientos import vencimientos, recordatorio
 from api.webhook import webhook_whatsapp
 
 from api.views import poliza_vincular_documento
 
 urlpatterns = [
+    path("api/vencimientos/", vencimientos, name="api_vencimientos"),
+    path("api/polizas/<int:id>/recordatorio/", recordatorio, name="api_recordatorio"),
+    path("panel/vencimientos/", servir_pagina, name="pagina_vencimientos"),
     path("api/entorno/", lambda request: JsonResponse({"modo_demostracion": settings.MODO_DEMOSTRACION})),
     path('api/polizas/<int:id>/documentos/', poliza_vincular_documento),
     path("api/auth/csrf/", auth_csrf, name="api_auth_csrf"),

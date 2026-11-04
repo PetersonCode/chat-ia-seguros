@@ -1,21 +1,21 @@
-import { api } from "../api.js?v=20261104integrado1";
-import { inicializarNav } from "../nav.js?v=20261104integrado1";
-import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261104integrado1";
+import { api } from "../api.js?v=20261104vencimientos2";
+import { inicializarNav } from "../nav.js?v=20261104vencimientos2";
+import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261104vencimientos2";
 import {
     etiquetaEstadoPoliza,
     mesesDeCobertura,
     ordenarPolizas,
     validarPoliza,
-} from "../lib/polizas.js?v=20261104integrado1";
-import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261104integrado1";
-import { normalizarPatente } from "../lib/patente.js?v=20261104integrado1";
+} from "../lib/polizas.js?v=20261104vencimientos2";
+import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261104vencimientos2";
+import { normalizarPatente } from "../lib/patente.js?v=20261104vencimientos2";
 import {
     USOS,
     descripcionVehiculo,
     etiquetaUso,
     validarVehiculo,
-} from "../lib/vehiculos.js?v=20261104integrado1";
-import { formatearPorcentaje } from "../lib/companias.js?v=20261104integrado1";
+} from "../lib/vehiculos.js?v=20261104vencimientos2";
+import { formatearPorcentaje } from "../lib/companias.js?v=20261104vencimientos2";
 
 const idCliente = new URLSearchParams(globalThis.location.search).get("id");
 const nombreCliente = document.getElementById("nombre-cliente");
