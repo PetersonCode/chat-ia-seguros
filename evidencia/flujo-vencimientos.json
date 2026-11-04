@@ -1,0 +1,61 @@
+{
+  "filas": [
+    {
+      "poliza": "POL-90101",
+      "fecha": "2026-12-31",
+      "saldo": "96000.00",
+      "vencido": "48000.00",
+      "primera_cuota_vencida": "2026-10-15"
+    },
+    {
+      "poliza": "POL-00124",
+      "fecha": "2027-11-01",
+      "saldo": "144000.00",
+      "vencido": "12000.00",
+      "primera_cuota_vencida": "2026-11-01"
+    },
+    {
+      "poliza": "POL-00125",
+      "fecha": "2027-11-01",
+      "saldo": "102000.00",
+      "vencido": "8500.00",
+      "primera_cuota_vencida": "2026-11-01"
+    },
+    {
+      "poliza": "POL-90201",
+      "fecha": "2026-11-05",
+      "saldo": "25000.00",
+      "vencido": "0",
+      "primera_cuota_vencida": "None"
+    },
+    {
+      "poliza": "POL-90202",
+      "fecha": "2026-11-11",
+      "saldo": "25000.00",
+      "vencido": "0",
+      "primera_cuota_vencida": "None"
+    },
+    {
+      "poliza": "POL-90203",
+      "fecha": "2026-11-25",
+      "saldo": "25000.00",
+      "vencido": "0",
+      "primera_cuota_vencida": "None"
+    },
+    {
+      "poliza": "POL-00126",
+      "fecha": "2027-11-04",
+      "saldo": "120000.00",
+      "vencido": "0",
+      "primera_cuota_vencida": "None"
+    }
+  ],
+  "aviso_simulado": {
+    "poliza": "POL-90202",
+    "texto": "Hola Ana, te recordamos que tu póliza POL-90202 vence en 7 días (11/11/2026).\nSaldo pendiente de esta póliza: $25.000.\nSi ya realizaste el pago o querés consultar la renovación, escribinos. Seguros Castaño.",
+    "estado": "enviado",
+    "funcionario": "Graciela"
+  },
+  "canal": "WhatsApp simulado",
+  "css_global_modificado": false
+}

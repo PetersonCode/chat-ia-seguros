@@ -18,6 +18,7 @@ Los archivos Docker se mantienen versionables en la entrega porque forman parte 
 - `01` a `11`: esquema anterior.
 - `12_tipos_de_charla.sql`: incremento del compañero; permite volver a ejecutarlo.
 - `13` a `21`: reservas de planes futuros, sin implementación en esta entrega.
+- `23_recordatorios_polizas.sql`: pantalla de vencimientos y registro de avisos manuales desde el panel. Se aplica después de 22. No implementa el motor P2/P3 completo.
 - `22_seguridad_y_coberturas.sql`: incremento de esta revisión, aditivo y transaccional. Aplicarlo una sola vez.
 
 Si ya estaba aplicado el 12 del compañero, no hay que rehacer los datos: agregar 22 y ejecutar `migrate`. Si la base solo llegaba a 11, agregar 12 y 22. Nunca utilizar `00_drop_all.sql` para actualizar una base con datos a conservar.

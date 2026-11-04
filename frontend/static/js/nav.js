@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20261104integrado1";
+import { api } from "./api.js?v=20261104vencimientos2";
 
 const contadores = [
     { clave: "acciones", etiqueta: "Acciones", destino: "/panel/acciones/" },
@@ -13,6 +13,7 @@ const LOGO = "/static/img/logo-castano.png?v=1";
 const destinos = [
     { etiqueta: "Bandeja", destino: "/panel/" },
     { etiqueta: "Clientes", destino: "/panel/clientes/" },
+    { etiqueta: "Vencimientos", destino: "/panel/vencimientos/" },
     { etiqueta: "Documentos", destino: "/panel/documentos/" },
     { etiqueta: "Siniestros", destino: "/panel/siniestros/" },
     { etiqueta: "Reportes", destino: "/panel/reportes/" },

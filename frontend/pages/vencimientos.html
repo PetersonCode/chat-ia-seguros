@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vencimientos | Seguros Castaño</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/app.css?v=20261104vencimientos2">
+</head>
+<body>
+    <nav id="nav" aria-label="Navegación principal"></nav>
+    <main class="container-fluid px-3 px-lg-4 py-4">
+        <header class="mb-4">
+            <h1 class="h3 fw-bold mb-1">Vencimientos</h1>
+            <p class="text-muted mb-0">Primero los pagos atrasados, desde el más antiguo. Después, las pólizas con vencimiento más cercano. Prepará y enviá su recordatorio.</p>
+        </header>
+        <form id="filtros" class="card border-0 shadow-sm mb-4">
+            <div class="card-body row g-3 align-items-end">
+                <div class="col-md-3"><label for="dias" class="form-label">Vencen en</label>
+                    <select id="dias" class="form-select"><option value="">Todas las próximas fechas</option><option value="7">Próximos 7 días</option><option value="30">Próximos 30 días</option><option value="60">Próximos 60 días</option><option value="90">Próximos 90 días</option></select>
+                </div>
+                <div class="col-md-4"><label for="buscar" class="form-label">Cliente, póliza o vehículo</label><input id="buscar" type="search" class="form-control" maxlength="100"></div>
+                <div class="col-md-3"><div class="form-check mb-2"><input id="vencidas" type="checkbox" class="form-check-input"><label for="vencidas" class="form-check-label">Incluir vencidas de los últimos 30 días</label></div></div>
+                <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Buscar</button></div>
+            </div>
+        </form>
+        <p id="estado" role="status" aria-live="polite"></p>
+        <section class="card border-0 shadow-sm" aria-labelledby="titulo-listado">
+            <div class="card-header d-flex justify-content-between align-items-center"><h2 id="titulo-listado" class="h5 mb-0">Pólizas por vencer</h2><span id="total" class="small text-muted"></span></div>
+            <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+                <thead><tr><th scope="col">Cliente y vehículo</th><th scope="col">Póliza</th><th scope="col">Vencimiento</th><th scope="col">Plazo</th><th scope="col">Saldo pendiente</th><th scope="col">Último recordatorio</th><th scope="col">Acción</th></tr></thead>
+                <tbody id="filas"></tbody>
+            </table></div>
+            <nav class="card-footer d-flex justify-content-between align-items-center" aria-label="Paginación de vencimientos"><button id="anterior" class="btn btn-outline-secondary btn-sm" type="button">Anterior</button><span id="pagina" class="small"></span><button id="siguiente" class="btn btn-outline-secondary btn-sm" type="button">Siguiente</button></nav>
+        </section>
+        <p class="small text-muted mt-3">El saldo corresponde a las cuotas impagas de cada póliza. Un recordatorio no renueva la cobertura ni registra un pago.</p>
+    </main>
+    <dialog id="recordatorio" class="dialog-accion" aria-labelledby="dialog-titulo">
+        <div class="p-4">
+            <h2 id="dialog-titulo" class="h5">Enviar recordatorio</h2>
+            <label class="form-label" for="contacto">Número del cliente</label><select id="contacto" class="form-select mb-3"></select>
+            <label for="texto" class="form-label">Mensaje preparado</label><textarea id="texto" class="form-control mb-3" rows="6" readonly></textarea>
+            <p id="disponibilidad" class="small"></p>
+            <p id="error-dialogo" class="text-danger small" role="alert" aria-live="assertive"></p>
+            <div id="historial" class="small text-muted mb-3"></div>
+            <div class="d-flex flex-wrap justify-content-end gap-2">
+                <button id="cerrar" class="btn btn-outline-secondary" type="button">Cerrar</button>
+                <button id="copiar" class="btn btn-outline-secondary" type="button">Copiar texto</button>
+                <a id="abrir-whatsapp" class="btn btn-outline-success" target="_blank" rel="noopener noreferrer" hidden>Abrir WhatsApp</a>
+                <button id="manual" class="btn btn-outline-primary" type="button" hidden>Ya lo envié por WhatsApp</button>
+                <button id="enviar" class="btn btn-primary" type="button">Enviar recordatorio</button>
+            </div>
+        </div>
+    </dialog>
+    <script type="module" src="/static/js/pages/vencimientos.js?v=20261104vencimientos2"></script>
+</body>
+</html>
