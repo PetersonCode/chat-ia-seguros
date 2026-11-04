@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261029a";
-import { inicializarNav } from "../nav.js?v=20261029a";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261029a";
-import { claseTarjeta, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261029a";
-import { armarQuery } from "../lib/consulta.js?v=20261029a";
-import { debounce } from "../lib/debounce.js?v=20261029a";
+import { api } from "../api.js?v=20261103";
+import { inicializarNav } from "../nav.js?v=20261103";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261103";
+import { claseTarjeta, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261103";
+import { armarQuery } from "../lib/consulta.js?v=20261103";
+import { debounce } from "../lib/debounce.js?v=20261103";
 
 const formulario = document.getElementById("formulario-filtros");
 const campoEstado = document.getElementById("filtro-estado");

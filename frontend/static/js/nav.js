@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20261029a";
+import { api } from "./api.js?v=20261103";
 
 const contadores = [
     { clave: "acciones", etiqueta: "Acciones", destino: "/panel/acciones/" },
@@ -22,6 +22,17 @@ function crearElemento(etiqueta, clase, texto) {
         elemento.textContent = texto;
     }
     return elemento;
+}
+/** Un enlace a un sitio de afuera: pestaña nueva y sin darle acceso a esta. */
+function enlaceExterno(href, clase, descripcion) {
+    const enlace = crearElemento("a", clase);
+    enlace.href = href;
+    enlace.target = "_blank";
+    enlace.rel = "noopener noreferrer";
+    enlace.title = descripcion;
+    enlace.setAttribute("aria-label", `${descripcion} (se abre en una pestaña nueva)`);
+    return enlace;
+
 }
 
 function mostrarError(nav, mensaje) {
@@ -83,8 +94,20 @@ function crearNavegacion(nav) {
     nav.className = "navbar bg-white border-bottom";
     const contenedor = crearElemento("div", "container-fluid barra");
 
-    const marca = crearElemento("a", "navbar-brand", "Seguros Castaño");
-    marca.href = "/panel/";
+        // El logo lleva al sitio de la agencia; el nombre, a la bandeja.
+    const logo = enlaceExterno(SITIO_WEB, "nav-logo", "Sitio web de Seguros Castaño");
+    const imagen = crearElemento("img");
+    imagen.src = LOGO;
+    imagen.alt = "";
+    imagen.width = 36;
+    imagen.height = 36;
+    logo.append(imagen);
+
+    const nombre = crearElemento("a", "navbar-brand", "Seguros Castaño");
+    nombre.href = "/panel/";
+
+    const marca = crearElemento("div", "nav-marca");
+    marca.append(logo, nombre);
 
     // Grupo 1: navegación.
     const principal = crearElemento("ul", "navbar-nav nav-principal flex-row");
@@ -138,13 +161,20 @@ function crearNavegacion(nav) {
         }
     });
 
-    const derecha = crearElemento("div", "barra-derecha");
-    derecha.append(
-        pendientes,
-        crearElemento("span", "nav-separador"),
-        identidad,
-        salida,
-    );
+       // El logo lleva al sitio de la agencia; el nombre, a la bandeja.
+    const logo = enlaceExterno(SITIO_WEB, "nav-logo", "Sitio web de Seguros Castaño");
+    const imagen = crearElemento("img");
+    imagen.src = LOGO;
+    imagen.alt = "";
+    imagen.width = 36;
+    imagen.height = 36;
+    logo.append(imagen);
+
+    const nombre = crearElemento("a", "navbar-brand", "Seguros Castaño");
+    nombre.href = "/panel/";
+
+    const marca = crearElemento("div", "nav-marca");
+    marca.append(logo, nombre);
 
     contenedor.append(marca, principal, derecha);
     nav.replaceChildren(contenedor);
@@ -218,3 +248,7 @@ export async function inicializarNav(nav = document.getElementById("nav")) {
     await cargarDatos();
     globalThis.setInterval(cargarDatos, 30_000);
 }
+// Enlaces de la agencia. Se abren en otra pestaña para no perder el panel.
+const SITIO_WEB = "https://beelyora.com/castano-page";
+const INSTAGRAM = "https://www.instagram.com/roberto.0231/";
+const LOGO = "/static/img/logo-castano.png?v=1";

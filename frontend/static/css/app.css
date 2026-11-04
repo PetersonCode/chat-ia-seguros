@@ -24,6 +24,11 @@
     --sc-acento-claro: #8fb8f2;    /* enlaces y foco sobre fondo oscuro */
     --sc-acento-texto: #cfe0f7;
     --sc-acento-suave: #1b3f6e;
+        /* Instagram: marino, un tono más claro que el fondo */
+    --sc-ig-fondo: #1f4677;
+    --sc-ig-fondo-hover: #2a5a93;
+    --sc-ig-borde: rgb(143 184 242 / 30%);
+    --sc-ig-icono: #a9c8f2;
 
     --sc-radio: 0.875rem;
     --sc-radio-chico: 0.5rem;
@@ -131,14 +136,33 @@ a:hover {
     color: #fff;
 }
 
-/* El punto del logo: una marca mínima que da identidad sin pedir un archivo. */
-.navbar-brand::before {
-    content: "";
-    width: 0.625rem;
-    height: 0.625rem;
+/* Logo + nombre: van juntos aunque la barra se parta en dos líneas. */
+.nav-marca { display: inline-flex; align-items: center; gap: 0.625rem; }
+
+.nav-logo {
+    display: inline-flex;
+    flex: none;
     border-radius: 50%;
-    background: linear-gradient(135deg, #7fa6e0, #c9dcf5);
-    box-shadow: 0 0 0 3px rgb(255 255 255 / 15%);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.nav-logo img { display: block; width: 2.25rem; height: 2.25rem; border-radius: 50%; }
+.nav-logo:hover,
+.nav-logo:focus-visible { box-shadow: 0 0 0 3px rgb(143 184 242 / 40%); transform: scale(1.05); }
+
+.nav-instagram {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--sc-ig-borde);
+    border-radius: 50%;
+    background-color: var(--sc-ig-fondo);
+    color: var(--sc-ig-icono);
+    font-size: 1rem;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.nav-instagram:hover,
+.nav-instagram:focus-visible { background-color: var(--sc-ig-fondo-hover); color: #fff; text-decoration: none; }
 }
 
 .navbar-brand:hover {
@@ -1152,7 +1176,44 @@ details[open] > .caja-nueva-poliza .caja-nueva-poliza-mas {
     --bs-btn-active-bg: #4a86d8;
     --bs-btn-active-border-color: #4a86d8;
 }
+.login-logo {
+    display: inline-block;
+    border-radius: 50%;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.login-logo img { display: block; width: 7rem; height: 7rem; border-radius: 50%; }
+.login-logo:hover,
+.login-logo:focus-visible { box-shadow: 0 0 0 4px rgb(143 184 242 / 40%), 0 8px 24px rgb(0 0 0 / 35%); transform: scale(1.03); }
 
+.login-divisor { margin-block: 1.75rem 1.25rem; border-color: rgb(255 255 255 / 16%); opacity: 1; }
+
+.login-instagram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    color: rgb(255 255 255 / 80%);
+    font-size: 0.9375rem;
+    text-decoration: none;
+}
+.login-instagram-icono {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid var(--sc-ig-borde);
+    border-radius: 50%;
+    background-color: var(--sc-ig-fondo);
+    color: var(--sc-ig-icono);
+    font-size: 1.125rem;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.login-instagram-usuario { color: var(--sc-acento-claro); font-weight: 600; }
+.login-instagram:hover,
+.login-instagram:focus-visible { color: #fff; }
+.login-instagram:hover .login-instagram-icono,
+.login-instagram:focus-visible .login-instagram-icono { background-color: var(--sc-ig-fondo-hover); color: #fff; }
 /* --- Movimiento -------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
