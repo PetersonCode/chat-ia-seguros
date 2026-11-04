@@ -1198,6 +1198,83 @@ details[open] > .caja-nueva-poliza .caja-nueva-poliza-mas {
 .login-instagram:focus-visible { color: #fff; }
 .login-instagram:hover .login-instagram-icono,
 .login-instagram:focus-visible .login-instagram-icono { background-color: var(--sc-ig-fondo-hover); color: #fff; }
+/* --- Embudo de interesados (P5) ---------------------------------------- */
+
+/* Una columna por etapa. En pantallas anchas van lado a lado y el tablero se
+   desplaza solo (la página no); en el celular se apilan. */
+.embudo {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(16.5rem, 1fr);
+    gap: 1rem;
+    align-items: start;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+
+.embudo-columna {
+    background-color: var(--sc-superficie-hundida);
+    border: 1px solid var(--sc-borde);
+    border-radius: var(--sc-radio);
+    padding: 0.75rem;
+    min-width: 0;
+}
+
+.embudo-titulo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.embudo-cuenta {
+    min-width: 1.75rem;
+    padding: 0.0625rem 0.5rem;
+    border-radius: 999px;
+    background-color: var(--sc-acento-suave);
+    color: var(--sc-acento-texto);
+    font-size: 0.8125rem;
+    text-align: center;
+}
+
+.embudo-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+}
+
+.embudo-tarjeta {
+    background-color: var(--sc-superficie);
+    border: 1px solid var(--sc-borde);
+    border-radius: var(--sc-radio-chico);
+    box-shadow: var(--sc-sombra);
+    padding: 0.75rem;
+}
+
+.embudo-tarjeta:hover,
+.embudo-tarjeta:focus-within {
+    border-color: var(--sc-acento-claro);
+}
+
+.embudo-nombre {
+    color: var(--sc-texto);
+    font-weight: 650;
+    text-decoration: none;
+}
+
+/* La cotización que se eligió se lee de un vistazo, además de decirlo con texto. */
+.table > tbody > tr.fila-elegida > * {
+    --bs-table-bg-type: var(--sev-baja-fondo);
+}
+
+@media (max-width: 767.98px) {
+    .embudo {
+        grid-auto-flow: row;
+        grid-auto-columns: 1fr;
+        overflow-x: visible;
+    }
+}
+
 /* --- Movimiento -------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {

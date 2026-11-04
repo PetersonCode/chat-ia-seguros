@@ -34,6 +34,11 @@ from api.permisos import EsAprobador, EsAprobadorParaEscribir, EsFuncionario, Es
 from api.serializers import (
     ClaveSerializer,
     ClienteAltaSerializer,
+    ConvertirInteresadoSerializer,
+    CotizacionAltaSerializer,
+    InteresadoAltaSerializer,
+    InteresadoModificacionSerializer,
+    MoverInteresadoSerializer,
     ClienteModificacionSerializer,
     BuscarDocumentoSerializer,
     DocumentoAltaSerializer,
@@ -66,11 +71,15 @@ from datos.models import (
     Conversacion,
     Derivacion,
     Cobertura,
+    Cotizacion,
     EstadoAccion,
+    EstadoInteresado,
     EstadoDocumento,
     DocumentoGeneral,
     EstadoEnvio,
+    Interesado,
     Mensaje,
+    OrigenInteresado,
     Poliza,
     EstadoSiniestro,
     Siniestro,
@@ -106,6 +115,15 @@ from negocio.clientes import (
     reactivar_cliente,
 )
 from negocio.companias import alta_compania, modificar_compania
+from negocio.cotizaciones import cargar_cotizacion, elegir_cotizacion, quitar_cotizacion
+from negocio.interesados import (
+    actualizar_datos_interesado,
+    asignar_interesado,
+    convertir_en_cliente,
+    crear_interesado,
+    mover_interesado,
+    programar_contacto,
+)
 from negocio.errores import DatosInvalidos, NoEncontrado, PermisoDenegado
 from negocio.vehiculos import alta_vehiculo, dar_de_baja_vehiculo, modificar_vehiculo
 from negocio.reglas import (
@@ -131,7 +149,6 @@ from negocio.supervision import (
     desbloquear_numero,
 )
 
-PAGINADOR = Paginador()
 
 
 # --- Traducción de tipos ---------------------------------------------------
@@ -159,8 +176,11 @@ def _dinero(valor) -> str | None:
 
 
 def _pagina(queryset, request, armar):
-    page = PAGINADOR.paginate_queryset(queryset, request, view=None)
-    return PAGINADOR.get_paginated_response([armar(item) for item in page or []])
+    # Un paginador por llamada: guarda la página en `self`, y compartido entre
+    # hilos (gunicorn gthread) dos pedidos en paralelo se pisaban el total.
+    paginador = Paginador()
+    page = paginador.paginate_queryset(queryset, request, view=None)
+    return paginador.get_paginated_response([armar(item) for item in page or []])
 
 
 # --- Objetos del contrato --------------------------------------------------
@@ -1516,3 +1536,274 @@ def poliza_vincular_documento(request, id):
         raise NoEncontrado('La póliza no existe.')
     vinculo = vincular_documento(poliza.numero_poliza, documento_id, request.funcionario.id)
     return Response({'id': vinculo.id, 'poliza_id': id, 'documento_id': documento_id})
+
+
+# --- Embudo de interesados y cotizaciones (P5) ------------------------------
+
+
+def _contacto_breve(contacto) -> dict | None:
+    if contacto is None:
+        return None
+    return {
+        "id": contacto.id,
+        "whatsapp": contacto.numero,
+        "nombre_perfil": contacto.nombre_perfil,
+        "cliente_id": contacto.cliente_id,
+    }
+
+
+def _interesado_item(interesado: Interesado) -> dict:
+    """Lo que muestra una tarjeta del tablero. `seguimiento_vencido` lo decide el servidor."""
+    vencido = (
+        interesado.proximo_contacto is not None
+        and interesado.proximo_contacto < timezone.localdate()
+        and interesado.estado not in (EstadoInteresado.EMITIDA, EstadoInteresado.PERDIDA)
+    )
+    return {
+        "id": interesado.id,
+        "nombre": interesado.nombre,
+        "apellido": interesado.apellido,
+        "origen": interesado.origen,
+        "estado": interesado.estado,
+        "responsable": _funcionario_breve(interesado.responsable),
+        "proximo_contacto": _iso(interesado.proximo_contacto),
+        "seguimiento_vencido": vencido,
+        "motivo_perdida": interesado.motivo_perdida,
+        "datos": interesado.datos or {},
+        "cliente_id": interesado.cliente_id,
+        "contacto": _contacto_breve(interesado.contacto),
+        "creado_en": _iso(interesado.creado_en),
+        "actualizado_en": _iso(interesado.actualizado_en),
+    }
+
+
+def _linea_historial(linea) -> dict:
+    return {
+        "id": linea.id,
+        "estado_anterior": linea.estado_anterior,
+        "estado_nuevo": linea.estado_nuevo,
+        "nota": linea.nota or None,
+        "funcionario": _funcionario_breve(linea.funcionario),
+        "fecha": _iso(linea.fecha),
+    }
+
+
+def _cotizacion_item(cotizacion: Cotizacion, ver_comision: bool) -> dict:
+    return {
+        "id": cotizacion.id,
+        "interesado": cotizacion.interesado_id,
+        "poliza": cotizacion.poliza_id,
+        "compania": _compania(cotizacion.compania, ver_comision),
+        "cobertura": cotizacion.cobertura,
+        "prima_mensual": _dinero(cotizacion.prima_mensual),
+        "vigencia_hasta": _iso(cotizacion.vigencia_hasta),
+        "elegida": cotizacion.elegida,
+        "notas": cotizacion.notas,
+        "creada_por": _funcionario_breve(cotizacion.creada_por),
+        "creada_en": _iso(cotizacion.creada_en),
+    }
+
+
+def _interesado_detalle(interesado: Interesado, ver_comision: bool) -> dict:
+    """La ficha: la tarjeta más el historial, las cotizaciones (de la más barata) y el cliente."""
+    payload = _interesado_item(interesado)
+    payload.update(
+        {
+            "cliente": _cliente_breve(interesado.cliente),
+            "historial": [_linea_historial(linea) for linea in interesado.historial.all()],
+            "cotizaciones": [
+                _cotizacion_item(cotizacion, ver_comision)
+                for cotizacion in interesado.cotizaciones.all()
+            ],
+        }
+    )
+    return payload
+
+
+def _responsable_de_la_consulta(request) -> int | None:
+    """`?responsable=N` o `?responsable=me`. Vacío o ausente = todos."""
+    crudo = (request.query_params.get("responsable") or "").strip()
+    if not crudo:
+        return None
+    if crudo == "me":
+        return request.funcionario.id
+    try:
+        responsable_id = int(crudo)
+    except ValueError as error:
+        raise DatosInvalidos("El responsable tiene que ser un número o «me».") from error
+    if responsable_id < 1:
+        raise DatosInvalidos("El responsable tiene que ser un número positivo.")
+    return responsable_id
+
+
+def _entero_de_la_consulta(request, nombre: str) -> int | None:
+    crudo = (request.query_params.get(nombre) or "").strip()
+    if not crudo:
+        return None
+    try:
+        valor = int(crudo)
+    except ValueError as error:
+        raise DatosInvalidos(f"El parámetro {nombre} tiene que ser un número.") from error
+    if valor < 1:
+        raise DatosInvalidos(f"El parámetro {nombre} tiene que ser un número positivo.")
+    return valor
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsFuncionario])
+def funcionarios_listar(request):
+    """Los funcionarios activos, para elegir un responsable. Solo id, nombre y rol:
+    el correo y los permisos son del propietario (`/api/usuarios/`)."""
+    return Response(
+        {
+            "resultados": [
+                {"id": f.id, "nombre": f.nombre, "rol": f.rol}
+                for f in selectors.funcionarios_activos()
+            ]
+        }
+    )
+
+
+@api_view(["GET", "POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsFuncionario])
+def interesados_listar_o_crear(request):
+    ver_comision = _ve_comision(request)
+    if request.method == "POST":
+        datos = InteresadoAltaSerializer(data=request.data)
+        datos.is_valid(raise_exception=True)
+        antes = timezone.now()
+        interesado = crear_interesado(request.funcionario.id, **datos.validated_data)
+        # Si el número ya tenía un interesado abierto, se devuelve ese: no es un alta.
+        ya_existia = interesado.creado_en < antes
+        payload = _interesado_detalle(selectors.detalle_interesado(interesado.id), ver_comision)
+        payload["ya_existia"] = ya_existia
+        return Response(
+            payload,
+            status=status.HTTP_200_OK if ya_existia else status.HTTP_201_CREATED,
+        )
+
+    estado = request.query_params.get("estado") or None
+    if estado is not None and estado not in EstadoInteresado.values:
+        raise DatosInvalidos("La etapa tiene que ser una de: " + ", ".join(EstadoInteresado.values) + ".")
+    origen = request.query_params.get("origen") or None
+    if origen is not None and origen not in OrigenInteresado.values:
+        raise DatosInvalidos("El origen tiene que ser uno de: " + ", ".join(OrigenInteresado.values) + ".")
+    queryset = selectors.listar_interesados(
+        estado=estado,
+        responsable_id=_responsable_de_la_consulta(request),
+        origen=origen,
+        q=request.query_params.get("q") or None,
+        seguimiento_vencido=request.query_params.get("seguimiento_vencido") in ("1", "true"),
+    )
+    return _pagina(queryset, request, _interesado_item)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsFuncionario])
+def interesados_embudo(request):
+    responsable_id = _responsable_de_la_consulta(request)
+    return Response(
+        {
+            "conteos": selectors.contar_por_estado(responsable_id),
+            **selectors.cierres_del_mes(responsable_id),
+        }
+    )
+
+
+@api_view(["GET", "PATCH"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsFuncionario])
+def interesado_detalle_o_modificar(request, id):
+    if request.method == "PATCH":
+        datos = InteresadoModificacionSerializer(data=request.data)
+        datos.is_valid(raise_exception=True)
+        cambios = datos.validated_data
+        funcionario_id = request.funcionario.id
+        # Todo o nada: si el segundo cambio falla, el primero no queda hecho.
+        with transaction.atomic():
+            if "responsable_id" in cambios:
+                asignar_interesado(id, cambios["responsable_id"], funcionario_id)
+            if "proximo_contacto" in cambios:
+                programar_contacto(id, cambios["proximo_contacto"], funcionario_id)
+            if "datos" in cambios:
+                actualizar_datos_interesado(id, cambios["datos"], funcionario_id)
+    return Response(
+        _interesado_detalle(selectors.detalle_interesado(id), _ve_comision(request))
+    )
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsFuncionario])
+def interesado_mover(request, id):
+    datos = MoverInteresadoSerializer(data=request.data)
+    datos.is_valid(raise_exception=True)
+    campos = datos.validated_data
+    mover_interesado(
+        id,
+        campos["estado"],
+        request.funcionario.id,
+        nota=campos.get("nota"),
+        motivo_perdida=campos.get("motivo_perdida"),
+    )
+    return Response(
+        _interesado_detalle(selectors.detalle_interesado(id), _ve_comision(request))
+    )
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsAprobador])
+def interesado_convertir(request, id):
+    datos = ConvertirInteresadoSerializer(data=request.data)
+    datos.is_valid(raise_exception=True)
+    convertir_en_cliente(id, request.funcionario.id, **datos.validated_data)
+    return Response(
+        _interesado_detalle(selectors.detalle_interesado(id), _ve_comision(request))
+    )
+
+
+@api_view(["GET", "POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsFuncionario])
+def cotizaciones_listar_o_crear(request):
+    ver_comision = _ve_comision(request)
+    if request.method == "POST":
+        datos = CotizacionAltaSerializer(data=request.data)
+        datos.is_valid(raise_exception=True)
+        cotizacion = cargar_cotizacion(request.funcionario.id, **datos.validated_data)
+        cotizacion = selectors.cotizaciones_de(
+            interesado_id=cotizacion.interesado_id, poliza_id=cotizacion.poliza_id
+        ).get(pk=cotizacion.id)
+        return Response(
+            _cotizacion_item(cotizacion, ver_comision), status=status.HTTP_201_CREATED
+        )
+
+    interesado_id = _entero_de_la_consulta(request, "interesado")
+    poliza_id = _entero_de_la_consulta(request, "poliza")
+    if (interesado_id is None) == (poliza_id is None):
+        raise DatosInvalidos("Indicá ?interesado=N o ?poliza=N, uno solo.")
+    cotizaciones = selectors.cotizaciones_de(interesado_id=interesado_id, poliza_id=poliza_id)
+    return Response(
+        {"resultados": [_cotizacion_item(c, ver_comision) for c in cotizaciones]}
+    )
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsFuncionario])
+def cotizacion_elegir(request, id):
+    elegir_cotizacion(id, request.funcionario.id)
+    cotizacion = Cotizacion.objects.select_related("compania", "creada_por").get(pk=id)
+    return Response(_cotizacion_item(cotizacion, _ve_comision(request)))
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsFuncionario])
+def cotizacion_quitar(request, id):
+    quitar_cotizacion(id, request.funcionario.id)
+    return Response(status=status.HTTP_204_NO_CONTENT)

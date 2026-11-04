@@ -765,8 +765,8 @@ class PoliticasTests(BaseBotTests):
         # Un contacto distinto por caso: la base solo admite una conversación
         # abierta por contacto. Y todos con cliente en la base, porque a un
         # desconocido el bot le pide los datos antes de derivarlo.
+        # (La cotización ya no deriva en seco: primero pide los datos; ver P5.)
         for cliente, texto, tipo in (
-            (self.escenario.juan, "cuanto cuesta asegurar una moto 150cc", "cotizacion"),
             (self.escenario.maria, "qué incluye la cobertura?", "consulta_cobertura"),
             (self.escenario.nora, "quiero adelantar las cuotas", "pago"),
         ):
@@ -785,7 +785,7 @@ class PoliticasTests(BaseBotTests):
 
     # AC-T3-37
     def test_la_consulta_derivada_queda_en_estado_derivado(self):
-        _, _, resultado = self._procesar("1001", "cuanto cuesta asegurar una moto")
+        _, _, resultado = self._procesar("1001", "quiero adelantar las cuotas")
         self.assertEqual(ConsultaBot.objects.get().estado, EstadoConsulta.DERIVADO)
 
 
@@ -1156,9 +1156,7 @@ class RegistroAntesDeDerivarTests(BaseBotTests):
         self.assertEqual(derivacion.prioridad, "urgente")
 
     def test_a_un_cliente_de_la_base_no_se_le_pide_nada(self):
-        _, _, resultado = self._procesar(
-            "1001", "cuanto cuesta asegurar una moto 150cc"
-        )
+        _, _, resultado = self._procesar("1001", "quiero adelantar las cuotas")
 
         self.assertEqual(self._respuesta(resultado).texto, plantillas.DERIVACION)
         self.assertTrue(Derivacion.objects.exists())
@@ -1350,13 +1348,16 @@ class NoEntendiTests(BaseBotTests):
         self.assertEqual(self._respuesta(resultado).texto, plantillas.DERIVACION)
         self.assertTrue(Derivacion.objects.exists())
 
-    def test_un_pedido_que_si_entendio_va_a_una_persona_a_la_primera(self):
+    def test_un_pedido_que_si_entendio_no_se_repregunta_se_piden_los_datos(self):
         # Una cotización no es un fracaso del bot: no hay nada que repreguntar.
+        # Desde P5 tampoco se deriva en seco: primero pide los datos para cotizar.
         _, _, resultado = self._procesar("1001", "cuanto cuesta asegurar una moto 150cc")
 
         self.assertEqual(resultado.tipo_consulta, "cotizacion")
-        self.assertEqual(self._respuesta(resultado).texto, plantillas.DERIVACION)
-        self.assertTrue(Derivacion.objects.exists())
+        texto = self._respuesta(resultado).texto
+        self.assertIn(plantillas.MARCA_PEDIDO_COTIZACION, texto)
+        self.assertNotIn(plantillas.MARCA_NO_ENTENDI, texto)
+        self.assertFalse(Derivacion.objects.exists())
 
     def test_la_correccion_del_cruce_tambien_pisa_lo_que_dice_el_llm(self):
         """El modelo comete el mismo error que las reglas: manda "¿cubre choque

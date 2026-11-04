@@ -69,6 +69,24 @@ Cambiar un endpoint o una forma de respuesta requiere acuerdo de las 4 personas.
 
 `PUT` y `DELETE` sobre `/api/vehiculos/…` y `/api/companias/…` → `405`.
 
+**P5 · Embudo de interesados y cotizaciones.** Todo es de cualquier funcionario con sesión, salvo `convertir` (aprobador).
+| Método y ruta | Permiso | Cuerpo → Respuesta |
+|---|---|---|
+| `GET /api/funcionarios/` | sesión | → `{"resultados": [{id, nombre, rol}…]}` (activos, por nombre). Para elegir responsable; no trae correo ni permisos |
+| `GET /api/interesados/` | sesión | `?estado=&responsable=N\|me&origen=&q=&seguimiento_vencido=1&pagina=` → página de `interesado_item` (los de seguimiento vencido primero). Filtro inválido `400` |
+| `POST /api/interesados/` | sesión | `{nombre, origen, telefono?, apellido?, datos?}` → `201 interesado_detalle + "ya_existia": false`; si el número ya tenía uno abierto, `200` con ese y `"ya_existia": true` |
+| `GET /api/interesados/embudo/` | sesión | `?responsable=N\|me` → `{"conteos": {consulta, cotizando, documentacion, emitida, perdida}, "convertidos_mes", "perdidos_mes"}` |
+| `GET /api/interesados/{id}/` | sesión | → `interesado_detalle` |
+| `PATCH /api/interesados/{id}/` | sesión | `{responsable_id?, proximo_contacto?, datos?}` → `200 interesado_detalle`. Todo o nada. `proximo_contacto` `null` o `""` lo borra; fecha pasada `400` |
+| `POST /api/interesados/{id}/mover/` | sesión | `{estado, nota?, motivo_perdida?}` → `200 interesado_detalle`. Transición inválida `409`; perder sin motivo `400` |
+| `POST /api/interesados/{id}/convertir/` | aprobador | `{dni, nombre, apellido, email?, telefono?}` → `200 interesado_detalle`. Fuera de `documentacion` `409` |
+| `GET /api/cotizaciones/` | sesión | `?interesado=N` **o** `?poliza=N` (uno solo) → `{"resultados": [cotizacion…]}` (de la más barata) |
+| `POST /api/cotizaciones/` | sesión | `{interesado_id? \| poliza_id?, compania_id, cobertura, prima_mensual, vigencia_hasta?, notas?}` → `201 cotizacion` |
+| `POST /api/cotizaciones/{id}/elegir/` | sesión | → `200 cotizacion` (desmarca la anterior del mismo destino) |
+| `POST /api/cotizaciones/{id}/quitar/` | sesión | → `204`. La elegida: `409` |
+
+Páginas nuevas en la lista blanca de `api/paginas.py`: `/panel/interesados/` y `/panel/interesado/?id=N`. **Pendiente de P3:** `renovacion_item` aún no existe, así que `variacion_pct` y `aumento_alto` (AC-T2-37) no están.
+
 **No son de la API JSON pero también los hace T2:** `GET /webhook/whatsapp/` (verificación de Meta, responde el `hub.challenge` como texto) y `POST /webhook/whatsapp/` (mensajes entrantes); y las páginas del front (ver spec T2).
 
 ## Objetos
@@ -144,6 +162,24 @@ Cambiar un endpoint o una forma de respuesta requiere acuerdo de las 4 personas.
 //   "vehiculo": vehiculo | null, "compania": compania | null, "comision_pct": "12.50" | null
 // y `comision_pct` (el de la póliza y el de la compañía) es null si quien consulta no es aprobador: la comisión es del dueño.
 // `GET /api/clientes/?q=` también encuentra por patente (con o sin espacios).
+
+// interesado_item (P5) · `seguimiento_vencido` lo decide el servidor: proximo_contacto < hoy y el interesado sigue abierto
+{"id": 7, "nombre": "Marta", "apellido": "Gómez" /* o null */, "origen": "web", "estado": "cotizando",
+ "responsable": {"id": 2, "nombre": "Diego"} /* o null */, "proximo_contacto": "2026-11-06" /* o null */, "seguimiento_vencido": false,
+ "motivo_perdida": null, "datos": {"patente": "AB123CD", "marca": "Toyota", "modelo": "Corolla", "anio": 2020, "uso": "particular", "localidad": "Rosario"},
+ "cliente_id": null,
+ "contacto": {"id": 4, "whatsapp": "+5491155550101", "nombre_perfil": null, "cliente_id": null} /* o null */,
+ "creado_en": "2026-11-04T15:42:00Z", "actualizado_en": "2026-11-04T15:42:00Z"}
+
+// interesado_detalle (P5) = interesado_item +
+{"cliente": {"id","nombre","apellido"} /* o null */,
+ "historial": [{"id", "estado_anterior": null | "consulta", "estado_nuevo": "consulta", "nota": null | "…", "funcionario": {"id","nombre"} | null /* el bot */, "fecha"}],  // viejo → nuevo
+ "cotizaciones": [cotizacion…]}                                                                                                                                    // de la más barata
+
+// cotizacion (P5)
+{"id": 3, "interesado": 7 /* o null */, "poliza": null /* o id */, "compania": compania, "cobertura": "intermedia",   // basica | intermedia | total
+ "prima_mensual": "16200.50", "vigencia_hasta": "2026-12-31" /* o null */, "elegida": false, "notas": null,
+ "creada_por": {"id","nombre"}, "creada_en": "…"}                                                                       // compania.comision_pct es null para un operador
 
 // siniestro
 {"numero_siniestro": "SIN-2024-00001", "fecha_ocurrencia": "2024-03-31", "descripcion": "…", "estado": "denunciado"}

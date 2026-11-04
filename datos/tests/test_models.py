@@ -10,6 +10,9 @@ from datos import models
 
 
 TABLAS = (
+    (models.Interesado, "interesados"),
+    (models.InteresadoHistorial, "interesado_historial"),
+    (models.Cotizacion, "cotizaciones"),
     (models.Compania, "companias"),
     (models.Vehiculo, "vehiculos"),
     (models.FinalizacionAccion, "acciones_finalizaciones"),
@@ -47,6 +50,10 @@ CHOICES_BD = (
     (models.Poliza, "cobertura", models.Cobertura),
     (models.Poliza, "estado", models.EstadoPoliza),
     (models.Vehiculo, "uso", models.UsoVehiculo),
+    (models.Interesado, "estado", models.EstadoInteresado),
+    (models.Interesado, "origen", models.OrigenInteresado),
+    (models.InteresadoHistorial, "estado_nuevo", models.EstadoInteresado),
+    (models.Cotizacion, "cobertura", models.Cobertura),
     (models.ConductorPoliza, "relacion", models.Relacion),
     (models.Cuota, "estado", models.EstadoCuota),
     (models.Siniestro, "estado", models.EstadoSiniestro),
@@ -69,7 +76,7 @@ CHOICES_BD = (
 class ModelDefinitionTests(SimpleTestCase):
     # AC-T4-05
     def test_modelos_de_tabla_mapean_las_tablas_no_administradas(self):
-        self.assertEqual(len(TABLAS), 23)
+        self.assertEqual(len(TABLAS), 26)
         for model, table in TABLAS:
             with self.subTest(model=model.__name__):
                 self.assertEqual(model._meta.db_table, table)
@@ -86,6 +93,15 @@ class ModelDefinitionTests(SimpleTestCase):
             (models.Poliza, "vehiculo", "polizas"),
             (models.Poliza, "compania", "polizas"),
             (models.Vehiculo, "cliente", "vehiculos"),
+            (models.Interesado, "contacto", "interesados"),
+            (models.Interesado, "cliente", "interesados"),
+            (models.Interesado, "responsable", "interesados"),
+            (models.InteresadoHistorial, "interesado", "historial"),
+            (models.InteresadoHistorial, "funcionario", "+"),
+            (models.Cotizacion, "interesado", "cotizaciones"),
+            (models.Cotizacion, "poliza", "cotizaciones"),
+            (models.Cotizacion, "compania", "cotizaciones"),
+            (models.Cotizacion, "creada_por", "+"),
             (models.ConductorPoliza, "poliza", "conductores"),
             (models.Cuota, "poliza", "cuotas"),
             (models.Siniestro, "poliza", "siniestros"),
@@ -151,6 +167,13 @@ class ModelDefinitionTests(SimpleTestCase):
             (models.Vehiculo, "uso", models.UsoVehiculo.PARTICULAR),
             (models.Vehiculo, "activo", True),
             (models.Vehiculo, "creado_en", timezone.now),
+            (models.Interesado, "estado", models.EstadoInteresado.CONSULTA),
+            (models.Interesado, "datos", dict),
+            (models.Interesado, "creado_en", timezone.now),
+            (models.Interesado, "actualizado_en", timezone.now),
+            (models.InteresadoHistorial, "fecha", timezone.now),
+            (models.Cotizacion, "elegida", False),
+            (models.Cotizacion, "creada_en", timezone.now),
             (models.ConductorPoliza, "activo", True),
             (models.Cuota, "estado", models.EstadoCuota.PENDIENTE),
             (models.ConsultaBot, "estado", models.EstadoConsulta.PENDIENTE_REVISION),
@@ -253,6 +276,13 @@ class DatabaseModelTests(TestCase):
             ("vehiculos", "uso"): models.UsoVehiculo.PARTICULAR,
             ("vehiculos", "activo"): True,
             ("vehiculos", "creado_en"): timezone.now,
+            ("interesados", "estado"): models.EstadoInteresado.CONSULTA,
+            ("interesados", "datos"): dict,
+            ("interesados", "creado_en"): timezone.now,
+            ("interesados", "actualizado_en"): timezone.now,
+            ("interesado_historial", "fecha"): timezone.now,
+            ("cotizaciones", "elegida"): False,
+            ("cotizaciones", "creada_en"): timezone.now,
             ("conductores_poliza", "activo"): True,
             ("cuotas", "estado"): models.EstadoCuota.PENDIENTE,
             ("consultas_bot", "estado"): models.EstadoConsulta.PENDIENTE_REVISION,

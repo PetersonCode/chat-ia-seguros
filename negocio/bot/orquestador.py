@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db import close_old_connections, connection, transaction
+from django.db import DatabaseError, close_old_connections, connection, transaction
 from django.utils import timezone
 
 from datos.models import (
@@ -52,8 +52,9 @@ from datos.selectors import (
     polizas_vigentes,
     resumen_polizas,
 )
+from negocio import interesados
 from negocio.acciones import derivar, solicitar_accion
-from negocio.bot import plantillas, registro
+from negocio.bot import cotizacion, plantillas, registro
 from negocio.bot.clasificador import clasificar as clasificar_por_reglas
 from negocio.bot.clasificador import (
     agradece,
@@ -66,6 +67,7 @@ from negocio.bot.llm import charlar_con_llm, clasificar_con_llm, cliente_llm
 from negocio.bot.plantillas import formatear_fecha, formatear_monto
 from negocio.bot.prompts import MAX_HISTORIAL
 from negocio.documentos import buscar_fragmentos
+from negocio.errores import ErrorNegocio
 from negocio.whatsapp import PREFIJO_NO_SOPORTADO, enviar_pendientes
 
 logger = logging.getLogger(__name__)
@@ -135,6 +137,8 @@ class _Respuesta:
     alertas_entrada: list[AlertaDetectada] = field(default_factory=list)
     # Nombre y DNI juntados para el alta; viaja al motivo de la derivación.
     datos_registro: registro.DatosRegistro | None = None
+    # Lo juntado para cotizar (P5): al derivar, queda guardado en un interesado.
+    cotizacion: cotizacion.DatosCotizacion | None = None
 
 
 def _proximo_codigo_caso() -> str:
@@ -359,6 +363,9 @@ def _armar_respuesta(
     # tener los datos, así que tiene su propio camino antes de la política.
     if tipo == "registro":
         return _respuesta_registro(conversacion, contacto)
+    # Una cotización pide primero los datos del vehículo y recién después deriva.
+    if tipo == "cotizacion":
+        return _respuesta_cotizacion(conversacion)
     if politica == Politica.REQUIERE_APROBACION:
         return _respuesta_requiere_aprobacion(tipo, cliente_id)
     if politica == Politica.DERIVAR_HUMANO:
@@ -418,7 +425,7 @@ def _crear_saliente(
         estado_envio=estado,
         payload=(
             {"aviso_derivacion": True}
-            if texto in (plantillas.AVISO_NEUTRO, plantillas.DATOS_REGISTRADOS, plantillas.SINIESTRO_INSTRUCCIONES, plantillas.SIN_ASISTENCIA, plantillas.SIN_POLIZAS, plantillas.SIN_CLIENTE)
+            if texto in (plantillas.AVISO_NEUTRO, plantillas.DATOS_REGISTRADOS, plantillas.COTIZACION_REGISTRADA, plantillas.SINIESTRO_INSTRUCCIONES, plantillas.SIN_ASISTENCIA, plantillas.SIN_POLIZAS, plantillas.SIN_CLIENTE)
             else None
         ),
         fecha_hora=timezone.now(),
@@ -838,6 +845,70 @@ def _respuesta_registro(conversacion, contacto) -> _Respuesta:
     )
 
 
+def _respuesta_cotizacion(
+    conversacion, *, datos: cotizacion.DatosCotizacion | None = None, cerrar_ya: bool = False
+) -> _Respuesta:
+    """Pide los datos del vehículo; con todos, o agotados los pedidos, deriva a un asesor.
+
+    Mismo mecanismo que el alta (`registro.MAX_PEDIDOS`): hasta dos pedidos y
+    después se deriva con lo que haya, sin inventar nada (R12). `cerrar_ya` es
+    el cliente que pide una persona en medio del pedido: se lo atiende ya.
+    """
+    datos = datos or cotizacion.datos_de_la_cotizacion(conversacion.id)
+    if datos.completos or datos.intentos >= registro.MAX_PEDIDOS or cerrar_ya:
+        return _Respuesta(
+            plantillas.COTIZACION_REGISTRADA,
+            derivar_a=DERIVACION_POR_DEFECTO,
+            cotizacion=datos,
+        )
+    pedido = (
+        plantillas.PEDIDO_COTIZACION_UNO
+        if len(datos.faltantes) == 1
+        else plantillas.PEDIDO_COTIZACION
+    )
+    return _Respuesta(pedido.format(faltantes=datos.texto_faltantes()))
+
+
+def _continuar_cotizacion(
+    *, tipo: str, politica: str, conversacion, contacto, texto: str
+) -> _Respuesta | None:
+    """Si hay un pedido de datos para cotizar en curso, el turno es suyo.
+
+    Igual que con el alta, se resuelve **antes** de armar la respuesta por
+    política: lo que contesta el cliente ("Toyota Corolla, 2020") se clasifica
+    como cualquier cosa, y ese resultado no tiene que importar. Solo una urgencia
+    o un siniestro (que salen de reglas fijas, no del LLM) y un intento de
+    manipulación interrumpen el pedido. `None` si no hay ninguno en curso.
+    """
+    if tipo in {"cotizacion", "siniestro_urgente", "siniestro"}:
+        return None  # la cotización la arma `_armar_respuesta`; lo otro, no espera
+    if contacto is None or politica == Politica.SEGURIDAD:
+        return None
+    datos = cotizacion.datos_de_la_cotizacion(conversacion.id)
+    if datos.intentos == 0:
+        return None
+    return _respuesta_cotizacion(conversacion, datos=datos, cerrar_ya=pide_un_humano(texto))
+
+
+def _registrar_cotizacion(contacto, datos: cotizacion.DatosCotizacion, responsable_id: int | None) -> str:
+    """Guarda lo juntado en el interesado y devuelve la línea para el motivo de la derivación.
+
+    Si no se puede guardar, la derivación sale igual: el bot siempre contesta, y
+    el asesor tiene el resumen en el motivo y la conversación entera en el panel.
+    """
+    if contacto is None:
+        return datos.resumen()
+    try:
+        with transaction.atomic():
+            interesado = interesados.registrar_cotizacion_del_bot(
+                contacto, datos.como_datos(), responsable_id=responsable_id
+            )
+    except (ErrorNegocio, DatabaseError):
+        logger.warning("No se pudo guardar el interesado del contacto %s.", contacto.id, exc_info=True)
+        return datos.resumen()
+    return f"Interesado #{interesado.id}. {datos.resumen()}"
+
+
 def _continuar_alta(
     *, tipo: str, politica: str, conversacion, contacto
 ) -> _Respuesta | None:
@@ -883,7 +954,7 @@ def _con_registro(
     aprobación, un rechazo o una respuesta del bot siguen su curso. El alta ya
     empezada no se maneja acá sino en `_continuar_alta`, que corre antes.
     """
-    if respuesta.derivar_a is None:
+    if respuesta.derivar_a is None or respuesta.cotizacion is not None:
         return respuesta
     if not _puede_registrarse(tipo, politica, contacto):
         return respuesta
@@ -977,12 +1048,20 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
         # `ignorar_si_bloqueado`), pero no pasa a una persona.
         respuesta = _Respuesta(plantillas.RECHAZO_SEGURIDAD)
     else:
-        respuesta = _continuar_alta(
+        respuesta = _continuar_cotizacion(
             tipo=tipo,
             politica=tipo_obj.politica,
             conversacion=conversacion,
             contacto=contacto,
+            texto=texto,
         )
+        if respuesta is None:
+            respuesta = _continuar_alta(
+                tipo=tipo,
+                politica=tipo_obj.politica,
+                conversacion=conversacion,
+                contacto=contacto,
+            )
         if respuesta is None:
             respuesta = _armar_respuesta(
                 tipo,
@@ -1101,6 +1180,13 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
         destino = respuesta.derivar_a or (
             DERIVACION_POR_DEFECTO if retenido else None
         )
+        nota_cotizacion = ""
+        if respuesta.cotizacion is not None:
+            # El interesado queda a cargo de quien recibe la derivación.
+            responsable = _funcionario_destino((respuesta.derivar_a or DERIVACION_POR_DEFECTO)[0])
+            nota_cotizacion = _registrar_cotizacion(
+                contacto, respuesta.cotizacion, responsable.id if responsable else None
+            )
         if destino is not None:
             nombre, prioridad = destino
             funcionario = _funcionario_destino(nombre)
@@ -1108,6 +1194,8 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
                 motivo = f"Derivación automática del bot ({tipo})."
                 if respuesta.datos_registro is not None:
                     motivo = f"{motivo} {respuesta.datos_registro.resumen()}"
+                if nota_cotizacion:
+                    motivo = f"{motivo} {nota_cotizacion}"
                 derivar(consulta.id, funcionario.id, prioridad, motivo=motivo)
             else:
                 logger.warning("No hay aprobador activo para derivar la consulta %s.", consulta.id)

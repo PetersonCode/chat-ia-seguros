@@ -18,7 +18,8 @@ Los archivos Docker se mantienen versionables en la entrega porque forman parte 
 - `01` a `11`: esquema anterior.
 - `12_tipos_de_charla.sql`: incremento del compañero; permite volver a ejecutarlo.
 - `13_vehiculos_companias.sql` (P1): tablas `companias` y `vehiculos` y tres columnas nuevas en `polizas`; aditivo e idempotente, se puede repetir. Aplicarlo a la base real **antes** de levantar esta versión, porque los modelos ya leen esas columnas.
-- `14` a `21`: reservas de los planes P2–P9, sin implementación.
+- `17_interesados.sql` (P5): tablas `interesados`, `interesado_historial` y `cotizaciones`; aditivo e idempotente. Aplicarlo **antes** de levantar esta versión (los modelos nuevos leen esas tablas). Si el motor de avisos (P2) ya existe, también suma sus dos tipos de seguimiento.
+- `14` a `16` y `18` a `21`: reservas de los planes P2–P4 y P6–P9, sin implementación.
 - `23_recordatorios_polizas.sql`: pantalla de vencimientos y registro de avisos manuales desde el panel. Se aplica después de 22. No implementa el motor P2/P3 completo.
 - `22_seguridad_y_coberturas.sql`: incremento de esta revisión, aditivo y transaccional. Aplicarlo una sola vez.
 
@@ -26,7 +27,7 @@ Si ya estaba aplicado el 12 del compañero, no hay que rehacer los datos: agrega
 
 ## Lo que son planes y aún no está desarrollado
 
-`SDD/paquetes/` contiene las especificaciones P1–P9: vehículos/compañías, avisos, renovaciones, mora, embudo comercial, credenciales, ampliación de siniestros, tareas/reportes y fidelización. Se conservaron íntegramente como planificación. Solo P1 (vehículos y compañías, SQL 13) está implementado; de P2–P9 no existen sus incrementos SQL 14–21 ni los módulos descritos. No presentarlos como funcionalidades implementadas.
+`SDD/paquetes/` contiene las especificaciones P1–P9: vehículos/compañías, avisos, renovaciones, mora, embudo comercial, credenciales, ampliación de siniestros, tareas/reportes y fidelización. Se conservaron íntegramente como planificación. Están implementados P1 (vehículos y compañías, SQL 13) y P5 (embudo de interesados y cotizaciones, SQL 17; sin el seguimiento automático ni el comparador de renovaciones, que dependen de P2 y P3). De P2–P4 y P6–P9 no existen sus incrementos SQL ni los módulos descritos. No presentarlos como funcionalidades implementadas.
 
 El verificador SDD del compañero cuenta también esos criterios futuros; sus pendientes no son el resultado de la suite funcional del MVP actual. README, `docs/` y la evidencia indican qué se implementó y probó realmente.
 

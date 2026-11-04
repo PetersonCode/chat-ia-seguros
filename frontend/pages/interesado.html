@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interesado | Seguros Castaño</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/app.css?v=20261104vencimientos2">
+</head>
+<body>
+    <nav id="nav" aria-label="Navegación principal"></nav>
+    <main class="container-fluid px-3 px-lg-4 py-4">
+        <p class="mb-2"><a href="/panel/interesados/">← Volver al tablero</a></p>
+        <p id="mensaje-pagina" class="alert d-none" role="status" aria-live="polite"></p>
+
+        <div id="contenido" hidden>
+            <header class="mb-4">
+                <h1 id="titulo" class="h3 fw-bold mb-2"></h1>
+                <div id="insignias" class="d-flex flex-wrap gap-2 align-items-center mb-2"></div>
+                <p id="contacto" class="text-muted mb-0"></p>
+            </header>
+
+            <section class="card shadow-sm border-0 mb-3" aria-labelledby="titulo-seguimiento">
+                <div class="card-header bg-white"><h2 id="titulo-seguimiento" class="h5 mb-0">Seguimiento</h2></div>
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label" for="responsable">Responsable</label>
+                            <div class="input-group">
+                                <select id="responsable" class="form-select"></select>
+                                <button id="asignar" class="btn btn-outline-primary" type="button">Asignar</button>
+                            </div>
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label" for="proximo-contacto">Próximo contacto</label>
+                            <div class="input-group">
+                                <input id="proximo-contacto" type="date" class="form-control">
+                                <button id="guardar-contacto" class="btn btn-outline-primary" type="button">Guardar fecha</button>
+                                <button id="quitar-contacto" class="btn btn-outline-secondary" type="button">Quitar</button>
+                            </div>
+                            <p id="estado-contacto" class="small mt-1 mb-0"></p>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label" for="nota-etapa">Nota <span class="text-muted">(opcional)</span></label>
+                            <input id="nota-etapa" class="form-control" maxlength="300" autocomplete="off">
+                        </div>
+                        <div class="col-md-7 d-flex flex-wrap gap-2" id="acciones-etapa"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card shadow-sm border-0 mb-3" aria-labelledby="titulo-datos">
+                <div class="card-header bg-white"><h2 id="titulo-datos" class="h5 mb-0">Datos para cotizar</h2></div>
+                <div class="card-body">
+                    <dl id="datos" class="row mb-3"></dl>
+                    <p id="sin-datos" class="text-muted">Todavía no hay datos juntados.</p>
+                    <details id="editar-datos">
+                        <summary class="mb-3">Editar datos</summary>
+                        <form id="formulario-datos" novalidate>
+                            <div class="row g-3">
+                                <div class="col-md-3"><label class="form-label" for="dato-patente">Patente</label>
+                                    <input id="dato-patente" name="patente" class="form-control" autocomplete="off" placeholder="AB 123 CD">
+                                    <p class="invalid-feedback mb-0" data-error="patente"></p></div>
+                                <div class="col-md-3"><label class="form-label" for="dato-marca">Marca</label>
+                                    <input id="dato-marca" name="marca" class="form-control" autocomplete="off"></div>
+                                <div class="col-md-3"><label class="form-label" for="dato-modelo">Modelo</label>
+                                    <input id="dato-modelo" name="modelo" class="form-control" autocomplete="off"></div>
+                                <div class="col-md-3"><label class="form-label" for="dato-anio">Año</label>
+                                    <input id="dato-anio" name="anio" class="form-control" inputmode="numeric" autocomplete="off">
+                                    <p class="invalid-feedback mb-0" data-error="anio"></p></div>
+                                <div class="col-md-3"><label class="form-label" for="dato-uso">Uso</label>
+                                    <select id="dato-uso" name="uso" class="form-select"></select></div>
+                                <div class="col-md-3"><label class="form-label" for="dato-localidad">Localidad</label>
+                                    <input id="dato-localidad" name="localidad" class="form-control" autocomplete="off"></div>
+                                <div class="col-md-3"><label class="form-label" for="dato-dni">DNI</label>
+                                    <input id="dato-dni" name="dni" class="form-control" inputmode="numeric" autocomplete="off"></div>
+                            </div>
+                            <div class="d-flex justify-content-end mt-3">
+                                <button id="guardar-datos" class="btn btn-primary" type="submit">Guardar datos</button>
+                            </div>
+                        </form>
+                    </details>
+                </div>
+            </section>
+
+            <section class="card shadow-sm border-0 mb-3" aria-labelledby="titulo-cotizaciones">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h2 id="titulo-cotizaciones" class="h5 mb-0">Cotizaciones</h2>
+                    <span class="small text-muted">De la más barata a la más cara</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Compañía</th>
+                                <th scope="col">Cobertura</th>
+                                <th scope="col">Prima mensual</th>
+                                <th scope="col">Vigencia</th>
+                                <th scope="col">Notas</th>
+                                <th scope="col" id="columna-comision" hidden>Comisión</th>
+                                <th scope="col"><span class="visually-hidden">Estado y acciones</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-cotizaciones"></tbody>
+                    </table>
+                </div>
+                <details id="cargar-cotizacion" class="card-body border-top">
+                    <summary class="h6 mb-3">Cargar cotización</summary>
+                    <form id="formulario-cotizacion" novalidate>
+                        <div class="row g-3">
+                            <div class="col-md-3"><label class="form-label" for="cot-compania">Compañía</label>
+                                <select id="cot-compania" name="compania_id" class="form-select"></select>
+                                <p class="invalid-feedback mb-0" data-error="compania_id"></p></div>
+                            <div class="col-md-3"><label class="form-label" for="cot-cobertura">Cobertura</label>
+                                <select id="cot-cobertura" name="cobertura" class="form-select"></select>
+                                <p class="invalid-feedback mb-0" data-error="cobertura"></p></div>
+                            <div class="col-md-3"><label class="form-label" for="cot-prima">Prima mensual ($)</label>
+                                <input id="cot-prima" name="prima_mensual" class="form-control" inputmode="decimal" autocomplete="off" placeholder="15000,50">
+                                <p class="invalid-feedback mb-0" data-error="prima_mensual"></p></div>
+                            <div class="col-md-3"><label class="form-label" for="cot-vigencia">Vigente hasta <span class="text-muted">(opcional)</span></label>
+                                <input id="cot-vigencia" name="vigencia_hasta" type="date" class="form-control"></div>
+                            <div class="col-12"><label class="form-label" for="cot-notas">Notas <span class="text-muted">(opcional)</span></label>
+                                <input id="cot-notas" name="notas" class="form-control" maxlength="1000" autocomplete="off"></div>
+                        </div>
+                        <p id="estado-cotizacion" class="alert d-none mt-3 mb-0" role="status" aria-live="polite"></p>
+                        <div class="d-flex justify-content-end gap-2 mt-3">
+                            <button class="btn btn-outline-secondary" type="reset">Limpiar</button>
+                            <button id="guardar-cotizacion" class="btn btn-primary" type="submit">Cargar cotización</button>
+                        </div>
+                    </form>
+                </details>
+            </section>
+
+            <section class="card shadow-sm border-0 mb-3" aria-labelledby="titulo-historial">
+                <div class="card-header bg-white"><h2 id="titulo-historial" class="h5 mb-0">Historial</h2></div>
+                <ol id="historial" class="list-group list-group-flush"></ol>
+            </section>
+        </div>
+    </main>
+
+    <dialog id="dialog-perdida" class="dialog-accion" aria-labelledby="perdida-titulo">
+        <form id="formulario-perdida" class="p-4" method="dialog" novalidate>
+            <h2 id="perdida-titulo" class="h5">Marcar como perdido</h2>
+            <label class="form-label" for="perdida-motivo">¿Por qué se perdió?</label>
+            <textarea id="perdida-motivo" class="form-control mb-2" rows="3" maxlength="300" required></textarea>
+            <p id="perdida-error" class="small text-danger mb-2" role="alert"></p>
+            <div class="d-flex justify-content-end gap-2">
+                <button id="perdida-cancelar" class="btn btn-outline-secondary" type="button">Cancelar</button>
+                <button id="perdida-confirmar" class="btn btn-danger" type="submit">Marcar como perdido</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="dialog-convertir" class="dialog-accion" aria-labelledby="convertir-titulo">
+        <form id="formulario-convertir" class="p-4" method="dialog" novalidate>
+            <h2 id="convertir-titulo" class="h5">Convertir en cliente</h2>
+            <p class="small text-muted">Da de alta al cliente con estos datos, o usa el que ya tenga ese DNI. No cambia la etapa: pasá a «Emitida» cuando la póliza esté cargada.</p>
+            <div class="row g-2">
+                <div class="col-md-6"><label class="form-label" for="conv-dni">DNI</label>
+                    <input id="conv-dni" class="form-control" inputmode="numeric" autocomplete="off" required></div>
+                <div class="col-md-6"><label class="form-label" for="conv-email">Email <span class="text-muted">(opcional)</span></label>
+                    <input id="conv-email" class="form-control" type="email" autocomplete="off"></div>
+                <div class="col-md-6"><label class="form-label" for="conv-nombre">Nombre</label>
+                    <input id="conv-nombre" class="form-control" autocomplete="off" required></div>
+                <div class="col-md-6"><label class="form-label" for="conv-apellido">Apellido</label>
+                    <input id="conv-apellido" class="form-control" autocomplete="off" required></div>
+                <div class="col-12" id="conv-telefono-grupo" hidden><label class="form-label" for="conv-telefono">Teléfono (no tiene WhatsApp cargado)</label>
+                    <input id="conv-telefono" class="form-control" inputmode="tel" autocomplete="off"></div>
+            </div>
+            <p id="convertir-error" class="small text-danger my-2" role="alert"></p>
+            <div class="d-flex justify-content-end gap-2">
+                <button id="convertir-cancelar" class="btn btn-outline-secondary" type="button">Cancelar</button>
+                <button id="convertir-confirmar" class="btn btn-primary" type="submit">Convertir en cliente</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script type="module" src="/static/js/pages/interesado.js?v=20261104vencimientos2"></script>
+</body>
+</html>

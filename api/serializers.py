@@ -206,3 +206,47 @@ class CompaniaModificacionSerializer(serializers.Serializer):
     nombre = serializers.CharField(required=False, allow_blank=True)
     comision_pct = serializers.CharField(required=False, allow_blank=True)
     activa = serializers.BooleanField(required=False)
+
+
+class InteresadoAltaSerializer(serializers.Serializer):
+    """El contenido se valida en `negocio.interesados`; acá solo la forma."""
+
+    nombre = serializers.CharField(allow_blank=True)
+    origen = serializers.CharField(allow_blank=True)
+    telefono = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    apellido = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    datos = serializers.DictField(required=False, allow_null=True)
+
+
+class InteresadoModificacionSerializer(serializers.Serializer):
+    """Todos opcionales. `proximo_contacto` presente pero vacío lo borra."""
+
+    responsable_id = serializers.IntegerField(required=False, min_value=1)
+    proximo_contacto = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    datos = serializers.DictField(required=False)
+
+
+class MoverInteresadoSerializer(serializers.Serializer):
+    estado = serializers.CharField(allow_blank=True)
+    nota = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    motivo_perdida = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class ConvertirInteresadoSerializer(serializers.Serializer):
+    dni = serializers.CharField(allow_blank=True)
+    nombre = serializers.CharField(allow_blank=True)
+    apellido = serializers.CharField(allow_blank=True)
+    email = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    telefono = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class CotizacionAltaSerializer(serializers.Serializer):
+    """Exactamente uno de `interesado_id` o `poliza_id`: lo verifica `negocio.cotizaciones`."""
+
+    interesado_id = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+    poliza_id = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+    compania_id = serializers.IntegerField(min_value=1)
+    cobertura = serializers.CharField(allow_blank=True)
+    prima_mensual = serializers.CharField(allow_blank=True)
+    vigencia_hasta = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    notas = serializers.CharField(required=False, allow_blank=True, allow_null=True)

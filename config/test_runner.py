@@ -55,6 +55,7 @@ class RunnerConEsquema(DiscoverRunner):
             "11_finalizaciones_acciones.sql",
             "12_tipos_de_charla.sql",
             "13_vehiculos_companias.sql",
+            "17_interesados.sql",
             "22_seguridad_y_coberturas.sql",
             "23_recordatorios_polizas.sql",
         )

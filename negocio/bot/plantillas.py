@@ -97,6 +97,33 @@ PEDIDO_DATOS = MARCA_PEDIDO_DATOS + " ¿Me pasás {faltantes}?"
 # `guardrails._alertas_dni` tiene que mirar con lupa, y confirmarlo no aporta.
 DATOS_REGISTRADOS = "¡Gracias! Ya registré tus datos. Te derivamos con un asesor, que te va a responder a la brevedad."
 
+# --- Datos para cotizar (P5) ------------------------------------------------
+# Igual que con el alta: `MARCA_PEDIDO_COTIZACION` es el rastro en el log. Con eso
+# `cotizacion.py` sabe que ya pidió los datos y desde dónde leer lo que contestó
+# el cliente. `COTIZACION_REGISTRADA` es además el cierre del pedido: lo que se
+# diga después es una cotización nueva. Ninguna de las dos repite un dato del
+# cliente (patente, año…), así que no hay nada que verificar ni que retener.
+MARCA_PEDIDO_COTIZACION = "Para prepararte la cotización necesito algunos datos del vehículo."
+PEDIDO_COTIZACION = (
+    MARCA_PEDIDO_COTIZACION
+    + " ¿Me pasás {faltantes}? Si podés, mandámelos uno por línea y en ese orden."
+)
+# Con un solo dato pendiente no hay orden ni líneas que pedir.
+PEDIDO_COTIZACION_UNO = MARCA_PEDIDO_COTIZACION + " ¿Me pasás {faltantes}?"
+COTIZACION_REGISTRADA = (
+    "¡Gracias! Con estos datos un asesor te prepara la cotización y te escribe por acá."
+)
+# Aviso de seguimiento a los 2 y 5 días en «cotizando» (lo entrega el motor de avisos).
+SEGUIMIENTO_COTIZACION = (
+    "Hola {nombre}, ¿pudiste ver la cotización que te pasamos? "
+    "Si tenés dudas o querés ajustar algo, contanos."
+)
+# Un interesado sin nombre propio (se llama como su número) no se saluda por número.
+SEGUIMIENTO_COTIZACION_SIN_NOMBRE = (
+    "Hola, ¿pudiste ver la cotización que te pasamos? "
+    "Si tenés dudas o querés ajustar algo, contanos."
+)
+
 RECHAZO_SEGURIDAD = "No puedo ayudarte con ese pedido. Si tenés una consulta sobre tu seguro, escribime y te ayudo."
 SOLO_TEXTO = (
     "Puedo leer texto y recibir fotos JPEG o PNG de hasta 5 MB para un expediente "

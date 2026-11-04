@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interesados | Seguros Castaño</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/app.css?v=20261104vencimientos2">
+</head>
+<body>
+    <nav id="nav" aria-label="Navegación principal"></nav>
+    <main class="container-fluid px-3 px-lg-4 py-4">
+        <header class="mb-4">
+            <h1 class="h3 fw-bold mb-1">Interesados</h1>
+            <p class="text-muted mb-1">Quien pidió precio y todavía no es cliente, con dueño y próximo contacto. Primero, a quién había que volver a llamar.</p>
+            <p id="resumen-mes" class="small text-muted mb-0" role="status" aria-live="polite"></p>
+        </header>
+        <p id="mensaje-pagina" class="alert d-none" role="status" aria-live="polite"></p>
+
+        <!-- `details` en vez de un collapse de Bootstrap: la página solo carga el CSS, no el JS. -->
+        <details id="panel-nuevo" class="card shadow-sm border-0 mb-3">
+            <summary class="card-header bg-white h5 mb-0 py-3">Nuevo interesado</summary>
+            <form id="formulario-nuevo" class="card-body" novalidate>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label" for="nuevo-nombre">Nombre</label>
+                        <input id="nuevo-nombre" name="nombre" class="form-control" autocomplete="off" required>
+                        <p class="invalid-feedback mb-0" data-error="nombre"></p>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="nuevo-apellido">Apellido <span class="text-muted">(opcional)</span></label>
+                        <input id="nuevo-apellido" name="apellido" class="form-control" autocomplete="off">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="nuevo-telefono">WhatsApp <span class="text-muted">(opcional)</span></label>
+                        <input id="nuevo-telefono" name="telefono" class="form-control" inputmode="tel" autocomplete="off" placeholder="11 5555 1234">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="nuevo-origen">Cómo llegó</label>
+                        <select id="nuevo-origen" name="origen" class="form-select" required></select>
+                        <p class="invalid-feedback mb-0" data-error="origen"></p>
+                    </div>
+                </div>
+                <p id="estado-nuevo" class="alert d-none mt-3 mb-0" role="status" aria-live="polite"></p>
+                <div class="d-flex justify-content-end gap-2 mt-3">
+                    <button class="btn btn-outline-secondary" type="reset">Limpiar</button>
+                    <button id="nuevo-guardar" class="btn btn-primary" type="submit">Crear interesado</button>
+                </div>
+            </form>
+        </details>
+
+        <form id="filtros" class="card border-0 shadow-sm mb-3" role="search">
+            <div class="card-body row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="filtro-q" class="form-label">Nombre, teléfono o patente</label>
+                    <input id="filtro-q" type="search" class="form-control" maxlength="100" autocomplete="off">
+                </div>
+                <div class="col-md-3">
+                    <label for="filtro-responsable" class="form-label">Responsable</label>
+                    <select id="filtro-responsable" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="me">Mis interesados</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="filtro-origen" class="form-label">Cómo llegó</label>
+                    <select id="filtro-origen" class="form-select"><option value="">Todos</option></select>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-check mb-2">
+                        <input id="filtro-vencido" type="checkbox" class="form-check-input">
+                        <label for="filtro-vencido" class="form-check-label">Solo seguimiento vencido</label>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div id="tablero" class="embudo" aria-label="Embudo de venta nueva"></div>
+    </main>
+
+    <script type="module" src="/static/js/pages/interesados.js?v=20261104vencimientos2"></script>
+</body>
+</html>
