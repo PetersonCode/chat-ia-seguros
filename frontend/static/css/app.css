@@ -1090,17 +1090,17 @@ main > header p {
     line-height: 1;
 }
 
-/* Abierta es un encabezado, no una invitación: se achica y deja de ser hueco. */
-details[open] > .caja-nueva-poliza {
-    min-height: 0;
-    flex-direction: row;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    border-style: solid;
+/* Es un botón, no un `summary`: hereda la tipografía y ocupa toda la columna. */
+button.caja-nueva-poliza {
+    width: 100%;
+    font: inherit;
 }
 
-details[open] > .caja-nueva-poliza .caja-nueva-poliza-mas {
-    font-size: 1.5rem;
+/* Formulario largo: más ancho que el diálogo estándar y con scroll propio. */
+.dialog-ancho {
+    width: min(46rem, calc(100% - 2rem));
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
 }
 
 /* El panel de edición de la ficha usa el mismo `details`. */

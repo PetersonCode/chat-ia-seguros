@@ -20,6 +20,7 @@ from api.views import (
     auth_logout,
     auth_me,
     cliente_baja,
+    cliente_eliminar_definitivo,
     cliente_detalle_o_modificar,
     cliente_reactivar,
     clientes_listar_o_crear,
@@ -38,6 +39,7 @@ from api.views import (
     conversacion_vaciar,
     conversacion_vaciar_alertas,
     conversacion_borrar,
+    conversacion_eliminacion_total,
     conversaciones_listar,
     conversacion_desbloquear,
     usuario_cambiar_clave,
@@ -80,6 +82,7 @@ from api.cartera import poliza_cartera, comisiones
 from api.diagnostico_bot import diagnostico
 from api.metricas import metricas_panel
 from api.condiciones_poliza import condiciones, listar as polizas_listar
+from api.eliminaciones import compania_eliminar_definitivo, plan_eliminar, poliza_eliminar_definitivo
 from api.planes_cobertura import listar_o_crear as planes_listar, detalle as plan_detalle
 from api.webhook import webhook_whatsapp
 
@@ -135,6 +138,7 @@ urlpatterns = [
     path("api/conversaciones/<int:id>/vaciar/", conversacion_vaciar, name="api_conversacion_vaciar"),
     path("api/conversaciones/<int:id>/vaciar-alertas/", conversacion_vaciar_alertas, name="api_conversacion_vaciar_alertas"),
     path("api/conversaciones/<int:id>/borrar/", conversacion_borrar, name="api_conversacion_borrar"),
+    path("api/conversaciones/<int:id>/eliminacion-total/", conversacion_eliminacion_total, name="api_conversacion_eliminacion_total"),
     path("api/mensajes/<int:id>/liberar/", mensaje_liberar, name="api_mensaje_liberar"),
     path("api/mensajes/<int:id>/descartar/", mensaje_descartar, name="api_mensaje_descartar"),
     path("api/alertas/", alertas_listar, name="api_alertas"),
@@ -151,6 +155,7 @@ urlpatterns = [
     path("api/clientes/", clientes_listar_o_crear, name="api_clientes"),
     path("api/clientes/<int:id>/", cliente_detalle_o_modificar, name="api_cliente_detalle"),
     path("api/clientes/<int:id>/baja/", cliente_baja, name="api_cliente_baja"),
+    path("api/clientes/<int:id>/eliminar-definitivo/", cliente_eliminar_definitivo, name="api_cliente_eliminar_definitivo"),
     path("api/clientes/<int:id>/reactivar/", cliente_reactivar, name="api_cliente_reactivar"),
     path("api/clientes/<int:id>/polizas/", poliza_crear, name="api_poliza_crear"),
     # Antes del detalle: `<int:id>` no captura "opciones", pero el orden lo deja claro.
@@ -160,6 +165,10 @@ urlpatterns = [
     path("api/vehiculos/<int:id>/baja/", vehiculo_baja, name="api_vehiculo_baja"),
     path("api/companias/", companias_listar_o_crear, name="api_companias"),
     path("api/companias/<int:id>/", compania_modificar, name="api_compania"),
+    # Borrado físico (solo rol administrador): ver negocio/eliminaciones.py.
+    path("api/companias/<int:id>/eliminar-definitivo/", compania_eliminar_definitivo),
+    path("api/planes-cobertura/<int:id>/eliminar/", plan_eliminar),
+    path("api/polizas/<int:id>/eliminar-definitivo/", poliza_eliminar_definitivo),
     path("api/funcionarios/", funcionarios_listar, name="api_funcionarios"),
     path("api/interesados/", interesados_listar_o_crear, name="api_interesados"),
     # Antes del detalle: `<int:id>` no captura "embudo", pero el orden lo deja claro.

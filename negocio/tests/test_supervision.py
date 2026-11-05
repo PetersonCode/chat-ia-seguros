@@ -9,10 +9,12 @@ from django.utils import timezone
 
 from datos import fabricas
 from datos.models import (
+    AccionPendiente,
     Alerta,
     ConsultaBot,
     Conversacion,
     Derivacion,
+    EstadoAccion,
     EstadoAlerta,
     EstadoConsulta,
     EstadoEnvio,
@@ -26,6 +28,7 @@ from negocio.errores import (
 )
 from negocio.supervision import (
     borrar_conversacion,
+    eliminacion_total,
     cerrar_casos,
     descartar_respuesta,
     devolver_al_bot,
@@ -604,7 +607,7 @@ class BorrarConversacionTests(BaseSupervisionTests):
 
         self.assertEqual(borrados, {"mensajes": 0, "casos": 0, "alertas": 0})
 
-    def test_se_niega_si_hay_una_accion_administrativa(self):
+    def test_se_niega_si_hay_una_accion_administrativa_pendiente(self):
         fabricas.crear_accion(self.consulta)
 
         with self.assertRaises(EstadoInvalido) as contexto:
@@ -615,6 +618,43 @@ class BorrarConversacionTests(BaseSupervisionTests):
         self.assertTrue(Conversacion.objects.filter(pk=self.conversacion.id).exists())
         self.assertTrue(ConsultaBot.objects.filter(pk=self.consulta.id).exists())
 
+    def test_una_accion_ya_resuelta_no_bloquea_y_conserva_su_caso(self):
+        accion = fabricas.crear_accion(self.consulta)
+        accion.estado = EstadoAccion.RECHAZADA
+        accion.resuelta_por = self.aprobador
+        accion.resuelta_en = timezone.now()
+        accion.save()
+        fabricas.crear_mensaje(self.conversacion, consulta=self.consulta)
+        fabricas.crear_alerta(self.consulta)
+        fabricas.crear_derivacion(self.consulta, self.aprobador)
+
+        borrados = borrar_conversacion(self.conversacion.id, self.aprobador.id)
+
+        self.assertEqual(borrados, {"mensajes": 1, "casos": 0, "alertas": 1})
+        self.assertFalse(Conversacion.objects.filter(pk=self.conversacion.id).exists())
+        self.assertFalse(Mensaje.objects.exists())
+        self.assertFalse(Alerta.objects.exists())
+        # La auditoría queda entera: acción, caso y derivación, sin chat.
+        self.assertTrue(AccionPendiente.objects.filter(pk=accion.id).exists())
+        caso = ConsultaBot.objects.get(pk=self.consulta.id)
+        self.assertIsNone(caso.conversacion_id)
+        self.assertEqual(Derivacion.objects.count(), 1)
+
+    def test_con_una_pendiente_y_otra_resuelta_se_niega(self):
+        resuelta = fabricas.crear_accion(self.consulta)
+        resuelta.estado = EstadoAccion.APROBADA
+        resuelta.resuelta_por = self.aprobador
+        resuelta.resuelta_en = timezone.now()
+        resuelta.save()
+        otro_caso = fabricas.crear_consulta(self.conversacion)
+        fabricas.crear_accion(otro_caso)
+
+        with self.assertRaises(EstadoInvalido):
+            borrar_conversacion(self.conversacion.id, self.aprobador.id)
+
+        self.assertTrue(AccionPendiente.objects.filter(pk=resuelta.id).exists())
+        self.assertTrue(Conversacion.objects.filter(pk=self.conversacion.id).exists())
+
     def test_hace_falta_ser_aprobador(self):
         with self.assertRaises(PermisoDenegado):
             borrar_conversacion(self.conversacion.id, self.operador.id)
@@ -624,3 +664,71 @@ class BorrarConversacionTests(BaseSupervisionTests):
     def test_una_conversacion_inexistente_es_no_encontrado(self):
         with self.assertRaises(NoEncontrado):
             borrar_conversacion(999999, self.aprobador.id)
+
+
+class EliminacionTotalTests(BaseSupervisionTests):
+    """ELIMINACION TOTAL: DELETE físico de todo el rastro del número."""
+
+    def setUp(self):
+        super().setUp()
+        self.admin = fabricas.crear_funcionario(
+            "Admin", puede_aprobar=True, rol="administrador"
+        )
+        self.msg = fabricas.crear_mensaje(self.conversacion, consulta=self.consulta)
+        fabricas.crear_alerta(self.consulta)
+        fabricas.crear_derivacion(self.consulta, self.aprobador)
+
+    def test_borra_todo_el_rastro_del_numero_incluidas_acciones_resueltas(self):
+        from datos.models import ContactoWhatsapp, Cotizacion, Interesado
+
+        fabricas.crear_accion(self.consulta)  # pendiente
+        interesado = fabricas.crear_interesado(contacto=self.contacto)
+        fabricas.crear_cotizacion(interesado=interesado)
+        otra_conv = fabricas.crear_conversacion(self.contacto, estado="cerrada", cerrada_en=timezone.now())
+        fabricas.crear_mensaje(otra_conv)
+
+        borrados = eliminacion_total(self.conversacion.id, self.admin.id)
+
+        self.assertEqual(borrados["conversaciones"], 2)
+        self.assertEqual(borrados["interesados"], 1)
+        self.assertEqual(borrados["contacto"], 1)
+        for modelo in (Conversacion, ConsultaBot, Mensaje, Alerta, Derivacion,
+                       AccionPendiente, Interesado, Cotizacion):
+            self.assertFalse(modelo.objects.exists(), modelo.__name__)
+        self.assertFalse(ContactoWhatsapp.objects.filter(pk=self.contacto.pk).exists())
+
+    def test_no_toca_al_cliente_ni_a_otros_numeros(self):
+        from datos.models import Cliente, ContactoWhatsapp
+
+        otro = fabricas.crear_contacto(fabricas.crear_cliente())
+        otra = fabricas.crear_conversacion(otro)
+        fabricas.crear_mensaje(otra)
+
+        eliminacion_total(self.conversacion.id, self.admin.id)
+
+        self.assertTrue(Cliente.objects.filter(pk=self.cliente.pk).exists())
+        self.assertTrue(ContactoWhatsapp.objects.filter(pk=otro.pk).exists())
+        self.assertEqual(Mensaje.objects.filter(conversacion=otra).count(), 1)
+
+    def test_solo_el_rol_administrador_puede(self):
+        for quien in (self.aprobador, self.operador):
+            with self.assertRaises(PermisoDenegado):
+                eliminacion_total(self.conversacion.id, quien.id)
+        self.assertTrue(Conversacion.objects.filter(pk=self.conversacion.id).exists())
+
+    def test_conversacion_inexistente(self):
+        with self.assertRaises(NoEncontrado):
+            eliminacion_total(999999, self.admin.id)
+
+    def test_se_niega_sin_borrar_nada_si_hay_siniestros(self):
+        poliza = fabricas.crear_poliza(self.cliente)
+        from datos.models import Siniestro
+
+        Siniestro.objects.create(
+            numero_siniestro="SIN-2026-00001", poliza=poliza, consulta=self.consulta,
+            fecha_ocurrencia=timezone.localdate(), descripcion="Choque",
+        )
+        with self.assertRaises(EstadoInvalido):
+            eliminacion_total(self.conversacion.id, self.admin.id)
+        self.assertTrue(Mensaje.objects.filter(pk=self.msg.pk).exists())
+        self.assertTrue(Conversacion.objects.filter(pk=self.conversacion.id).exists())

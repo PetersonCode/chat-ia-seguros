@@ -22,7 +22,7 @@ x-app: &app
   security_opt: [no-new-privileges:true]
   cap_drop: [ALL]
   read_only: true
-  tmpfs: [/tmp:size=128m,mode=1777]
+  tmpfs: ["/tmp:size=128m,mode=1777"]
   volumes:
     - modelos:/app/.modelos
     - private_media:/app/private_media   # adjuntos de siniestros: sobreviven a recrear el contenedor
@@ -51,7 +51,7 @@ services:
   bot-worker:
     <<: *app
     container_name: universidad-bot-worker
-    command: ["sh", "-c", "while true; do python manage.py reprocesar_pendientes; sleep 60; done"]
+    command: ["python", "manage.py", "reprocesar_pendientes", "--continuo", "--intervalo", "1"]
     depends_on:
       web:
         condition: service_healthy

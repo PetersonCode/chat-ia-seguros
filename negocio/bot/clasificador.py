@@ -42,7 +42,9 @@ ORDEN = (
 # Patrones por tipo, ya sin acentos y en minúsculas (ver `normalizar`).
 PATRONES: dict[str, tuple[str, ...]] = {
     'credencial':('credencial','tarjeta del seguro'),
-    'baja_avisos':('no quiero recibir avisos','no me escriban mas','dejen de mandarme mensajes','baja de los avisos'),
+    'baja_avisos':('no quiero recibir avisos','no me escriban mas','dejen de mandarme mensajes','baja de los avisos',
+                   'no me manden mas','mas recordatorios','dejen de mandar','no quiero mas avisos','no quiero mas mensajes',
+                   'no quiero recibir mas'),
     # Urgencia explícita o un siniestro en curso que no admite espera.
     "siniestro_urgente": (
         "urgente",
@@ -108,6 +110,11 @@ PATRONES: dict[str, tuple[str, ...]] = {
         "debo pagar",
         "estoy al dia",
         "mi cuenta corriente",
+        # Corpus de conversaciones: cómo lo pregunta la gente de verdad.
+        "adeudo",
+        "debo algo",
+        "estoy debiendo",
+        "cuanto me queda por pagar",
     ),
     "vencimiento": (
         "vence",
@@ -123,6 +130,14 @@ PATRONES: dict[str, tuple[str, ...]] = {
         # persona, y el cliente se quedaba sin la respuesta que el bot ya tenía.
         # Van en plural y con el verbo adelante a propósito: un "poliza" suelto
         # también aparece en "cuanto cuesta una poliza", que es una cotización.
+        # «¿Cuál es mi patente?»: el listado trae la patente de cada póliza. Va
+        # como pregunta (no «mi patente es…») para no robarle a la cotización
+        # el renglón en que el cliente informa la suya.
+        "cual es mi patente",
+        "cual es la patente",
+        "que patente tengo",
+        "patente de mi auto",
+        "patente de mi vehiculo",
         "tengo polizas",
         "tengo alguna poliza",
         "mis polizas",
@@ -172,6 +187,13 @@ PATRONES: dict[str, tuple[str, ...]] = {
         "refinanciar",
         "financiar",
         "cuotas adelantadas",
+        "pagar en cuotas",
+        "hago para pagar",
+        "puedo pagar",
+        "atrasado con",
+        "atrasada con",
+        "mercado pago",
+        "transferencia",
     ),
     # Asistencia en el camino: es lo único de esta tanda que el bot contesta
     # solo, porque el teléfono sale de la cobertura de la póliza del cliente.
@@ -192,6 +214,12 @@ PATRONES: dict[str, tuple[str, ...]] = {
         "se me pincho",
         "sin bateria",
         "cerrajero",
+        "no arranca",
+        "la bateria",
+        "quede a pie",
+        "se pincho",
+        "pinche",
+        "sin nafta",
     ),
     # Alguien que todavía no es cliente y quiere serlo.
     "registro": (
@@ -221,6 +249,7 @@ PATRONES: dict[str, tuple[str, ...]] = {
         "asegurar una",
         "asegurar un",
         "contratar un seguro",
+        "aseguran",  # «¿ustedes aseguran motos?» (simulación de interesados)
     ),
     "consulta_cobertura": (
         "ampara", "protege", "protegido", "protegida", "proteccion", "prestaciones",
@@ -228,6 +257,8 @@ PATRONES: dict[str, tuple[str, ...]] = {
         "mi poliza me paga", "me pagan",
         "parabrisas", "cristales", "ventanilla", "luneta", "pedrisco", "vidrio",
         "que pasa si",
+        # Condicionales: preguntan por el contrato, no cuentan un hecho.
+        "si me roban", "si me chocan", "si me rompen", "si me choca", "si se me inunda", "franquicia",
         "que incluye", "que protege", "que cubre mi",
         "cobertura",
         "cubre",
@@ -278,7 +309,7 @@ PATRONES: dict[str, tuple[str, ...]] = {
 # no tragarse un "gracias, ¿y mi saldo?" (eso lo gana `saldo`, que se evalúa
 # antes, y si no matchea nada igual cae en el saludo). "dale", "ok" o "listo"
 # no cuentan a propósito: suelen ser un "sí" a algo que preguntó el bot.
-_AGRADECE = re.compile(r"\b(?:gracias|agradezco|agradecid[oa]|muy amable)\b")
+_AGRADECE = re.compile(r"\b(?:gracias|agradezco|agradecid[oa]|muy amable|thanks|thank you)\b")
 _DESPIDE = re.compile(
     r"\b(?:chau|chao|adios|hasta luego|hasta pronto|hasta manana|nos vemos|buen fin de semana)\b"
 )
@@ -301,6 +332,32 @@ def _es_cierre_cordial(normalizado: str) -> bool:
     return bool(_AGRADECE.search(normalizado) or _DESPIDE.search(normalizado))
 
 
+# Cómo escribe la gente por WhatsApp (corpus de conversaciones). Se aplica solo
+# al clasificar: no cambia el texto guardado ni lo que leen otros módulos.
+ESCRITURA_INFORMAL = {
+    "q": "que", "k": "que", "ke": "que", "xq": "porque", "pq": "porque", "porq": "porque",
+    "tmb": "tambien", "tb": "tambien", "tbn": "tambien", "kiero": "quiero", "kiere": "quiere",
+    "devo": "debo", "deveria": "deberia", "saver": "saber", "ago": "hago", "ase": "hace",
+    "ola": "hola", "olaa": "hola", "holaa": "hola", "holaaa": "hola", "buenass": "buenas",
+    "xfa": "por favor", "porfa": "por favor", "pls": "por favor", "toy": "estoy",
+    "nesecito": "necesito", "nesesito": "necesito", "nececito": "necesito", "polisa": "poliza",
+    "polizas": "polizas", "seguroo": "seguro", "grua": "grua", "afanaron": "robaron",
+    "afanar": "robar", "choree": "robaron", "chorearon": "robaron", "d": "de", "x": "por",
+}
+
+
+def _escritura_estandar(texto: str) -> str:
+    return " ".join(ESCRITURA_INFORMAL.get(palabra, palabra) for palabra in texto.split(" "))
+
+
+def normalizar_mensaje(texto: str) -> str:
+    """`normalizar` más la escritura informal: «q debo» → «que debo»."""
+    normalizado = normalizar(texto)
+    # Se separan signos pegados a las palabras para poder reemplazarlas.
+    separado = re.sub(r"([?!¿¡.,;])", r" \1 ", normalizado)
+    return re.sub(r"\s+", " ", _escritura_estandar(separado)).strip()
+
+
 def normalizar(texto: str) -> str:
     """Minúsculas y sin acentos, para que 'Chocó' y 'choco' sean lo mismo."""
     descompuesto = unicodedata.normalize("NFD", texto or "")
@@ -311,6 +368,7 @@ def normalizar(texto: str) -> str:
 # Señales de que el mensaje **pregunta** por la cobertura en vez de contar algo
 # que pasó. Van sin acentos, como el resto.
 PREGUNTA_COBERTURA = (
+    "si me roban", "si me chocan", "si me rompen", "si me choca", "si se me inunda", "franquicia",
     "ampara", "protege", "protegido", "protegida", "contempla", "incluye", "me pagan",
     "cubre",
     "cubierto",
@@ -338,7 +396,7 @@ def corregir_cruce_cobertura(tipo: str, texto: str) -> str:
     """
     if tipo != "siniestro":
         return tipo
-    normalizado = normalizar(texto)
+    normalizado = normalizar_mensaje(texto)
     if any(marca in normalizado for marca in PREGUNTA_COBERTURA):
         return "consulta_cobertura"
     return tipo
@@ -355,7 +413,7 @@ def _esta_negado(prefijo: str) -> bool:
 
 
 def relata_siniestro(texto: str) -> bool:
-    normalizado=normalizar(texto)
+    normalizado=normalizar_mensaje(texto)
     for frase in re.split(r'[.!?;,]|\bpero\b',normalizado):
         condicional = re.search(r'\b(si|podria|puede pasar|en caso de)\b',frase)
         for hecho in re.finditer(
@@ -376,7 +434,7 @@ def relata_siniestro(texto: str) -> bool:
 
 def clasificar(texto: str) -> str:
     """Devuelve el código de `TipoConsulta` para un mensaje del cliente."""
-    normalizado = normalizar(texto)
+    normalizado = normalizar_mensaje(texto)
     if not normalizado:
         return "otro"
     if normalizado.strip(' .!¿?')=='stop':return 'baja_avisos'
@@ -445,5 +503,37 @@ PEDIDOS_DE_HUMANO = (
 
 def pide_un_humano(texto: str) -> bool:
     """Si el mensaje pide explícitamente hablar con una persona."""
-    normalizado = normalizar(texto)
+    normalizado = normalizar_mensaje(texto)
     return any(patron in normalizado for patron in PEDIDOS_DE_HUMANO)
+
+
+# Lo que las reglas deciden solas: un incidente, un cierre cordial o un pedido
+# operativo no puede taparlo un modelo generativo.
+PRIORIDAD_REGLAS = frozenset({
+    "baja_avisos", "encuesta_respuesta", "credencial", "alta_poliza", "siniestro_urgente",
+    "siniestro", "consulta_cobertura", "agradecimiento", "ajeno",
+})
+TIPOS_DE_CHARLA = frozenset({"agradecimiento", "ajeno"})
+
+
+def combinar_clasificaciones(texto: str, tipo_por_reglas: str, del_llm: str | None) -> str:
+    """El tipo final a partir de las reglas y del LLM (que puede no estar).
+
+    - Si las reglas dan un tipo prioritario, gana la regla.
+    - Si no, manda el LLM, con tres correcciones aprendidas del corpus:
+      * «gracias» o «fuera de tema» no tapan un pedido que las reglas vieron;
+      * si el LLM no lo ubicó (`otro`) pero las reglas sí, gana la regla
+        («hola q tal» era `otro` para el LLM y `saludo` para las reglas);
+      * pedir una persona sin otro pedido es `otro` (deriva), aunque el LLM
+        lo lea como reclamo («quiero hablar con una persona YA»).
+    """
+    if tipo_por_reglas in PRIORIDAD_REGLAS:
+        return tipo_por_reglas
+    tipo = del_llm or tipo_por_reglas
+    if tipo in TIPOS_DE_CHARLA and (tipo_por_reglas not in {"otro", "saludo"} or pide_un_humano(texto)):
+        tipo = tipo_por_reglas
+    if tipo == "otro" and tipo_por_reglas != "otro":
+        tipo = tipo_por_reglas
+    if tipo_por_reglas == "otro" and pide_un_humano(texto):
+        tipo = "otro"
+    return corregir_cruce_cobertura(tipo, texto)

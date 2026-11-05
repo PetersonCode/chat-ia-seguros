@@ -17,6 +17,7 @@ const botonModo = document.getElementById("boton-modo");
 const botonCerrarCasos = document.getElementById("boton-cerrar-casos");
 const botonVaciar = document.getElementById("boton-vaciar");
 const botonBorrar = document.getElementById("boton-borrar");
+const botonEliminacionTotal = document.getElementById("boton-eliminacion-total");
 const botonVaciarAlertas = document.getElementById("boton-vaciar-alertas");
 const avisoBloqueo = document.getElementById("aviso-bloqueo");
 const botonDesbloquear = document.getElementById("boton-desbloquear");
@@ -237,6 +238,8 @@ function renderizarConversacion(detalle) {
     // igual, esto solo evita mostrar un botón que va a contestar 403.
     const aprobador = Boolean(funcionario?.puede_aprobar);
     botonBorrar.hidden = !aprobador;
+    // Solo el rol administrador (usuario de pruebas); la API lo exige igual.
+    botonEliminacionTotal.hidden = funcionario?.rol !== "administrador";
     botonVaciarAlertas.hidden = !aprobador
         || !Array.isArray(detalle.alertas)
         || detalle.alertas.length === 0;
@@ -362,6 +365,21 @@ function borrarConversacion() {
         + " no se borra.",
         async () => {
             await api.post(`/api/conversaciones/${idConversacion}/borrar/`);
+            globalThis.location.assign("/panel/");
+        },
+    );
+}
+
+function eliminacionTotal() {
+    abrirConfirmacion(
+        "ELIMINACION TOTAL",
+        "Se borra de la base, sin dejar rastro, todo lo de este número: todas sus"
+        + " conversaciones, mensajes, casos, alertas, acciones, avisos, su contacto de"
+        + " WhatsApp y sus interesados con historial y cotizaciones. El cliente y sus"
+        + " pólizas no se tocan. No se puede deshacer. Si tiene siniestros, fotos de"
+        + " siniestro o acciones finalizadas, no se borra nada.",
+        async () => {
+            await api.post(`/api/conversaciones/${idConversacion}/eliminacion-total/`);
             globalThis.location.assign("/panel/");
         },
     );
@@ -557,6 +575,7 @@ botonModo.addEventListener("click", cambiarModo);
 botonCerrarCasos.addEventListener("click", cerrarCasos);
 botonVaciar.addEventListener("click", vaciarChat);
 botonBorrar.addEventListener("click", borrarConversacion);
+botonEliminacionTotal.addEventListener("click", eliminacionTotal);
 botonVaciarAlertas.addEventListener("click", vaciarAlertas);
 botonDesbloquear.addEventListener("click", desbloquearNumero);
 formularioRespuesta.addEventListener("submit", responder);

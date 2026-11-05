@@ -1,7 +1,8 @@
 import { api } from "../api.js?v=20261104gestion2";
 import { inicializarNav } from "../nav.js?v=20261104flotante1";
+import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105borrar1";
 const $=id=>document.getElementById(id);
-let pagina=1,total=0,elegida=null,puedeEditar=false,turno=0;
+let pagina=1,total=0,elegida=null,puedeEditar=false,esAdministrador=false,turno=0;
 let planes=[],companias=[],planVersion=null;
 const campos=['cubre','no_cubre','limites','asistencia'];
 function nodo(tag,texto){const n=document.createElement(tag);n.textContent=texto;return n;}
@@ -24,7 +25,12 @@ async function cargar(){
             const td=nodo('td',''),b=nodo('button',puedeEditar?'Ver / cargar cobertura':'Ver cobertura');
             const ficha=nodo('a','Ficha del cliente');ficha.href=`/panel/cliente/?id=${p.cliente_id}`;
             ficha.className='btn btn-sm btn-outline-secondary ms-2';
-            b.className='btn btn-sm btn-outline-primary';b.onclick=()=>abrir(p);td.append(b,ficha);tr.append(td);$('filas').append(tr);
+            b.className='btn btn-sm btn-outline-primary';b.onclick=()=>abrir(p);td.append(b,ficha);
+            if(esAdministrador){const borrar=nodo('button','Eliminar (total)');borrar.className='btn btn-sm btn-danger ms-2';
+                borrar.onclick=()=>confirmarEliminacion(`Eliminar ${p.numero}`,`Se borra de la base la póliza de ${p.cliente} con sus cuotas, pagos, condiciones, acciones y avisos. El cliente y su vehículo quedan. No se puede deshacer. Si hay siniestros o acciones finalizadas, no se borra nada.`,
+                    async()=>{await api.post(`/api/polizas/${p.id}/eliminar-definitivo/`,{});await cargar();$('estado').textContent=`Póliza ${p.numero} eliminada.`;});
+                td.append(borrar);}
+            tr.append(td);$('filas').append(tr);
         }
         $('estado').textContent=total?`${total} ${total===1?'póliza':'pólizas'}`:'No hay pólizas con esa búsqueda.';
         $('pagina').textContent=`Página ${pagina}`;$('anterior').disabled=pagina<=1;$('siguiente').disabled=pagina*d.por_pagina>=total;
@@ -68,8 +74,9 @@ $('condiciones').onsubmit=async e=>{
     }catch(e){$('error').textContent=e.mensaje??e.message;}finally{$('guardar').disabled=false;}
 };
 inicializarNav();
+inicializarEliminacion();
 api.get('/api/auth/me/').then(async u=>{
-    puedeEditar=Boolean(u.puede_aprobar);
+    puedeEditar=Boolean(u.puede_aprobar);esAdministrador=u.rol==='administrador';
     [planes,companias]=await Promise.all([todos('/api/planes-cobertura/'),todos('/api/companias/?activas=1')]);
     cargar();
 })

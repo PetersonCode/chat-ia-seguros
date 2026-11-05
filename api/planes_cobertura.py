@@ -19,11 +19,15 @@ class PlanSerializer(Campos):
     nombre = serializers.CharField(max_length=120)
     compania_id = serializers.IntegerField(min_value=1)
     activo = serializers.BooleanField(default=True)
+    # La póliza toma este nivel al elegir el plan (una sola fuente de cobertura).
+    nivel = serializers.ChoiceField(choices=('basica', 'intermedia', 'total'),
+        error_messages={'null': 'Elegí el nivel del plan: básica, intermedia o total.',
+                        'required': 'Elegí el nivel del plan: básica, intermedia o total.'})
 
 
 def representacion(plan):
     return {k: getattr(plan, k) for k in
-            ('id', 'nombre', 'compania_id', 'version', 'activo', *CAMPOS)}
+            ('id', 'nombre', 'compania_id', 'version', 'activo', 'nivel', *CAMPOS)}
 
 
 def guardar(request, plan=None):

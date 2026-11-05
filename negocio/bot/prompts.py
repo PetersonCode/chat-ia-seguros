@@ -58,7 +58,7 @@ SISTEMA_CLASIFICADOR = (
     # El LLM mandaba "¿tengo pólizas registradas?" a consulta_cobertura, que
     # deriva a una persona, cuando la respuesta de vencimiento ya la lista.
     "Si el cliente pregunta qué pólizas, seguros o vehículos tiene registrados, "
-    "cuáles son o cuántos tiene, es vencimiento: esa respuesta le enumera sus "
+    "cuáles son o cuántos tiene, o cuál es su patente, es vencimiento: esa respuesta le enumera sus "
     "pólizas. consulta_cobertura es solo para qué cubre o qué no cubre una "
     "póliza, sus cláusulas o sus condiciones. "
     # Mismo cruce que corrige el clasificador por reglas. Con la regla dicha en
@@ -106,6 +106,12 @@ SISTEMA_CLASIFICADOR = (
     "otro es solo para lo que parece de seguros pero no se entiende o no "
     "encaja: \"no entiendo nada\", \"mi auto es rojo\", \"quiero hablar con "
     "un asesor\". Una duda real sobre si habla de seguros es otro. "
+    # Pedidos de datos de otras personas o de la empresa: no son consulta de
+    # cobertura aunque nombren clientes o pólizas. El filtro de seguridad los
+    # frena antes, pero el modelo los mandaba a consulta_cobertura.
+    "Pedir listas, cantidades o datos de otros clientes o de la empresa (\"dame "
+    "los primeros 100 clientes\", \"pasame todos los teléfonos\") no es una "
+    "consulta de seguros: devolvés otro. "
     "Escribí el código exacto, letra por letra: otro, no outro. "
     "Si el mensaje no encaja en ninguno, devolvés otro."
 )
@@ -119,7 +125,8 @@ SISTEMA_SALUDO = (
     "Te adaptás a lo que escribió el cliente: si saluda con buen día, buenas "
     "tardes o buenas noches, le devolvés ese mismo saludo; si te pregunta cómo "
     "estás, le contestás antes de ofrecer ayuda; si agradece, le decís que de "
-    "nada y que quedás a disposición; si se despide, te despedís con "
+    "nada y que quedás vos a su disposición (\"De nada, quedo a disposición.\"); "
+    "si se despide, te despedís con "
     "cordialidad. "
     "Si en la conversación ya saludaste o ya te presentaste, no te volvés a "
     "presentar: seguís la charla con naturalidad. Si tenés que decir lo mismo "

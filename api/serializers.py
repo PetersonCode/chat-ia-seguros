@@ -121,6 +121,8 @@ class PolizaAltaSerializer(serializers.Serializer):
     vehiculo_id = serializers.IntegerField(required=False, allow_null=True, min_value=1)
     compania_id = serializers.IntegerField(required=False, allow_null=True, min_value=1)
     comision_pct = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    # Plan de la compañía: define el nivel y copia sus condiciones a la póliza.
+    plan_id = serializers.IntegerField(required=False, allow_null=True, min_value=1)
 
     def validate_comision_pct(self, valor):
         """Vacío = «la de la compañía»: no se manda como texto a validar."""

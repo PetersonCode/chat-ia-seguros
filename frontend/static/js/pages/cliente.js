@@ -1,3 +1,4 @@
+import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105borrar1";
 import { api } from "../api.js?v=20261104gestion2";
 import { inicializarNav } from "../nav.js?v=20261104flotante1";
 import { iniciarNotas } from "../lib/notas.js?v=20261104gestion2";
@@ -94,6 +95,11 @@ const siniestrosCliente = document.getElementById("siniestros-cliente");
 
 const insigniaActivo = document.getElementById("estado-activo-cliente");
 const botonBaja = document.getElementById("boton-baja-cliente");
+const botonEliminar = document.getElementById("boton-eliminar-cliente");
+const dialogoEliminar = document.getElementById("dialog-eliminar-cliente");
+const errorEliminar = document.getElementById("eliminar-cliente-error");
+const botonEliminarCancelar = document.getElementById("eliminar-cliente-cancelar");
+const botonEliminarConfirmar = document.getElementById("eliminar-cliente-confirmar");
 const botonReactivar = document.getElementById("boton-reactivar-cliente");
 const formularioEdicion = document.getElementById("formulario-edicion-cliente");
 const estadoEdicion = document.getElementById("estado-edicion-cliente");
@@ -101,6 +107,8 @@ const botonGuardar = document.getElementById("edicion-guardar");
 
 const columnaNuevaPoliza = document.getElementById("columna-nueva-poliza");
 const panelNuevaPoliza = document.getElementById("panel-nueva-poliza");
+const botonAbrirNuevaPoliza = document.getElementById("panel-nueva-poliza-abrir");
+const botonCancelarPoliza = document.getElementById("poliza-cancelar");
 const formularioPoliza = document.getElementById("formulario-nueva-poliza");
 const estadoNuevaPoliza = document.getElementById("estado-nueva-poliza");
 const previoCuotas = document.getElementById("previo-cuotas-poliza");
@@ -135,6 +143,7 @@ const CAMPOS_POLIZA = [
 
 /** Solo comodidad: la API es la que niega escribir y la que oculta la comisión (R17). */
 let esAprobador = false;
+let esAdministrador = false;
 let vehiculosDelCliente = [];
 let clienteActivo = true;
 let funcionarioConsultado = false;
@@ -146,8 +155,10 @@ async function saberSiAprueba() {
     try {
         const me = await api.get("/api/auth/me/");
         esAprobador = Boolean(me?.puede_aprobar);
+        esAdministrador = me?.rol === "administrador";
     } catch {
         esAprobador = false;
+        esAdministrador = false;
     }
     funcionarioConsultado = true;
 }
@@ -233,6 +244,9 @@ function renderizarPoliza(poliza) {
     const cuerpo = crearElemento("div", "card-body");
     agregarDato(cuerpo, "Tipo", poliza.tipo_seguro);
     agregarDato(cuerpo, "Cobertura", poliza.cobertura);
+    agregarDato(cuerpo, "Plan", poliza.plan
+        ? `${poliza.plan.nombre} (versión ${poliza.plan.version})`
+        : (poliza.condiciones_cargadas ? "Condiciones particulares" : "Sin condiciones cargadas"));
     agregarDato(cuerpo, "Vencimiento de póliza", formatearFecha(poliza.fecha_vencimiento));
     agregarDato(cuerpo, "Vehículo", poliza.vehiculo ? descripcionVehiculo(poliza.vehiculo) : poliza.bien_asegurado);
     agregarDato(cuerpo, "Compañía", poliza.compania?.nombre);
@@ -281,9 +295,22 @@ function renderizarPoliza(poliza) {
     credencial.href=`/api/gestion/polizas/${poliza.id}/credencial/?formato=png`;cuerpo.append(credencial);
     const versionWeb=crearElemento('a','btn btn-outline-secondary mt-3 me-2','Versión web de la credencial');
     versionWeb.href=`/api/gestion/polizas/${poliza.id}/credencial/`;cuerpo.append(versionWeb);
-    if (esAprobador) {
+    // Solo para pólizas históricas incompletas: lo demás se carga en el alta.
+    if (esAprobador && (!poliza.vehiculo || !poliza.compania)) {
         cuerpo.append(botonDeVehiculo("Completar vehículo y compañía", "btn-outline-primary mt-3",
             () => abrirCartera(poliza)));
+    }
+    if (esAdministrador) {
+        cuerpo.append(botonDeVehiculo("Eliminar póliza (total)", "btn-danger fw-bold mt-3", () => confirmarEliminacion(
+            `Eliminar ${poliza.numero_poliza}`,
+            "Se borra de la base la póliza con sus cuotas, pagos, condiciones, acciones y avisos. "
+            + "El cliente y su vehículo quedan. " + "No se puede deshacer. Si hay siniestros o acciones finalizadas, no se borra nada.",
+            async () => {
+                await api.post(`/api/polizas/${poliza.id}/eliminar-definitivo/`, {});
+                await cargarFicha();
+                mostrarEstado(`Póliza ${poliza.numero_poliza} eliminada.`);
+            },
+        )));
     }
     tarjeta.append(encabezado, cuerpo);
     columna.append(tarjeta);
@@ -538,6 +565,8 @@ function prepararAbm(cliente) {
         ? "badge text-bg-secondary mt-2"
         : "badge text-bg-success mt-2";
     botonBaja.classList.toggle("d-none", dadoDeBaja);
+    // Solo el rol administrador; la API lo exige igual.
+    botonEliminar.classList.toggle("d-none", !esAdministrador);
     botonReactivar.classList.toggle("d-none", !dadoDeBaja);
 
     formularioEdicion.elements.dni.value = cliente.dni ?? "";
@@ -601,6 +630,24 @@ async function cambiarEstado(ruta, boton) {
 botonBaja.addEventListener("click", () => cambiarEstado("baja", botonBaja));
 botonReactivar.addEventListener("click", () => cambiarEstado("reactivar", botonReactivar));
 
+botonEliminar.addEventListener("click", () => {
+    errorEliminar.textContent = "";
+    dialogoEliminar.showModal();
+});
+botonEliminarCancelar.addEventListener("click", () => dialogoEliminar.close());
+botonEliminarConfirmar.addEventListener("click", async () => {
+    botonEliminarConfirmar.disabled = true;
+    errorEliminar.textContent = "";
+    try {
+        await api.post(`/api/clientes/${idCliente}/eliminar-definitivo/`, {});
+        globalThis.location.assign("/panel/clientes/");
+    } catch (error) {
+        errorEliminar.textContent = error.mensaje ?? error.message ?? "No se pudo eliminar el cliente.";
+    } finally {
+        botonEliminarConfirmar.disabled = false;
+    }
+});
+
 async function cargarFicha() {
     inicializarNav();
     if (!/^[1-9]\d*$/.test(idCliente ?? "")) {
@@ -645,7 +692,7 @@ async function cargarFicha() {
         ).values()];
         renderizarSiniestros(siniestrosUnicos);
         mostrarEstado("");
-        if (interesadoOrigen && !cotizacionPrellenada) panelNuevaPoliza.open = true;
+        if (interesadoOrigen && !cotizacionPrellenada) abrirNuevaPoliza();
     } catch (error) {
         mostrarEstado(error.mensaje ?? error.message ?? "No se pudo cargar la ficha del cliente.", true);
     }
@@ -703,6 +750,71 @@ async function cargarOpcionesPoliza() {
     }
 }
 
+let planesDeCompania = [];
+
+/** Planes activos de la compañía elegida; sin compañía no hay plan posible. */
+async function cargarPlanesDeCompania() {
+    const select = formularioPoliza.elements.plan_id;
+    const companiaId = formularioPoliza.elements.compania_id.value;
+    planesDeCompania = [];
+    if (companiaId) {
+        try {
+            let pagina = 1;
+            while (true) {
+                const d = await api.get(`/api/planes-cobertura/?compania_id=${encodeURIComponent(companiaId)}&pagina=${pagina}`);
+                planesDeCompania.push(...(d.resultados ?? []).filter((plan) => plan.activo));
+                if (pagina * d.por_pagina >= d.total) break;
+                pagina += 1;
+            }
+        } catch (error) {
+            mostrarEstadoNuevaPoliza(error.mensaje ?? error.message ?? "No se pudieron cargar los planes.", true);
+        }
+    }
+    if (!companiaId) {
+        llenarSelect(select, [["", "Elegí primero la compañía"]]);
+    } else if (planesDeCompania.length === 0) {
+        llenarSelect(select, [["", "Esta compañía no tiene planes cargados"]]);
+    } else {
+        llenarSelect(select, [
+            ["", "Sin plan (cargar condiciones después)"],
+            ...planesDeCompania.map((plan) => [
+                String(plan.id),
+                plan.nivel ? `${plan.nombre} · ${conMayuscula(plan.nivel)}` : plan.nombre,
+            ]),
+        ]);
+    }
+    select.disabled = planesDeCompania.length === 0;
+    aplicarPlanElegido();
+}
+
+/** Con un plan que define su nivel, el nivel no se elige a mano. */
+function aplicarPlanElegido() {
+    const cobertura = formularioPoliza.elements.cobertura;
+    const ayuda = document.getElementById("ayuda-cobertura");
+    const plan = planesDeCompania.find((p) => String(p.id) === formularioPoliza.elements.plan_id.value);
+    if (plan?.nivel) {
+        cobertura.value = plan.nivel;
+        cobertura.disabled = true;
+        ayuda.textContent = `Lo define el plan «${plan.nombre}».`;
+    } else {
+        cobertura.disabled = false;
+        ayuda.textContent = plan
+            ? "Este plan no tiene nivel cargado: elegilo a mano o completalo en Compañías."
+            : "";
+    }
+}
+
+/** Con vehículo, el bien asegurado sale de sus datos: no se pide dos veces. */
+function actualizarCampoBien() {
+    const conVehiculo = Boolean(formularioPoliza.elements.vehiculo_id.value);
+    document.getElementById("campo-bien-poliza").classList.toggle("d-none", conVehiculo);
+    if (conVehiculo) formularioPoliza.elements.bien_asegurado.value = "";
+}
+
+formularioPoliza.elements.compania_id.addEventListener("change", cargarPlanesDeCompania);
+formularioPoliza.elements.plan_id.addEventListener("change", aplicarPlanElegido);
+formularioPoliza.elements.vehiculo_id.addEventListener("change", actualizarCampoBien);
+
 /** Compañías activas y vehículos del cliente para los dos selects opcionales. */
 async function cargarCompaniasDePoliza() {
     campoComisionPoliza.classList.toggle("d-none", !esAprobador);
@@ -726,10 +838,14 @@ async function cargarCompaniasDePoliza() {
             descripcionVehiculo(vehiculo),
         ])],
     );
+    await cargarPlanesDeCompania();
+    actualizarCampoBien();
 }
 
-panelNuevaPoliza.addEventListener("toggle", async () => {
-    if (panelNuevaPoliza.open) {
+/** Abre el formulario en un diálogo y prepara sus opciones. */
+async function abrirNuevaPoliza() {
+    if (!panelNuevaPoliza.open) panelNuevaPoliza.showModal();
+    {
         await cargarOpcionesPoliza();
         // Cada vez que se abre: los vehículos pudieron cambiar desde la última vez.
         await cargarCompaniasDePoliza();
@@ -745,13 +861,15 @@ panelNuevaPoliza.addEventListener("toggle", async () => {
                 f.tipo_seguro.value = 'automotor'; f.cobertura.value = c.cobertura;
                 f.prima_mensual.value = c.prima_mensual;
                 f.compania_id.value = String(c.compania.id); f.vehiculo_id.value = String(v.id);
+                await cargarPlanesDeCompania(); actualizarCampoBien();
                 cotizacionPrellenada = true;
                 mostrarEstadoNuevaPoliza('Cotización elegida recuperada. Revisá la compañía, cobertura e importe y completá las fechas de vigencia antes de confirmar.');
-                formularioPoliza.scrollIntoView({block:'center'});
             } catch (e) { mostrarEstadoNuevaPoliza(e.mensaje ?? e.message,true); }
         }
     }
-});
+}
+botonAbrirNuevaPoliza.addEventListener("click", abrirNuevaPoliza);
+botonCancelarPoliza.addEventListener("click", () => panelNuevaPoliza.close());
 
 /** Cuántas cuotas va a generar el alta, para que no sea una sorpresa. */
 function actualizarPrevioCuotas() {
@@ -788,7 +906,7 @@ function datosDelFormularioPoliza() {
         cuerpo[campo] = formularioPoliza.elements[campo].value.trim();
     }
     // Opcionales: lo vacío no viaja (la API entiende su ausencia como «ninguno»).
-    for (const campo of ["vehiculo_id", "compania_id"]) {
+    for (const campo of ["vehiculo_id", "compania_id", "plan_id"]) {
         const valor = formularioPoliza.elements[campo].value;
         if (valor) {
             cuerpo[campo] = Number(valor);
@@ -816,13 +934,16 @@ formularioPoliza.addEventListener("submit", async (evento) => {
     try {
         const poliza = await api.post(`/api/clientes/${idCliente}/polizas/`, cuerpo);
         formularioPoliza.reset();
+        await cargarPlanesDeCompania();
+        actualizarCampoBien();
         pintarErroresPoliza({});
         previoCuotas.textContent = "";
         // El próximo número libre ya cambió: que se vuelva a pedir al abrir.
         opcionesPoliza = null;
-        panelNuevaPoliza.open = false;
-        mostrarEstadoNuevaPoliza(`Póliza ${poliza.numero_poliza} creada.`);
+        panelNuevaPoliza.close();
         await cargarFicha();
+        // El diálogo ya está cerrado: el aviso va arriba, en la ficha.
+        mostrarEstado(`Póliza ${poliza.numero_poliza} creada.`);
     } catch (error) {
         mostrarEstadoNuevaPoliza(
             error.mensaje ?? error.message ?? "No se pudo crear la póliza.",
@@ -836,3 +957,5 @@ formularioPoliza.addEventListener("submit", async (evento) => {
 cargarFicha();
 if(idCliente)iniciarNotas(idCliente);
 if(idCliente)iniciarFidelizacion(idCliente).catch(e=>mostrarEstado(e.mensaje??e.message));
+
+inicializarEliminacion();

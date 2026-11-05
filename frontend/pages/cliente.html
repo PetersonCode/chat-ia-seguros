@@ -19,6 +19,7 @@
             </div>
             <div class="d-flex gap-2">
                 <button id="boton-baja-cliente" class="btn btn-outline-danger btn-sm d-none" type="button">Dar de baja</button>
+                <button id="boton-eliminar-cliente" class="btn btn-danger btn-sm fw-bold d-none" type="button">ELIMINAR CLIENTE (TOTAL)</button>
                 <button id="boton-reactivar-cliente" class="btn btn-outline-success btn-sm d-none" type="button">Reactivar</button>
                 <a href="/panel/clientes/" class="btn btn-outline-secondary btn-sm">Volver a clientes</a>
             </div>
@@ -84,14 +85,25 @@
                  cada render: si estuviera adentro, el `replaceChildren` que
                  repinta las pólizas se lo llevaría puesto. -->
             <div id="columna-nueva-poliza" class="col-12 col-xl-6 d-none">
-                <!-- `details` otra vez, como en "Editar datos": la página solo
-                     carga el CSS de Bootstrap, no su JS. -->
-                <details id="panel-nueva-poliza" class="h-100">
-                    <summary class="caja-nueva-poliza">
-                        <span class="caja-nueva-poliza-mas" aria-hidden="true">+</span>
-                        <span class="h5 mb-0">Agregar póliza</span>
-                    </summary>
-                    <form id="formulario-nueva-poliza" class="card shadow-sm border-0 mt-2 card-body" novalidate>
+                <!-- Tarjeta de tamaño fijo: el formulario vive en un diálogo
+                     (`panel-nueva-poliza`), así nunca crece ni queda tapado por
+                     las secciones de abajo. -->
+                <button id="panel-nueva-poliza-abrir" type="button" class="caja-nueva-poliza">
+                    <span class="caja-nueva-poliza-mas" aria-hidden="true">+</span>
+                    <span class="h5 mb-0">Agregar póliza</span>
+                </button>
+            </div>
+        </section>
+        <section class="card shadow-sm border-0" aria-labelledby="titulo-siniestros">
+            <div class="card-header bg-white">
+                <h2 id="titulo-siniestros" class="h5 mb-0">Siniestros</h2>
+            </div>
+            <div id="siniestros-cliente" class="card-body"></div>
+        </section>
+    </main>
+    <dialog id="panel-nueva-poliza" class="dialog-accion dialog-ancho">
+        <form id="formulario-nueva-poliza" class="p-4" method="dialog" novalidate>
+                        <h2 class="h5 mb-3">Agregar póliza</h2>
                         <div class="row g-3">
                             <div class="col-sm-6">
                                 <label class="form-label" for="poliza-numero">Número</label>
@@ -103,11 +115,6 @@
                                 <label class="form-label" for="poliza-tipo">Tipo de seguro</label>
                                 <select id="poliza-tipo" name="tipo_seguro" class="form-select"></select>
                                 <p class="invalid-feedback mb-0" data-error="tipo_seguro"></p>
-                            </div>
-                            <div class="col-sm-6">
-                                <label class="form-label" for="poliza-cobertura">Cobertura</label>
-                                <select id="poliza-cobertura" name="cobertura" class="form-select"></select>
-                                <p class="invalid-feedback mb-0" data-error="cobertura"></p>
                             </div>
                             <div class="col-sm-6">
                                 <label class="form-label" for="poliza-prima">Prima mensual</label>
@@ -127,18 +134,29 @@
                             <div class="col-sm-6">
                                 <label class="form-label" for="poliza-vehiculo">Vehículo <span class="text-muted">(opcional)</span></label>
                                 <select id="poliza-vehiculo" name="vehiculo_id" class="form-select"></select>
-                                <p class="form-text mb-0">Si lo elegís y dejás vacío el bien asegurado, se completa solo.</p>
+                                <p class="form-text mb-0">Con vehículo, el bien asegurado se completa solo con sus datos.</p>
                             </div>
                             <div class="col-sm-6">
                                 <label class="form-label" for="poliza-compania">Compañía <span class="text-muted">(opcional)</span></label>
                                 <select id="poliza-compania" name="compania_id" class="form-select"></select>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label" for="poliza-plan">Plan de la compañía</label>
+                                <select id="poliza-plan" name="plan_id" class="form-select" disabled></select>
+                                <p class="form-text mb-0">Define la cobertura y sus condiciones. Los planes se cargan en Compañías.</p>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label" for="poliza-cobertura">Nivel de cobertura</label>
+                                <select id="poliza-cobertura" name="cobertura" class="form-select"></select>
+                                <p id="ayuda-cobertura" class="form-text mb-0"></p>
+                                <p class="invalid-feedback mb-0" data-error="cobertura"></p>
                             </div>
                             <div class="col-sm-6" id="campo-comision-poliza">
                                 <label class="form-label" for="poliza-comision">Comisión (%) <span class="text-muted">(opcional)</span></label>
                                 <input id="poliza-comision" name="comision_pct" class="form-control" inputmode="decimal" autocomplete="off" placeholder="la de la compañía">
                                 <p class="form-text mb-0">Vacío usa la comisión de la compañía en este momento.</p>
                             </div>
-                            <div class="col-12">
+                            <div class="col-12" id="campo-bien-poliza">
                                 <label class="form-label" for="poliza-bien">Bien asegurado <span class="text-muted">(opcional)</span></label>
                                 <input id="poliza-bien" name="bien_asegurado" class="form-control" autocomplete="off" placeholder="Ford Fiesta 2019 AB123CD">
                                 <p class="invalid-feedback mb-0" data-error="bien_asegurado"></p>
@@ -147,19 +165,11 @@
                         <p id="previo-cuotas-poliza" class="form-text mt-3 mb-0"></p>
                         <p id="estado-nueva-poliza" class="alert d-none mt-3 mb-0" role="status" aria-live="polite"></p>
                         <div class="d-flex justify-content-end gap-2 mt-3">
+                            <button id="poliza-cancelar" class="btn btn-outline-secondary" type="button">Cancelar</button>
                             <button id="poliza-crear" class="btn btn-primary" type="submit">Crear póliza</button>
                         </div>
                     </form>
-                </details>
-            </div>
-        </section>
-        <section class="card shadow-sm border-0" aria-labelledby="titulo-siniestros">
-            <div class="card-header bg-white">
-                <h2 id="titulo-siniestros" class="h5 mb-0">Siniestros</h2>
-            </div>
-            <div id="siniestros-cliente" class="card-body"></div>
-        </section>
-    </main>
+    </dialog>
     <dialog id="dialog-vehiculo" class="dialog-accion">
         <form id="formulario-vehiculo" class="p-4" method="dialog" novalidate>
             <h2 id="vehiculo-titulo" class="h5"></h2>
@@ -227,6 +237,28 @@
             </div>
         </form>
     </dialog>
+    <dialog id="dialog-eliminar-total" class="dialog-accion">
+        <div class="p-4">
+            <h2 id="eliminar-total-titulo" class="h5"></h2>
+            <p id="eliminar-total-texto"></p>
+            <p id="eliminar-total-error" class="small text-danger mb-2" role="alert"></p>
+            <div class="d-flex justify-content-end gap-2">
+                <button id="eliminar-total-cancelar" class="btn btn-outline-secondary" type="button">Cancelar</button>
+                <button id="eliminar-total-confirmar" class="btn btn-danger fw-bold" type="button">Eliminar definitivamente</button>
+            </div>
+        </div>
+    </dialog>
+    <dialog id="dialog-eliminar-cliente" class="dialog-accion">
+        <div class="p-4">
+            <h2 class="h5">ELIMINAR CLIENTE (TOTAL)</h2>
+            <p>Se borra de la base, sin dejar rastro, este cliente con todos sus vehículos y pólizas (cuotas, pagos, condiciones, documentos vinculados), sus notas, tareas, interesados y el rastro de sus números de WhatsApp (conversaciones, mensajes, contacto). No se puede deshacer. Con siniestros, fotos de siniestro o acciones finalizadas no se borra nada.</p>
+            <p id="eliminar-cliente-error" class="small text-danger mb-2" role="alert"></p>
+            <div class="d-flex justify-content-end gap-2">
+                <button id="eliminar-cliente-cancelar" class="btn btn-outline-secondary" type="button">Cancelar</button>
+                <button id="eliminar-cliente-confirmar" class="btn btn-danger" type="button">ELIMINAR CLIENTE (TOTAL)</button>
+            </div>
+        </div>
+    </dialog>
     <dialog id="dialog-baja-vehiculo" class="dialog-accion">
         <form id="formulario-baja-vehiculo" class="p-4" method="dialog">
             <h2 class="h5">Dar de baja el vehículo</h2>
@@ -239,7 +271,7 @@
         </form>
     </dialog>
 
-    <script type="module" src="/static/js/pages/cliente.js?v=20261104conversion1"></script>
+    <script type="module" src="/static/js/pages/cliente.js?v=20261105borrar1"></script>
 <template id="plantilla-fidelizacion"><h2 class="card-header h5">Cumpleaños y referidos</h2><div class="card-body"><form data-perfil><label class="form-label" for="fecha-cumple">Fecha de nacimiento (opcional)</label><input id="fecha-cumple" name="nacimiento" class="form-control mb-2" type="date"><label class="d-flex gap-2 mb-2"><input name="comerciales" type="checkbox"> El cliente acepta recibir el saludo de cumpleaños</label><button class="btn btn-outline-primary">Guardar preferencias</button></form><hr><form data-referido><label class="form-label" for="buscar-referido">Cliente que vino recomendado por esta persona</label><input id="buscar-referido" class="form-control mb-2" type="search" placeholder="Buscá por nombre, DNI o patente"><select name="referido" aria-label="Cliente referido" class="form-select mb-2" required><option value="">Elegí un cliente</option></select><button class="btn btn-outline-primary">Registrar referido</button></form><p role="status" data-estado></p><div data-lista></div></div></template>
 <script type="module" src="/static/js/lib/chat-flotante.js?v=20261104flotante3"></script>
 </body>

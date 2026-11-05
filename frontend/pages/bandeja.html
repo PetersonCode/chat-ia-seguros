@@ -11,9 +11,12 @@
 <body>
     <nav id="nav" aria-label="Navegación principal"></nav>
     <main class="container-fluid px-3 px-lg-4 py-4">
-        <header class="mb-4">
-            <h1 class="h3 fw-bold mb-1">Bandeja de conversaciones</h1>
-            <p class="text-muted mb-0">Una tarjeta por contacto. Primero, los clientes que necesitan una respuesta del equipo.</p>
+        <header class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <h1 class="h3 fw-bold mb-1">Bandeja de conversaciones</h1>
+                <p class="text-muted mb-0">Una tarjeta por contacto. Primero, los clientes que necesitan una respuesta del equipo.</p>
+            </div>
+            <button id="boton-actualizar" class="btn btn-outline-primary btn-sm" type="button">Actualizar</button>
         </header>
 
         <p id="resumen-clientes" class="alert alert-info" role="status"></p>
@@ -61,7 +64,7 @@
     </main>
     <dialog id="dialog-borrar" class="dialog-accion">
         <div class="p-4">
-            <h2 class="h5">Borrar conversación</h2>
+            <h2 id="dialog-borrar-titulo" class="h5">Borrar conversación</h2>
             <p id="dialog-borrar-descripcion"></p>
             <p id="dialog-borrar-error" class="text-danger small" role="alert" aria-live="assertive"></p>
             <div class="d-flex justify-content-end gap-2">
@@ -70,7 +73,7 @@
             </div>
         </div>
     </dialog>
-    <script type="module" src="/static/js/pages/bandeja.js?v=20261104bandeja1"></script>
+    <script type="module" src="/static/js/pages/bandeja.js?v=20261105sinrefresco1"></script>
 <script type="module" src="/static/js/lib/chat-flotante.js?v=20261104flotante3"></script>
 </body>
 </html>

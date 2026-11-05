@@ -7,9 +7,10 @@ vencimientos (R12). Un DNI repetido o un teléfono mal cargado no quedan en un
 listado feo: se convierten en una respuesta equivocada a un cliente real, o en
 que el bot no reconozca a alguien que sí es cliente y lo derive sin necesidad.
 
-La baja es lógica (`activo = False`). Borrar la fila no es una opción: las
-pólizas, los contactos, las conversaciones y los siniestros apuntan al cliente,
-y una aseguradora necesita conservar ese historial.
+La baja es lógica (`activo = False`): una aseguradora necesita conservar el
+historial. La única excepción es `eliminar_cliente_definitivo`, un DELETE físico
+reservado al rol administrador (usuario de pruebas) para rehacer un cliente de
+cero; ver su docstring.
 """
 
 from __future__ import annotations
@@ -21,9 +22,11 @@ from django.core.validators import validate_email
 from django.db import transaction
 
 from datos.limpieza import normalizar_dni, normalizar_telefono
-from datos.models import Cliente, ContactoWhatsapp
+from django.db import connection
+
+from datos.models import Cliente, ContactoWhatsapp, Rol
 from datos.selectors import polizas_vigentes
-from negocio.errores import DatosInvalidos, EstadoInvalido, NoEncontrado
+from negocio.errores import DatosInvalidos, EstadoInvalido, NoEncontrado, PermisoDenegado
 
 # Un nombre con dígitos es casi siempre un error de carga (un DNI pegado en el
 # campo equivocado, un número de póliza). No se intenta adivinar: se rechaza.
@@ -207,3 +210,93 @@ def reactivar_cliente(cliente_id: int) -> Cliente:
     cliente.activo = True
     cliente.save(update_fields=["activo"])
     return cliente
+
+
+@transaction.atomic
+def eliminar_cliente_definitivo(cliente_id: int, funcionario_id: int) -> dict[str, int]:
+    """DELETE físico del cliente con sus vehículos, pólizas y todo lo que cuelga.
+
+    Solo el rol administrador (usuario de pruebas): sirve para rehacer un cliente
+    de cero. A diferencia de la baja, no deja nada: borra el cliente, sus
+    vehículos, pólizas (con cuotas, pagos, conductores, condiciones, documentos
+    vinculados, renovaciones, recordatorios, avisos y acciones), sus notas,
+    tareas, perfil, referidos, encuestas, interesados (con historial y
+    cotizaciones) y, por cada número de WhatsApp vinculado, todo su rastro
+    (conversaciones, mensajes, casos, alertas, contacto).
+
+    Se niega, sin borrar nada, si hay siniestros, fotos de siniestro o acciones
+    finalizadas: la base los declara inmutables. La auditoría de seguridad no se
+    borra: guarda rutas y usuario, sin datos personales.
+    """
+    from datos.models import (
+        Conversacion,
+        Funcionario,
+        Poliza,
+        Vehiculo,
+    )
+    from negocio.supervision import borrar_rastro_del_numero
+    from negocio.eliminaciones import borrar_polizas, verificar_polizas_borrables
+
+    funcionario = Funcionario.objects.filter(pk=funcionario_id, activo=True).first()
+    if funcionario is None or funcionario.rol != Rol.ADMINISTRADOR:
+        raise PermisoDenegado(
+            "Solo el administrador puede eliminar un cliente definitivamente."
+        )
+    cliente = _cliente(cliente_id)
+
+    polizas = list(Poliza.objects.filter(cliente_id=cliente.id).values_list("id", flat=True))
+    verificar_polizas_borrables(polizas, "el cliente")
+
+    # Primero el rastro de cada número vinculado. Si algo es inmutable se niega
+    # y la transacción deshace lo ya borrado.
+    contactos = list(
+        ContactoWhatsapp.objects.filter(cliente_id=cliente.id).values_list("id", flat=True)
+    )
+    for contacto_id in contactos:
+        conversaciones = list(
+            Conversacion.objects.filter(contacto_id=contacto_id).values_list("id", flat=True)
+        )
+        borrar_rastro_del_numero(contacto_id, conversaciones)
+
+    # Las pólizas, con la misma lógica que el borrado de póliza o de compañía.
+    resumen_polizas = borrar_polizas(polizas)
+
+    vehiculos = list(Vehiculo.objects.filter(cliente_id=cliente.id).values_list("id", flat=True))
+    with connection.cursor() as c:
+
+        def ids(sql, *params):
+            c.execute(sql, params)
+            return [r[0] for r in c.fetchall()]
+
+        interesados = ids("SELECT id FROM interesados WHERE cliente_id = %s", cliente.id)
+        encuestas = ids("SELECT id FROM gestion_encuestas WHERE cliente_id = %s", cliente.id)
+
+        # De las hojas hacia la raíz: la base no cascadea.
+        c.execute("DELETE FROM contextos_cobertura WHERE cliente_id = %s", [cliente.id])
+        c.execute(
+            "DELETE FROM gestion_avisos WHERE interesado_id = ANY(%s) OR encuesta_id = ANY(%s)",
+            [interesados, encuestas],
+        )
+        c.execute("DELETE FROM gestion_encuestas WHERE id = ANY(%s)", [encuestas])
+        c.execute("DELETE FROM cotizaciones WHERE interesado_id = ANY(%s)", [interesados])
+        c.execute("DELETE FROM interesado_historial WHERE interesado_id = ANY(%s)", [interesados])
+        c.execute(
+            "DELETE FROM gestion_tareas WHERE cliente_id = %s OR interesado_id = ANY(%s)",
+            [cliente.id, interesados],
+        )
+        c.execute("DELETE FROM interesados WHERE id = ANY(%s)", [interesados])
+        c.execute("DELETE FROM gestion_notas WHERE cliente_id = %s", [cliente.id])
+        c.execute("DELETE FROM gestion_perfiles WHERE cliente_id = %s", [cliente.id])
+        c.execute(
+            "DELETE FROM gestion_referidos WHERE referente_id = %s OR referido_id = %s",
+            [cliente.id, cliente.id],
+        )
+        c.execute("DELETE FROM vehiculos WHERE id = ANY(%s)", [vehiculos])
+        c.execute("DELETE FROM clientes WHERE id = %s", [cliente.id])
+    return {
+        "polizas": resumen_polizas["polizas"],
+        "vehiculos": len(vehiculos),
+        "cuotas": resumen_polizas["cuotas"],
+        "interesados": len(interesados),
+        "numeros": len(contactos),
+    }

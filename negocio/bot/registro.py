@@ -87,6 +87,8 @@ class DatosRegistro:
     dni: str | None = None
     intentos: int = 0
     email: str | None = None
+    # Mandó algo que parece un DNI pero no tiene 7 u 8 dígitos (typo, faltan números).
+    dni_mal_escrito: bool = False
 
     @property
     def nombre(self) -> str | None:
@@ -186,6 +188,15 @@ def _dni_en(texto: str) -> str | None:
     return None
 
 
+# Una tira de 4 a 6 dígitos, o de 9 a 11, suelta: el DNI con un número de más o
+# de menos. Sirve solo para avisarle qué está mal, nunca para tomarlo por DNI.
+_RE_NUMERO_DUDOSO = re.compile(r"(?<![\d.])(?:\d{4,6}|\d{9,11})(?![\d.])")
+
+
+def _dni_mal_escrito_en(texto: str) -> bool:
+    return bool(_RE_NUMERO_DUDOSO.search(texto or ""))
+
+
 def datos_del_registro(conversacion_id: int, contacto) -> DatosRegistro:
     """Reconstruye el alta desde el log: qué se pidió y qué contestó el cliente.
 
@@ -219,6 +230,7 @@ def datos_del_registro(conversacion_id: int, contacto) -> DatosRegistro:
     dni: str | None = None
     email: str | None = None
     apellido: str | None = None
+    dni_dudoso = False
     for mensaje in mensajes[primer_pedido + 1 :]:
         if mensaje.direccion != Direccion.ENTRANTE or mensaje.emisor != Emisor.CLIENTE:
             continue
@@ -226,6 +238,7 @@ def datos_del_registro(conversacion_id: int, contacto) -> DatosRegistro:
         if candidato and (nombre is None or len(candidato.split()) > len(nombre.split())):
             nombre = candidato
         dni = dni or _dni_en(mensaje.texto or "")
+        dni_dudoso = dni_dudoso or _dni_mal_escrito_en(mensaje.texto or "")
         correo = re.search(r'[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}', mensaje.texto or '')
         if correo:
             email = correo.group()
@@ -242,6 +255,7 @@ def datos_del_registro(conversacion_id: int, contacto) -> DatosRegistro:
         dni=dni,
         intentos=intentos,
         email=email,
+        dni_mal_escrito=dni is None and dni_dudoso,
     )
 
 

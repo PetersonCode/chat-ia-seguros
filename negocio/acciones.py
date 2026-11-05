@@ -465,9 +465,15 @@ def finalizar_gestion_externa(
 
 
 def derivar(
-    consulta_id: int, derivado_a_id: int, prioridad: str = "normal", motivo: str = ""
+    consulta_id: int, derivado_a_id: int, prioridad: str = "normal", motivo: str = "",
+    *, mantener_bot: bool = False,
 ) -> Derivacion:
-    """Pasa el caso a un funcionario y saca al bot de la conversación."""
+    """Pasa el caso a un funcionario y saca al bot de la conversación.
+
+    `mantener_bot=True`: el caso queda asignado y avisado igual, pero el bot
+    sigue atendiendo el chat (una cotización completa: el asesor prepara el
+    precio y, mientras tanto, el bot puede tomar la solicitud de alta).
+    """
     if prioridad not in Prioridad.values:
         raise DatosInvalidos(f"Prioridad inválida: {prioridad}")
     consulta = _consulta(consulta_id)
@@ -483,7 +489,7 @@ def derivar(
             motivo=motivo or "Derivación automática",
         )
         conversacion = consulta.conversacion
-        if conversacion is not None:
+        if conversacion is not None and not mantener_bot:
             conversacion.modo = ModoConversacion.HUMANO
             conversacion.funcionario = funcionario
             conversacion.save(update_fields=["modo", "funcionario"])

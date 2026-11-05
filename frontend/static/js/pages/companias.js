@@ -1,7 +1,8 @@
 import { api } from "../api.js?v=20261104gestion2";
 import { inicializarNav } from "../nav.js?v=20261104flotante1";
 import { formatearPorcentaje, validarCompania } from "../lib/companias.js?v=20261104gestion2";
-import { inicializarPlanes } from "../lib/planes.js?v=20261104gestion2";
+import { inicializarPlanes } from "../lib/planes.js?v=20261105borrar1";
+import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105borrar1";
 
 const mensajePagina = document.getElementById("mensaje-pagina");
 const contenido = document.getElementById("contenido-companias");
@@ -23,6 +24,7 @@ const dialogoConfirmar = document.getElementById("dialog-confirmar");
 const CAMPOS_ALTA = ["nombre", "comision_pct"];
 
 let esAprobador = false;
+let esAdministrador = false;
 let alConfirmar = null;
 
 function crearElemento(etiqueta, clase, texto) {
@@ -130,6 +132,19 @@ function crearFila(compania) {
                 () => cambiarEstado(compania),
             ),
         );
+        if (esAdministrador) {
+            acciones.append(boton("Eliminar (total)", "btn-danger fw-bold ms-2", () => confirmarEliminacion(
+                `Eliminar ${compania.nombre}`,
+                "Se borran de la base la compañía, todas sus pólizas (con cuotas, pagos y condiciones), "
+                + "sus planes y sus cotizaciones. Los clientes quedan, sin esas pólizas. "
+                + "No se puede deshacer. Si hay siniestros o acciones finalizadas, no se borra nada.",
+                async () => {
+                    const r = await api.post(`/api/companias/${compania.id}/eliminar-definitivo/`, {});
+                    mostrarAviso(mensajePagina, `${compania.nombre} eliminada: ${r.borrados.polizas} póliza(s) y ${r.borrados.planes} plan(es).`);
+                    await cargarCompanias();
+                },
+            )));
+        }
         fila.append(acciones);
     }
     return fila;
@@ -151,7 +166,7 @@ function renderizar(companias) {
 async function cargarCompanias() {
     const respuesta = await api.get("/api/companias/");
     renderizar(respuesta.resultados ?? []);
-    await inicializarPlanes(esAprobador,respuesta.resultados??[]);
+    await inicializarPlanes(esAprobador,respuesta.resultados??[],{esAdministrador,confirmarEliminacion,alEliminar:async(nombre)=>{mostrarAviso(mensajePagina,`Plan ${nombre} eliminado.`);await cargarCompanias();}});
 }
 
 function pintarErroresAlta(errores) {
@@ -216,6 +231,7 @@ async function iniciar() {
     try {
         const me = await api.get("/api/auth/me/");
         esAprobador = Boolean(me?.puede_aprobar);
+        esAdministrador = me?.rol === "administrador";
         // Solo comodidad: la API es la que niega escribir y la que oculta la comisión.
         panelAlta.hidden = !esAprobador;
         columnaAcciones.hidden = !esAprobador;
@@ -231,4 +247,5 @@ formularioAlta.addEventListener("submit", crearCompania);
 formularioDialogo.addEventListener("submit", confirmarDialogo);
 dialogoCancelar.addEventListener("click", () => dialogo.close());
 
+inicializarEliminacion();
 iniciar();

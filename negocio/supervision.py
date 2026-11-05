@@ -10,13 +10,21 @@ Aprobador obligatorio en `liberar_respuesta`, `descartar_respuesta` y
 
 from __future__ import annotations
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 
 from datos.models import (
     AccionPendiente,
     AdjuntoSiniestro,
+    BorradorPoliza,
+    Cotizacion,
+    FinalizacionAccion,
+    Interesado,
+    InteresadoHistorial,
+    ContactoWhatsapp,
+    RecordatorioPoliza,
+    Rol,
     Conversacion,
     ContextoCobertura,
     ConsultaBot,
@@ -441,10 +449,16 @@ def borrar_conversacion(conversacion_id: int, funcionario_id: int) -> dict[str, 
     """Borra la conversación con sus mensajes, casos y alertas. No tiene vuelta atrás.
 
     Aprobador obligatorio. Se niega si algo del expediente depende de ella: una
-    acción administrativa, un siniestro o una foto de siniestro. Esos registros
-    son de auditoría —la base misma impide modificar una finalización o un
-    adjunto— y borrarles el chat de origen los dejaría sin contexto. Para esos
-    casos existe `vaciar_chat`, que corta el contexto del bot sin borrar nada.
+    acción administrativa todavía pendiente, un siniestro o una foto de
+    siniestro. Esos registros son de auditoría —la base misma impide modificar
+    una finalización o un adjunto— y borrarles el chat de origen los dejaría sin
+    contexto. Para esos casos existe `vaciar_chat`, que corta el contexto del
+    bot sin borrar nada.
+
+    Las acciones ya resueltas (aprobada, rechazada, ejecutada) no bloquean: el
+    caso que las respalda se conserva, desvinculado del chat (`conversacion_id`
+    nulo) y con su derivación, para que el registro de auditoría siga entero.
+    Lo único que sale de la bandeja es el chat, sus mensajes y sus alertas.
 
     El contacto no se toca: si el cliente vuelve a escribir, arranca una
     conversación nueva.
@@ -456,14 +470,24 @@ def borrar_conversacion(conversacion_id: int, funcionario_id: int) -> dict[str, 
     if conversacion is None:
         raise NoEncontrado("La conversación no existe.")
 
-    casos = ConsultaBot.objects.filter(conversacion_id=conversacion_id)
-    caso_ids = list(casos.values_list("id", flat=True))
+    casos_chat = ConsultaBot.objects.filter(conversacion_id=conversacion_id)
+    todos_los_ids = list(casos_chat.values_list("id", flat=True))
+    # Los casos con una acción ya resuelta se conservan como auditoría.
+    conservados = set(
+        AccionPendiente.objects.filter(consulta_id__in=todos_los_ids)
+        .exclude(estado=EstadoAccion.PENDIENTE)
+        .values_list("consulta_id", flat=True)
+    )
+    caso_ids = [pk for pk in todos_los_ids if pk not in conservados]
+    casos = ConsultaBot.objects.filter(pk__in=caso_ids)
 
     dependientes = []
-    acciones = AccionPendiente.objects.filter(consulta_id__in=caso_ids).count()
+    acciones = AccionPendiente.objects.filter(
+        consulta_id__in=todos_los_ids, estado=EstadoAccion.PENDIENTE
+    ).count()
     if acciones:
-        dependientes.append(f"{acciones} acción(es) administrativa(s)")
-    siniestros = Siniestro.objects.filter(consulta_id__in=caso_ids).count()
+        dependientes.append(f"{acciones} acción(es) administrativa(s) pendiente(s)")
+    siniestros = Siniestro.objects.filter(consulta_id__in=todos_los_ids).count()
     if siniestros:
         dependientes.append(f"{siniestros} siniestro(s)")
     adjuntos = AdjuntoSiniestro.objects.filter(
@@ -481,7 +505,7 @@ def borrar_conversacion(conversacion_id: int, funcionario_id: int) -> dict[str, 
     mensajes = Mensaje.objects.filter(conversacion_id=conversacion_id)
     cantidad_mensajes = mensajes.count()
     alertas = Alerta.objects.filter(
-        Q(consulta_id__in=caso_ids) | Q(mensaje__conversacion_id=conversacion_id)
+        Q(consulta_id__in=todos_los_ids) | Q(mensaje__conversacion_id=conversacion_id)
     )
     cantidad_alertas = alertas.count()
 
@@ -492,12 +516,141 @@ def borrar_conversacion(conversacion_id: int, funcionario_id: int) -> dict[str, 
     mensajes.update(respuesta_a=None)
     mensajes.delete()
     casos.delete()
+    casos_chat.update(conversacion=None)  # los casos con acción resuelta quedan sueltos
     ContextoCobertura.objects.filter(conversacion_id=conversacion_id).delete()
     conversacion.delete()
     return {
         "mensajes": cantidad_mensajes,
         "casos": len(caso_ids),
         "alertas": cantidad_alertas,
+    }
+
+
+@transaction.atomic
+def eliminacion_total(conversacion_id: int, funcionario_id: int) -> dict[str, int]:
+    """Borra FÍSICAMENTE todo rastro del número de esta conversación.
+
+    Solo el rol administrador (usuario de pruebas). Es un DELETE real, no una
+    marca ni un cambio de estado: tras la eliminación el número queda como uno
+    que nunca escribió, y su próximo mensaje arranca desde cero (contacto nuevo,
+    interesado nuevo). Borra, en el orden que pide la base:
+
+    alertas, derivaciones, borradores de alta, acciones pendientes (en cualquier
+    estado), trabajos de WhatsApp, avisos/encuestas/tareas de gestión,
+    recordatorios, mensajes, casos, contexto de cobertura, TODAS las
+    conversaciones del número, sus interesados (con historial y cotizaciones) y
+    el contacto de WhatsApp.
+
+    No toca al cliente ni a sus pólizas: solo se pierde su vínculo con este
+    número. Se niega, sin borrar nada, si hay siniestros, fotos de siniestro o
+    acciones finalizadas: la base los declara inmutables y borrarlos es
+    manipular un expediente, no limpiar un chat de prueba.
+
+    La auditoría de seguridad no se borra (la base la declara inmutable): solo
+    registra la ruta y el usuario, sin teléfonos ni textos.
+    """
+    funcionario = _funcionario(funcionario_id, aprobador=False)
+    if funcionario.rol != Rol.ADMINISTRADOR:
+        raise PermisoDenegado("Solo el administrador puede hacer la eliminación total.")
+
+    conversacion = (
+        Conversacion.objects.select_for_update().filter(pk=conversacion_id).first()
+    )
+    if conversacion is None:
+        raise NoEncontrado("La conversación no existe.")
+
+    contacto_id = conversacion.contacto_id
+    if contacto_id is not None:
+        conversaciones = list(
+            Conversacion.objects.filter(contacto_id=contacto_id).values_list("id", flat=True)
+        )
+    else:
+        conversaciones = [conversacion_id]
+    return borrar_rastro_del_numero(contacto_id, conversaciones)
+
+
+def borrar_rastro_del_numero(
+    contacto_id: int | None, conversaciones: list[int]
+) -> dict[str, int]:
+    """DELETE físico de todo lo que cuelga de un contacto y sus conversaciones.
+
+    Sin permisos: lo usan `eliminacion_total` y el borrado definitivo de un
+    cliente, que ya verificaron que quien llama es administrador. Debe correr
+    dentro de una transacción. Se niega, sin borrar nada, ante registros que la
+    base declara inmutables.
+    """
+    filtro_casos = Q(conversacion_id__in=conversaciones)
+    if contacto_id is not None:
+        filtro_casos |= Q(contacto_id=contacto_id)
+    casos = list(ConsultaBot.objects.filter(filtro_casos).values_list("id", flat=True))
+    mensajes = list(
+        Mensaje.objects.filter(
+            Q(conversacion_id__in=conversaciones) | Q(consulta_id__in=casos)
+        ).values_list("id", flat=True)
+    )
+    interesados = (
+        list(Interesado.objects.filter(contacto_id=contacto_id).values_list("id", flat=True))
+        if contacto_id is not None
+        else []
+    )
+
+    # Lo inmutable no se toca: se avisa antes de borrar nada.
+    bloqueos = []
+    n = Siniestro.objects.filter(consulta_id__in=casos).count()
+    if n:
+        bloqueos.append(f"{n} siniestro(s)")
+    n = AdjuntoSiniestro.objects.filter(mensaje_origen_id__in=mensajes).count()
+    if n:
+        bloqueos.append(f"{n} foto(s) de siniestro")
+    n = FinalizacionAccion.objects.filter(accion__consulta_id__in=casos).count()
+    if n:
+        bloqueos.append(f"{n} acción(es) finalizada(s)")
+    if bloqueos:
+        raise EstadoInvalido(
+            "No se puede hacer la eliminación total: hay " + ", ".join(bloqueos)
+            + ", que la base declara inmutables. No se borró nada."
+        )
+
+    alertas, _ = Alerta.objects.filter(
+        Q(consulta_id__in=casos) | Q(mensaje_id__in=mensajes)
+    ).delete()
+    Derivacion.objects.filter(consulta_id__in=casos).delete()
+    BorradorPoliza.objects.filter(
+        Q(conversacion_id__in=conversaciones)
+        | Q(accion__consulta_id__in=casos)
+        | Q(ultimo_mensaje_id__in=mensajes)
+    ).delete()
+    acciones, _ = AccionPendiente.objects.filter(consulta_id__in=casos).delete()
+    TrabajoWhatsApp.objects.filter(mensaje_id__in=mensajes).delete()
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "DELETE FROM gestion_avisos WHERE contacto_id = %s OR mensaje_id = ANY(%s)"
+            " OR interesado_id = ANY(%s)",
+            [contacto_id, mensajes, interesados],
+        )
+        cursor.execute("DELETE FROM gestion_encuestas WHERE contacto_id = %s", [contacto_id])
+        cursor.execute("DELETE FROM gestion_tareas WHERE interesado_id = ANY(%s)", [interesados])
+    RecordatorioPoliza.objects.filter(
+        Q(contacto_id=contacto_id) | Q(mensaje_id__in=mensajes)
+    ).delete()
+    Mensaje.objects.filter(pk__in=mensajes).update(respuesta_a=None)
+    Mensaje.objects.filter(pk__in=mensajes).delete()
+    ConsultaBot.objects.filter(pk__in=casos).delete()
+    ContextoCobertura.objects.filter(conversacion_id__in=conversaciones).delete()
+    Conversacion.objects.filter(pk__in=conversaciones).delete()
+    Cotizacion.objects.filter(interesado_id__in=interesados).delete()
+    InteresadoHistorial.objects.filter(interesado_id__in=interesados).delete()
+    Interesado.objects.filter(pk__in=interesados).delete()
+    if contacto_id is not None:
+        ContactoWhatsapp.objects.filter(pk=contacto_id).delete()
+    return {
+        "conversaciones": len(conversaciones),
+        "mensajes": len(mensajes),
+        "casos": len(casos),
+        "alertas": alertas,
+        "acciones": acciones,
+        "interesados": len(interesados),
+        "contacto": 1 if contacto_id is not None else 0,
     }
 
 

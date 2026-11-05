@@ -79,6 +79,24 @@ def _mensajes(
     return mensajes
 
 
+def _con_ejemplos(mensajes: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Agrega, después del sistema, ejemplos reales como turnos ya resueltos.
+
+    Un modelo chico (qwen2.5:7b) mejora mucho más con ejemplos de cómo escribe
+    la gente («q debo algo?» → saldo, «el auto no arranca» → asistencia) que con
+    reglas abstractas. Salen del corpus de conversaciones, así que lo que se
+    aprende simulando no se pierde. Son textos ficticios: no hay datos de clientes.
+    """
+    from negocio.bot.corpus_conversaciones import ejemplos_para_llm
+
+    ejemplos: list[dict[str, str]] = []
+    for texto, codigo in ejemplos_para_llm():
+        if codigo in CODIGOS_CONSULTA:
+            ejemplos.append({"role": "user", "content": "Mensaje a clasificar:\n" + texto})
+            ejemplos.append({"role": "assistant", "content": codigo})
+    return [mensajes[0], *ejemplos, *mensajes[1:]]
+
+
 class NullLLM:
     """No hay LLM: el orquestador usa reglas y plantillas fijas."""
 
@@ -164,9 +182,9 @@ class OpenAICompatClient:
 
     def clasificar(self, texto: str, historial: list[str]) -> str | None:
         contenido = self._completar(
-            _mensajes(
+            _con_ejemplos(_mensajes(
                 SISTEMA_CLASIFICADOR, texto, historial, rotulo="Mensaje a clasificar"
-            )
+            ))
         )
         if contenido is None:
             return None

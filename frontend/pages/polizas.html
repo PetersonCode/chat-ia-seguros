@@ -22,5 +22,17 @@
 <label for="limites" class="form-label">Límites y franquicia</label><textarea id="limites" name="limites" class="form-control mb-3" rows="2" maxlength="10000"></textarea>
 <label for="asistencia" class="form-label">Teléfono de asistencia</label><input id="asistencia" name="asistencia" class="form-control mb-3" maxlength="100">
 <p id="error" class="text-danger" role="alert"></p><div class="d-flex justify-content-end gap-2"><button id="cancelar" type="button" class="btn btn-outline-secondary">Cerrar</button><button id="guardar" class="btn btn-primary">Guardar condiciones</button></div>
-</form></dialog></main><script type="module" src="/static/js/pages/polizas.js?v=20261104flotante1"></script><script type="module" src="/static/js/lib/chat-flotante.js?v=20261104flotante3"></script>
+</form></dialog>
+    <dialog id="dialog-eliminar-total" class="dialog-accion">
+        <div class="p-4">
+            <h2 id="eliminar-total-titulo" class="h5"></h2>
+            <p id="eliminar-total-texto"></p>
+            <p id="eliminar-total-error" class="small text-danger mb-2" role="alert"></p>
+            <div class="d-flex justify-content-end gap-2">
+                <button id="eliminar-total-cancelar" class="btn btn-outline-secondary" type="button">Cancelar</button>
+                <button id="eliminar-total-confirmar" class="btn btn-danger fw-bold" type="button">Eliminar definitivamente</button>
+            </div>
+        </div>
+    </dialog>
+</main><script type="module" src="/static/js/pages/polizas.js?v=20261105borrar1"></script><script type="module" src="/static/js/lib/chat-flotante.js?v=20261104flotante3"></script>
 </body></html>

@@ -60,6 +60,20 @@ MARCAS_DE_DOS_PALABRAS = frozenset(
     }
 )
 
+# Marcas de una palabra que se ven en la calle. Sirven para una sola cosa:
+# decidir dónde corta «Ford / EcoSport / Banfield» cuando el cliente manda marca,
+# modelo y localidad en tres renglones y nada más los ubica. No es un catálogo.
+MARCAS_CONOCIDAS = frozenset(
+    {
+        "ford", "chevrolet", "volkswagen", "vw", "fiat", "renault", "peugeot",
+        "citroen", "toyota", "honda", "nissan", "jeep", "hyundai", "kia",
+        "chery", "bmw", "audi", "mercedes", "mini", "mitsubishi", "suzuki",
+        "ram", "dodge", "iveco", "mazda", "subaru", "volvo", "ssangyong",
+        "dfsk", "baic", "jac", "yamaha", "zanella", "motomel", "corven",
+        "kawasaki", "bajaj", "ktm", "gilera", "beta", "keller", "scania",
+    }
+)
+
 # Palabras (sin acentos) → uso del vehículo (los valores de `UsoVehiculo`).
 USO_POR_PALABRA = {
     "particular": UsoVehiculo.PARTICULAR,
@@ -446,6 +460,10 @@ def _asignar_libres(datos: dict[str, Any], eventos: list[tuple[str, str | None]]
     pide_localidad = datos.get("localidad") is None
 
     if pide_vehiculo and pide_localidad:
+        if len(libres) >= 3 and _repartir_por_anclas(datos, eventos):
+            return
+        if len(libres) == 3 and _repartir_marca_conocida(datos, libres):
+            return
         if len(libres) == 2:
             _poner_vehiculo(datos, libres[0])
             datos["localidad"] = libres[1]
@@ -463,6 +481,45 @@ def _asignar_libres(datos: dict[str, Any], eventos: list[tuple[str, str | None]]
         _poner_vehiculo(datos, " ".join(libres))
     elif pide_localidad:
         datos["localidad"] = ", ".join(libres)
+
+
+def _repartir_por_anclas(datos: dict[str, Any], eventos: list[tuple[str, str | None]]) -> bool:
+    """Reparte varios textos libres usando el año y el uso como mojones.
+
+    El pedido sale en orden (patente, marca y modelo, año, uso, localidad), así
+    que quien contesta uno por línea deja el vehículo **antes** del año o el uso
+    y la localidad **después**. Con «AAA111 / Ford / EcoSport / 2011 /
+    Particular / Banfield» eso alcanza: Ford y EcoSport son el vehículo y
+    Banfield la localidad. Solo se aplica cuando hay textos libres de los dos
+    lados de un mojón; si no, es ambiguo y no se asigna.
+    """
+    mojones = [i for i, (tipo, _) in enumerate(eventos) if tipo in ("anio", "uso")]
+    if not mojones:
+        return False
+    primero, ultimo = mojones[0], mojones[-1]
+    antes = [t for tipo, t in eventos[:primero] if tipo in ("libre", "libre_dudoso")]
+    despues = [t for tipo, t in eventos[ultimo + 1 :] if tipo in ("libre", "libre_dudoso")]
+    entre = [t for tipo, t in eventos[primero:ultimo] if tipo in ("libre", "libre_dudoso")]
+    if not antes or not despues or entre:
+        return False
+    _poner_vehiculo(datos, " ".join(antes))
+    datos["localidad"] = ", ".join(despues)
+    return True
+
+
+def _repartir_marca_conocida(datos: dict[str, Any], libres: list[str]) -> bool:
+    """Tres textos sin mojones: «Ford / EcoSport / Banfield».
+
+    Si el primero es una marca conocida y los dos primeros no se parecen a una
+    localidad, son marca y modelo y el tercero es la localidad. Con una marca
+    desconocida no se adivina.
+    """
+    marca = _normalizado(libres[0])
+    if marca not in MARCAS_CONOCIDAS or len(libres[0].split()) != 1:
+        return False
+    _poner_vehiculo(datos, f"{libres[0]} {libres[1]}")
+    datos["localidad"] = libres[2]
+    return True
 
 
 def _poner_vehiculo(datos: dict[str, Any], texto: str) -> None:
@@ -485,6 +542,21 @@ def _es_del_bot_y_visible(mensaje: Mensaje) -> bool:
         mensaje.direccion == Direccion.SALIENTE
         and mensaje.estado_envio not in NO_SE_MOSTRARON
     )
+
+
+def cerrada_hace_poco(conversacion_id: int, dias: int = 7) -> bool:
+    """Si en esta conversación ya se cerró un pedido de cotización hace poco.
+
+    Con el bot siguiendo en la charla después de cotizar, un «¿y cuánto sale?»
+    no tiene que volver a pedir los datos: la cotización ya la tiene el asesor.
+    """
+    from datetime import timedelta
+
+    desde = timezone.now() - timedelta(days=dias)
+    return Mensaje.objects.filter(
+        conversacion_id=conversacion_id, direccion=Direccion.SALIENTE, emisor=Emisor.BOT,
+        texto__contains=plantillas.COTIZACION_REGISTRADA, fecha_hora__gte=desde,
+    ).exclude(estado_envio__in=NO_SE_MOSTRARON).exists()
 
 
 def datos_de_la_cotizacion(conversacion_id: int) -> DatosCotizacion:

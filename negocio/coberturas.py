@@ -24,11 +24,22 @@ FORMULACION = frozenset('''cobertura automotor plan contratada contratado tiene
     dano danos daño daños danio danios pagan paga pagado cae caen delantero trasero
     mostrame mostra mostrar contame contar explica explicame saber queria favor
     hola buenas buen dia amigo denunciar nada solo dice lo al me prestacion
-    tu tus esa ese del vehicular tipo tipos cuales son'''.split())
+    tu tus esa ese del vehicular tipo tipos cuales son
+    consultar consulto pregunta preguntar quisiera queria seria cuanto cuanta cuantos
+    tambien porque mio mia ustedes uds hay tienen cubren cubre eso esto ahi che ok dale
+    gracias por favor mi'''.split())
 
 
-def _tema_consultado(texto):
-    return _terminos(texto) - FORMULACION
+def _tema_consultado(texto, excluir=frozenset()):
+    """Los conceptos que la respuesta tiene que respaldar, sin relleno.
+
+    `excluir`: palabras que identifican la póliza y no son un riesgo (marca,
+    modelo, patente): «¿q me cubre el seguro del c3?» pregunta por la cobertura,
+    no por la palabra «c3».
+    """
+    from negocio.bot.clasificador import normalizar_mensaje
+
+    return _terminos(normalizar_mensaje(texto)) - FORMULACION - set(excluir)
 
 
 @transaction.atomic
@@ -173,7 +184,11 @@ def responder_cobertura(texto, conversacion):
     # La pregunta general pide un extracto; nunca se usa una fuente ajena.
     # El número identifica el contrato; no es un término de sus coberturas.
     consulta = re.sub(r'\bPOL-\d+\b', '', pregunta, flags=re.I)
-    temas = _tema_consultado(consulta)
+    identificadores = set()
+    for p in polizas:
+        if p.vehiculo:
+            identificadores |= _terminos(f"{p.vehiculo.marca} {p.vehiculo.modelo} {p.vehiculo.patente}")
+    temas = _tema_consultado(consulta, identificadores)
     resumen = not temas
     consulta = ' '.join(sorted(temas)) if temas else 'cobertura'
     encontrado = buscar_fragmentos(consulta, documentos_ids=ids, incluir_vinculados=True,

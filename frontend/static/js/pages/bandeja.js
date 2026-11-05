@@ -18,12 +18,15 @@ const botonAnterior = document.getElementById("pagina-anterior");
 const botonSiguiente = document.getElementById("pagina-siguiente");
 
 const dialogoBorrar = document.getElementById("dialog-borrar");
+const dialogoBorrarTitulo = document.getElementById("dialog-borrar-titulo");
 const dialogoBorrarDescripcion = document.getElementById("dialog-borrar-descripcion");
 const dialogoBorrarError = document.getElementById("dialog-borrar-error");
 const dialogoBorrarCancelar = document.getElementById("dialog-borrar-cancelar");
 const dialogoBorrarConfirmar = document.getElementById("dialog-borrar-confirmar");
 
 let esAprobador = false;
+let esAdministrador = false;
+let borradoTotal = false;
 let conversacionABorrar = null;
 let paginaSeleccionada = 1;
 let paginasTotales = 1;
@@ -51,11 +54,18 @@ function insigniaSeveridad(conversacion) {
     return etiqueta;
 }
 
-function pedirBorrado(conversacion) {
+function pedirBorrado(conversacion, total = false) {
     conversacionABorrar = conversacion;
+    borradoTotal = total;
+    dialogoBorrarTitulo.textContent = total ? "ELIMINACION TOTAL" : "Borrar conversación";
+    dialogoBorrarConfirmar.textContent = total ? "ELIMINACION TOTAL" : "Borrar";
     dialogoBorrarError.textContent = "";
-    dialogoBorrarDescripcion.textContent =
-        `Se borran para siempre la conversación con ${conversacion.whatsapp}, sus mensajes,`
+    dialogoBorrarDescripcion.textContent = total
+        ? `Se borra de la base, sin dejar rastro, todo lo del número ${conversacion.whatsapp}:`
+        + " conversaciones, mensajes, casos, alertas, acciones, avisos, contacto de WhatsApp"
+        + " e interesados. El cliente y sus pólizas no se tocan. No se puede deshacer. Con"
+        + " siniestros, fotos o acciones finalizadas no se borra nada."
+        : `Se borran para siempre la conversación con ${conversacion.whatsapp}, sus mensajes,`
         + " sus casos y sus alertas. No se puede deshacer. Si tiene acciones administrativas"
         + " o siniestros asociados, no se borra.";
     dialogoBorrar.showModal();
@@ -68,7 +78,7 @@ async function confirmarBorrado() {
     dialogoBorrarConfirmar.disabled = true;
     dialogoBorrarError.textContent = "";
     try {
-        await api.post(`/api/conversaciones/${conversacionABorrar.id}/borrar/`);
+        await api.post(`/api/conversaciones/${conversacionABorrar.id}/${borradoTotal ? "eliminacion-total" : "borrar"}/`);
         dialogoBorrar.close();
         conversacionABorrar = null;
         // Si se borró la última de la página, se vuelve a la anterior.
@@ -105,6 +115,16 @@ function crearTarjetaConversacion(conversacion) {
         borrar.addEventListener("click", () => pedirBorrado(conversacion));
     }
 
+    let eliminarTodo = null;
+    if (esAdministrador) {
+        eliminarTodo = document.createElement("button");
+        eliminarTodo.type = "button";
+        eliminarTodo.className = "btn btn-sm btn-danger fw-bold";
+        eliminarTodo.textContent = "ELIMINACION TOTAL";
+        eliminarTodo.setAttribute("aria-label", `Eliminación total del número ${conversacion.whatsapp}`);
+        eliminarTodo.addEventListener("click", () => pedirBorrado(conversacion, true));
+    }
+
     return crearTarjeta({
         titulo: nombreCliente(conversacion.cliente),
         enlace,
@@ -125,7 +145,7 @@ function crearTarjetaConversacion(conversacion) {
             )],
             ["Atiende", conversacion.atendida_por?.nombre ?? "—"],
         ],
-        acciones: [ver, borrar],
+        acciones: [ver, borrar, eliminarTodo],
     });
 }
 
@@ -225,8 +245,11 @@ inicializarNav();
 api.get("/api/auth/me/")
     .then((me) => {
         esAprobador = Boolean(me?.puede_aprobar);
+        esAdministrador = me?.rol === "administrador";
     })
     .catch(() => {})
     .finally(() => cargarConversaciones());
 
-setInterval(()=>{if(!document.hidden && !dialogoBorrar.open)cargarConversaciones();},15000);
+// Sin refresco automático: repintar la lista hacía perder el scroll. Se
+// actualiza a mano con el botón «Actualizar» (o con los filtros y la paginación).
+document.getElementById("boton-actualizar").addEventListener("click", () => cargarConversaciones());

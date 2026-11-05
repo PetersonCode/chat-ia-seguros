@@ -18,6 +18,8 @@ los datos salen de `selectors` y se insertan en las plantillas fijas (R12).
 
 from __future__ import annotations
 
+import re
+
 import logging
 import os
 import time
@@ -29,6 +31,8 @@ from django.db import DatabaseError, close_old_connections, connection, transact
 from django.utils import timezone
 
 from datos.models import (
+    AccionPendiente,
+    EstadoAccion,
     Alerta,
     ConsultaBot,
     Conversacion,
@@ -79,7 +83,7 @@ LOCK_CODIGO_CASO = 4242
 # Tiene que quedar bien por debajo del minuto que espera `reprocesar_pendientes`
 # para reintentar un mensaje sin respuesta: si no, el worker llegaría primero y
 # contestaría la ráfaga por la mitad.
-VENTANA_AGRUPACION_POR_DEFECTO = 5.0
+VENTANA_AGRUPACION_POR_DEFECTO = 3.0
 
 # Qué acción pide cada tipo con política `requiere_aprobacion` (sección 3).
 ACCION_POR_TIPO = {
@@ -98,7 +102,7 @@ DERIVACION_POR_TIPO = {
 DERIVACION_POR_DEFECTO = ("Graciela", "normal")
 
 # Tipos que no son una consulta: el bot los contesta y no se derivan nunca.
-TIPOS_DE_CHARLA = frozenset({"agradecimiento", "ajeno"})
+from negocio.bot.clasificador import PRIORIDAD_REGLAS, TIPOS_DE_CHARLA, combinar_clasificaciones  # noqa: E402
 
 ACLARACION_SIN_POLIZA_UNICA = "el cliente tiene 0 o varias pólizas vigentes"
 
@@ -139,6 +143,8 @@ class _Respuesta:
     datos_registro: registro.DatosRegistro | None = None
     # Lo juntado para cotizar (P5): al derivar, queda guardado en un interesado.
     cotizacion: cotizacion.DatosCotizacion | None = None
+    # Deriva (avisa y asigna al asesor) sin sacar al bot del chat.
+    mantener_bot: bool = False
 
 
 def _proximo_codigo_caso() -> str:
@@ -280,8 +286,20 @@ def _respuesta_asistencia(cliente_id: int | None) -> _Respuesta:
     return _Respuesta(texto, datos_verificados=frozenset(verificados))
 
 
-def _respuesta_requiere_aprobacion(tipo: str, cliente_id: int | None) -> _Respuesta:
-    """AC-T3-37: la póliza solo se adjunta si hay exactamente una vigente."""
+def _respuesta_requiere_aprobacion(tipo: str, cliente_id: int | None, conversacion=None) -> _Respuesta:
+    """AC-T3-37: la póliza solo se adjunta si hay exactamente una vigente.
+
+    Si en esta conversación ya hay una solicitud igual pendiente, no se abre
+    otra: el detalle que agrega el cliente («tiene 19 años y registro hace 1»)
+    lo ve el asesor en el chat. Sin esto cada mensaje de seguimiento duplicaba
+    la acción (corpus de conversaciones).
+    """
+    if conversacion is not None and AccionPendiente.objects.filter(
+        consulta__conversacion=conversacion,
+        tipo_accion=ACCION_POR_TIPO[tipo],
+        estado=EstadoAccion.PENDIENTE,
+    ).exists():
+        return _Respuesta(plantillas.SOLICITUD_YA_REGISTRADA)
     vigentes = list(polizas_vigentes(cliente_id).filter(tipo_seguro__codigo="automotor")) if cliente_id is not None else []
     if len(vigentes) == 1:
         poliza_id: int | None = vigentes[0].id
@@ -386,9 +404,14 @@ def _armar_respuesta(
         return _respuesta_registro(conversacion, contacto)
     # Una cotización pide primero los datos del vehículo y recién después deriva.
     if tipo == "cotizacion":
-        return _respuesta_cotizacion(conversacion)
+        respuesta = _respuesta_cotizacion(conversacion, texto=texto)
+        # «¿Ustedes aseguran motos?»: primero se contesta la pregunta, después se piden los datos.
+        if re.search(r"\basegur(?:an|as|a)\b", normalizar(texto)) and ("?" in texto or "¿" in texto) \
+                and respuesta.texto.startswith(plantillas.MARCA_PEDIDO_COTIZACION):
+            respuesta.texto = "Sí, aseguramos autos, motos, camionetas y utilitarios. " + respuesta.texto
+        return respuesta
     if politica == Politica.REQUIERE_APROBACION:
-        return _respuesta_requiere_aprobacion(tipo, cliente_id)
+        return _respuesta_requiere_aprobacion(tipo, cliente_id, conversacion)
     if politica == Politica.DERIVAR_HUMANO:
         return _respuesta_derivacion(tipo)
 
@@ -435,11 +458,20 @@ def _crear_alertas(
 
 
 def _crear_saliente(
-    conversacion, consulta: ConsultaBot, texto: str, estado: str, *, aviso_derivacion=False
+    conversacion,
+    consulta: ConsultaBot,
+    texto: str,
+    estado: str,
+    *,
+    aviso_derivacion=False,
+    respuesta_a: Mensaje | None = None,
 ) -> Mensaje:
     return Mensaje.objects.create(
         conversacion=conversacion,
         consulta=consulta,
+        # A qué mensaje del cliente contesta: sin esto el panel de métricas no
+        # puede calcular el tiempo de respuesta del bot.
+        respuesta_a=respuesta_a,
         direccion=Direccion.SALIENTE,
         emisor=Emisor.BOT,
         texto=texto,
@@ -541,6 +573,11 @@ def procesar_tras_ventana(mensaje_id: int) -> ResultadoBot:
     urgente = clasificar_por_reglas(mensaje.texto or "") == "siniestro_urgente"
     if urgente:
         return procesar_mensaje(mensaje_id)
+
+    # Si ya llegó otro mensaje, este no contesta: el último de la ráfaga la agrupa.
+    # Dormir acá solo demoraría la cola (el worker atiende de a uno).
+    if _hay_entrante_posterior(mensaje):
+        return ResultadoBot(True, None, None, False, [])
 
     espera = ventana_agrupacion()
     if espera:
@@ -847,6 +884,8 @@ def _respuesta_de_alta(
         return _Respuesta(
             texto_al_derivar, derivar_a=destino, datos_registro=datos
         )
+    if datos.dni_mal_escrito and datos.dni is None:
+        return _Respuesta(plantillas.PEDIDO_DNI_REVISAR)
     return _Respuesta(
         plantillas.PEDIDO_DATOS.format(faltantes=datos.texto_faltantes())
     )
@@ -867,8 +906,18 @@ def _respuesta_registro(conversacion, contacto) -> _Respuesta:
     )
 
 
+def _pide_otro_vehiculo(texto: str) -> bool:
+    """«ahora quiero cotizar la moto»: nombra un vehículo, así que es una cotización nueva."""
+    from negocio.bot.clasificador import normalizar_mensaje
+
+    palabras = set(re.findall(r"[a-z]+", normalizar_mensaje(texto)))
+    vehiculos = {"moto", "auto", "camioneta", "utilitario", "camion", "otro", "otra", "ahora", "tambien", "segundo"}
+    return bool(palabras & (vehiculos | cotizacion.MARCAS_CONOCIDAS))
+
+
 def _respuesta_cotizacion(
-    conversacion, *, datos: cotizacion.DatosCotizacion | None = None, cerrar_ya: bool = False
+    conversacion, *, datos: cotizacion.DatosCotizacion | None = None, cerrar_ya: bool = False,
+    texto: str = "",
 ) -> _Respuesta:
     """Pide los datos del vehículo; con todos, o agotados los pedidos, deriva a un asesor.
 
@@ -882,7 +931,14 @@ def _respuesta_cotizacion(
             plantillas.COTIZACION_REGISTRADA,
             derivar_a=DERIVACION_POR_DEFECTO,
             cotizacion=datos,
+            # Completa: el asesor prepara el precio y el bot sigue, por si quiere
+            # contratar ya. Incompleta o pidiendo una persona: pasa al asesor.
+            mantener_bot=datos.completos and not cerrar_ya,
         )
+    if (datos.intentos == 0 and not datos.como_datos() and not _pide_otro_vehiculo(texto)
+            and cotizacion.cerrada_hace_poco(conversacion.id)):
+        # Ya hay una cotización en manos del asesor: no se reinicia el pedido.
+        return _Respuesta(plantillas.COTIZACION_YA_PEDIDA)
     if datos.como_datos():
         _registrar_cotizacion(conversacion.contacto, datos, None)
     pedido = (
@@ -1056,20 +1112,14 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
     if alertas_entrada:
         # AC-T3-32: con inyección no se llama al LLM y se responde el rechazo.
         tipo = "prompt_injection"
-    elif tipo_por_reglas in {"baja_avisos", "encuesta_respuesta", "credencial", "alta_poliza", "siniestro_urgente", "siniestro", "consulta_cobertura", "agradecimiento", "ajeno"}:
+    elif tipo_por_reglas in PRIORIDAD_REGLAS:
         # Un modelo generativo no puede ocultar un incidente ni cambiar un cierre cordial.
         tipo = tipo_por_reglas
     else:
-        tipo = clasificar_con_llm(llm, texto, historial) or tipo_por_reglas
-        # "Gracias" y "fuera de tema" son juicios sociales del LLM, y no pueden
-        # taparle a una regla algo que sí es un pedido ("gracias, quiero la baja")
-        # ni a quien pidió hablar con una persona.
-        if tipo in TIPOS_DE_CHARLA and (
-            tipo_por_reglas not in {"otro", "saludo"} or pide_un_humano(texto)
-        ):
-            tipo = tipo_por_reglas
-        # Vale para los dos clasificadores: ver `corregir_cruce_cobertura`.
-        tipo = corregir_cruce_cobertura(tipo, texto)
+        # Misma decisión que mide `manage.py evaluar_bot` (ver clasificador).
+        tipo = combinar_clasificaciones(
+            texto, tipo_por_reglas, clasificar_con_llm(llm, texto, historial)
+        )
 
     tipo_obj = TipoConsulta.objects.filter(codigo=tipo).first()
     if tipo_obj is None:
@@ -1191,6 +1241,8 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
             respuesta.texto,
             EstadoEnvio.RETENIDO if retenido else EstadoEnvio.PENDIENTE_ENVIO,
             aviso_derivacion=respuesta.derivar_a is not None and not retenido,
+            # En una ráfaga contesta al último mensaje: es el que el cliente espera.
+            respuesta_a=max(agrupados, key=lambda previo: previo.id),
         )
         _crear_alertas(consulta, alertas_salida, saliente)
 
@@ -1238,7 +1290,8 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
                     motivo = f"{motivo} {respuesta.datos_registro.resumen()}"
                 if nota_cotizacion:
                     motivo = f"{motivo} {nota_cotizacion}"
-                derivar(consulta.id, funcionario.id, prioridad, motivo=motivo)
+                derivar(consulta.id, funcionario.id, prioridad, motivo=motivo,
+                        mantener_bot=respuesta.mantener_bot)
             else:
                 logger.warning("No hay aprobador activo para derivar la consulta %s.", consulta.id)
 

@@ -16,10 +16,11 @@ from datos.models import Cliente, ContactoWhatsapp, EstadoPoliza
 from negocio.clientes import (
     alta_cliente,
     dar_de_baja_cliente,
+    eliminar_cliente_definitivo,
     modificar_cliente,
     reactivar_cliente,
 )
-from negocio.errores import DatosInvalidos, EstadoInvalido, NoEncontrado
+from negocio.errores import DatosInvalidos, EstadoInvalido, NoEncontrado, PermisoDenegado
 
 
 class AltaClienteTests(TestCase):
@@ -281,3 +282,69 @@ class BajaClienteTests(TestCase):
         self.assertTrue(self.cliente.activo)
         with self.assertRaises(EstadoInvalido):
             reactivar_cliente(self.cliente.id)
+
+
+class EliminarClienteDefinitivoTests(TestCase):
+    """DELETE físico del cliente con vehículos y pólizas (solo administrador)."""
+
+    def setUp(self):
+        self.admin = fabricas.crear_funcionario("Admin", puede_aprobar=True, rol="administrador")
+        self.cliente = fabricas.crear_cliente()
+        self.vehiculo = fabricas.crear_vehiculo(self.cliente)
+        self.poliza = fabricas.crear_poliza(self.cliente, vehiculo=self.vehiculo)
+        self.cuota = fabricas.crear_cuota(self.poliza)
+        self.contacto = fabricas.crear_contacto(self.cliente)
+        self.conversacion = fabricas.crear_conversacion(self.contacto)
+        self.consulta = fabricas.crear_consulta(self.conversacion)
+        fabricas.crear_mensaje(self.conversacion, consulta=self.consulta)
+        fabricas.crear_accion(self.consulta, poliza=self.poliza)
+        self.interesado = fabricas.crear_interesado(cliente=self.cliente)
+
+    def test_borra_cliente_vehiculos_polizas_y_todo_lo_que_cuelga(self):
+        from datos.models import (
+            AccionPendiente, ConsultaBot, Conversacion, Cuota, Interesado, Mensaje, Poliza, Vehiculo,
+        )
+
+        resumen = eliminar_cliente_definitivo(self.cliente.id, self.admin.id)
+
+        self.assertEqual(resumen["polizas"], 1)
+        self.assertEqual(resumen["vehiculos"], 1)
+        self.assertEqual(resumen["numeros"], 1)
+        self.assertFalse(Cliente.objects.filter(pk=self.cliente.id).exists())
+        for modelo in (Vehiculo, Poliza, Cuota, ContactoWhatsapp, Conversacion, ConsultaBot,
+                       Mensaje, AccionPendiente, Interesado):
+            self.assertFalse(modelo.objects.exists(), modelo.__name__)
+
+    def test_no_toca_a_otros_clientes(self):
+        otro = fabricas.crear_cliente()
+        poliza_ajena = fabricas.crear_poliza(otro)
+        vehiculo_ajeno = fabricas.crear_vehiculo(otro)
+
+        eliminar_cliente_definitivo(self.cliente.id, self.admin.id)
+
+        self.assertTrue(Cliente.objects.filter(pk=otro.id).exists())
+        self.assertTrue(type(poliza_ajena).objects.filter(pk=poliza_ajena.id).exists())
+        self.assertTrue(type(vehiculo_ajeno).objects.filter(pk=vehiculo_ajeno.id).exists())
+
+    def test_solo_el_administrador_puede(self):
+        aprobador = fabricas.crear_funcionario("Graciela", puede_aprobar=True)
+        with self.assertRaises(PermisoDenegado):
+            eliminar_cliente_definitivo(self.cliente.id, aprobador.id)
+        self.assertTrue(Cliente.objects.filter(pk=self.cliente.id).exists())
+
+    def test_cliente_inexistente(self):
+        with self.assertRaises(NoEncontrado):
+            eliminar_cliente_definitivo(999999, self.admin.id)
+
+    def test_con_siniestro_se_niega_y_no_borra_nada(self):
+        from datos.models import Poliza, Siniestro
+
+        Siniestro.objects.create(
+            numero_siniestro="SIN-2026-00002", poliza=self.poliza,
+            fecha_ocurrencia=timezone.localdate(), descripcion="Choque",
+        )
+        with self.assertRaises(EstadoInvalido):
+            eliminar_cliente_definitivo(self.cliente.id, self.admin.id)
+        self.assertTrue(Cliente.objects.filter(pk=self.cliente.id).exists())
+        self.assertTrue(Poliza.objects.filter(pk=self.poliza.id).exists())
+        self.assertTrue(ContactoWhatsapp.objects.filter(pk=self.contacto.id).exists())
