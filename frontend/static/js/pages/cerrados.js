@@ -1,7 +1,7 @@
-import { api } from "../api.js?v=20261105revision9";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261105revision9";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105revision9";
-import { claseTarjetaSeveridad, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105revision9";
+import { api } from "../api.js?v=20261105burbujas1";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261105burbujas1";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105burbujas1";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105burbujas1";
 
 const filas = document.getElementById("filas-casos");
 const estado = document.getElementById("estado-casos");

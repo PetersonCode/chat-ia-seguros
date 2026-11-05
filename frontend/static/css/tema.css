@@ -101,3 +101,15 @@ input[type=checkbox] { accent-color: #237564; }
 .chat-flotante[data-modo=minimizado] { width: min(330px, calc(100vw - 2rem)); height: auto; }
 .chat-flotante[data-modo=minimizado] button[aria-label="Minimizar chat"] { display: none; }
 @media (max-width: 575px) { .chat-flotante { right: .5rem; bottom: .5rem; width: calc(100vw - 1rem); height: min(650px, calc(100dvh - 1rem)); } }
+
+/* Pendientes como burbujas arriba a la derecha, fuera del menú lateral */
+.burbujas-pendientes { display: flex; justify-content: flex-end; padding: .9rem 1.5rem 0; }
+.burbujas-lista { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .6rem; margin: 0; padding: 0; list-style: none; }
+.burbujas-pendientes .nav-chip { display: inline-flex; align-items: center; gap: .55rem; padding: .3rem .95rem .3rem .3rem; background: #fff; border: 1px solid var(--sc-borde); border-radius: 999px; box-shadow: var(--sc-sombra-alta); color: var(--sc-texto); font-size: .9rem; font-weight: 600; text-decoration: none; transition: border-color .15s ease, transform .15s ease; }
+.burbujas-pendientes .nav-chip:hover { border-color: var(--sc-borde-fuerte); color: var(--sc-texto); transform: translateY(-1px); }
+.burbujas-pendientes .nav-chip.activo { border-color: var(--sc-acento); background: var(--sc-acento-suave); }
+.burbujas-pendientes .nav-contador { order: -1; display: grid; place-items: center; min-width: 2rem; height: 2rem; padding: 0 .45rem; border-radius: 999px; background: var(--sc-superficie-hundida); color: var(--sc-texto-suave); font-size: .85rem; font-weight: 800; line-height: 1; }
+.burbujas-pendientes .nav-contador.hay { background: var(--sc-acento); color: #fff; }
+.burbujas-pendientes .nav-contador.urgente { background: var(--sev-critica); color: #fff; box-shadow: 0 0 0 3px var(--sev-critica-fondo); }
+@media (max-width: 575px) { .burbujas-pendientes { padding: .75rem 1rem 0; justify-content: flex-start; } .burbujas-lista { justify-content: flex-start; gap: .45rem; } .burbujas-pendientes .nav-chip { font-size: .8rem; padding-right: .75rem; } .burbujas-pendientes .nav-contador { min-width: 1.75rem; height: 1.75rem; } }
+@media (prefers-reduced-motion: reduce) { .burbujas-pendientes .nav-chip { transition: none; } .burbujas-pendientes .nav-chip:hover { transform: none; } }

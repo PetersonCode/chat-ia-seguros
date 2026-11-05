@@ -1,5 +1,5 @@
-import { api } from "../api.js?v=20261105revision9";
-import { inicializarNav } from "../nav.js?v=20261105revision9";
+import { api } from "../api.js?v=20261105burbujas1";
+import { inicializarNav } from "../nav.js?v=20261105burbujas1";
 
 const formulario = document.getElementById("buscar-documentos");
 const campoConsulta = document.getElementById("consulta-documental");

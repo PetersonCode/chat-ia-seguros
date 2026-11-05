@@ -1,7 +1,7 @@
-import { api } from "../api.js?v=20261105revision9";
-import { inicializarNav } from "../nav.js?v=20261105revision9";
-import { armarQuery } from "../lib/consulta.js?v=20261105revision9";
-import { debounce } from "../lib/debounce.js?v=20261105revision9";
+import { api } from "../api.js?v=20261105burbujas1";
+import { inicializarNav } from "../nav.js?v=20261105burbujas1";
+import { armarQuery } from "../lib/consulta.js?v=20261105burbujas1";
+import { debounce } from "../lib/debounce.js?v=20261105burbujas1";
 import {
     ETAPAS,
     ORIGENES,
@@ -9,7 +9,7 @@ import {
     etiquetaOrigen,
     nombreCompleto,
     validarInteresado,
-} from "../lib/embudo.js?v=20261105revision9";
+} from "../lib/embudo.js?v=20261105burbujas1";
 
 const $ = (id) => document.getElementById(id);
 const tablero = $("tablero");

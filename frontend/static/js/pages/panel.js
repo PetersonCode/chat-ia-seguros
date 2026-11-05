@@ -1,10 +1,10 @@
-import { api } from "../api.js?v=20261105revision9";
-import { inicializarNav } from "../nav.js?v=20261105revision9";
+import { api } from "../api.js?v=20261105burbujas1";
+import { inicializarNav } from "../nav.js?v=20261105burbujas1";
 
 const COLORES_RAMO = {
     automotor: "bg-primary",
     accidentes: "bg-warning",
-    otros: "bg-secondary",
+    otros: "bg-info",
 };
 
 const numero = new Intl.NumberFormat("es-AR");
