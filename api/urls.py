@@ -80,6 +80,7 @@ from api.views import (
 from api.vencimientos import vencimientos, recordatorio
 from api.cartera import poliza_cartera, comisiones
 from api.diagnostico_bot import diagnostico
+from api.metricas import metricas_panel
 from api.condiciones_poliza import condiciones, listar as polizas_listar
 from api.planes_cobertura import listar_o_crear as planes_listar, detalle as plan_detalle
 from api.webhook import webhook_whatsapp
@@ -177,6 +178,7 @@ urlpatterns = [
     path("api/polizas/<int:id>/", poliza_detalle, name="api_poliza_detalle"),
     path("api/polizas/<int:id>/pagos/", poliza_pago, name="api_poliza_pago"),
     path("api/reportes/gestion/", reporte_gestion, name="api_reporte_gestion"),
+    path("api/metricas/", metricas_panel, name="api_metricas"),
     path("api/documentos/buscar/", documentos_buscar, name="api_documentos_buscar"),
     path("api/documentos/", documento_crear, name="api_documento_crear"),
     path("api/documentos/<int:id>/", documento_detalle, name="api_documento_detalle"),

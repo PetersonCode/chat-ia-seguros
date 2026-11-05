@@ -13,7 +13,7 @@
     <nav id="nav" aria-label="Navegación principal"></nav>
 
     <div class="container py-4">
-        
+
         <!-- Encabezado y Filtros -->
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
             <div>
@@ -32,6 +32,8 @@
             </div>
         </div>
 
+        <div id="estado-metricas" class="alert alert-danger small py-2" role="alert" hidden></div>
+
         <!-- Tarjetas KPI -->
         <div class="row g-3 mb-4">
             <div class="col-12 col-sm-6 col-lg-3">
@@ -43,8 +45,8 @@
                                 <i class="bi bi-chat-dots-fill"></i>
                             </div>
                         </div>
-                        <h3 class="fw-bold mb-1" id="kpi-totales">1,248</h3>
-                        <span class="badge bg-success-subtle text-success small"><i class="bi bi-arrow-up-short"></i> +12.5% vs semana anterior</span>
+                        <h3 class="fw-bold mb-1" id="kpi-totales">—</h3>
+                        <span class="badge bg-secondary-subtle text-secondary small" id="kpi-variacion">Calculando…</span>
                     </div>
                 </div>
             </div>
@@ -58,7 +60,7 @@
                                 <i class="bi bi-robot"></i>
                             </div>
                         </div>
-                        <h3 class="fw-bold mb-1" id="kpi-efectividad">84.2%</h3>
+                        <h3 class="fw-bold mb-1" id="kpi-efectividad">—</h3>
                         <span class="text-muted small">Resueltas sin supervisor</span>
                     </div>
                 </div>
@@ -73,7 +75,7 @@
                                 <i class="bi bi-person-fill-exclamation"></i>
                             </div>
                         </div>
-                        <h3 class="fw-bold mb-1" id="kpi-derivadas">197</h3>
+                        <h3 class="fw-bold mb-1" id="kpi-derivadas">—</h3>
                         <span class="badge bg-warning-subtle text-warning-emphasis small"> Requiere atención humana</span>
                     </div>
                 </div>
@@ -88,7 +90,7 @@
                                 <i class="bi bi-clock-history"></i>
                             </div>
                         </div>
-                        <h3 class="fw-bold mb-1" id="kpi-tiempo">1.4 min</h3>
+                        <h3 class="fw-bold mb-1" id="kpi-tiempo">—</h3>
                         <span class="text-muted small">Respuesta promedio</span>
                     </div>
                 </div>
@@ -97,53 +99,15 @@
 
         <!-- Secciones de Gráficos e Indicadores -->
         <div class="row g-4 mb-4">
-            
+
             <!-- Distribución por Tipo de Seguro -->
             <div class="col-12 col-lg-7">
                 <div class="card border-0 shadow-sm rounded-3 h-100">
                     <div class="card-header bg-white border-0 py-3">
                         <h6 class="fw-bold mb-0">Consultas Atendidas por Ramo de Seguro</h6>
                     </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <div class="d-flex justify-content-between small mb-1">
-                                <span>Seguros de Automotor</span>
-                                <span class="fw-semibold">58% (724 consultas)</span>
-                            </div>
-                            <div class="progress" style="height: 10px;">
-                                <div class="progress-bar bg-primary" role="progressbar" style="width: 58%"></div>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <div class="d-flex justify-content-between small mb-1">
-                                <span>Seguros de Hogar y Combinado</span>
-                                <span class="fw-semibold">24% (299 consultas)</span>
-                            </div>
-                            <div class="progress" style="height: 10px;">
-                                <div class="progress-bar bg-info" role="progressbar" style="width: 24%"></div>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <div class="d-flex justify-content-between small mb-1">
-                                <span>Seguros de Vida y Accidentes</span>
-                                <span class="fw-semibold">12% (150 consultas)</span>
-                            </div>
-                            <div class="progress" style="height: 10px;">
-                                <div class="progress-bar bg-warning" role="progressbar" style="width: 12%"></div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div class="d-flex justify-content-between small mb-1">
-                                <span>Otros / Consultas Generales</span>
-                                <span class="fw-semibold">6% (75 consultas)</span>
-                            </div>
-                            <div class="progress" style="height: 10px;">
-                                <div class="progress-bar bg-secondary" role="progressbar" style="width: 6%"></div>
-                            </div>
-                        </div>
+                    <div class="card-body" id="lista-ramos">
+                        <!-- Carga desde JS -->
                     </div>
                 </div>
             </div>
@@ -166,7 +130,7 @@
 
     </div>
 
-    <script type="module" src="/static/js/pages/panel.js?v=20261104flotante1"></script>
-<script type="module" src="/static/js/lib/chat-flotante.js?v=20261104flotante3"></script>
+    <script type="module" src="/static/js/pages/panel.js?v=20261105metricas1"></script>
+    <script type="module" src="/static/js/lib/chat-flotante.js?v=20261104flotante3"></script>
 </body>
 </html>
