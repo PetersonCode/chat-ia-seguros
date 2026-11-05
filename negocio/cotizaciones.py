@@ -169,3 +169,22 @@ def variacion_renovacion(poliza_id: int) -> Decimal | None:
         return None
     variacion = (elegida.prima_mensual - poliza.prima_mensual) * 100 / poliza.prima_mensual
     return variacion.quantize(Decimal("0.01"))
+
+
+@transaction.atomic
+def registrar_poliza_elegida(interesado_id, funcionario_id, inicio, vencimiento):
+    from negocio.interesados import _aprobador, guardar_vehiculo_del_interesado, mover_interesado
+    from negocio.polizas import alta_poliza
+    from django.utils import timezone
+    _aprobador(funcionario_id)
+    i=Interesado.objects.select_for_update().get(pk=interesado_id)
+    if i.estado!='documentacion' or not i.cliente_id:
+        raise EstadoInvalido('Primero completá Documentación y convertí al interesado en cliente. Si ya está emitido, no se registra otra póliza.')
+    c=Cotizacion.objects.select_for_update().filter(interesado=i,elegida=True).first()
+    if not c:raise DatosInvalidos('Falta elegir una cotización.')
+    if c.vigencia_hasta and c.vigencia_hasta<timezone.localdate():raise DatosInvalidos('La cotización venció: actualizá la propuesta antes de confirmar.')
+    v=guardar_vehiculo_del_interesado(i,i.cliente,funcionario_id)
+    if not v:raise DatosInvalidos('Completá patente, marca, modelo y año del vehículo.')
+    p=alta_poliza(i.cliente_id,tipo_seguro='automotor',cobertura=c.cobertura,fecha_inicio=inicio,fecha_vencimiento=vencimiento,prima_mensual=c.prima_mensual,vehiculo_id=v.id,compania_id=c.compania_id)
+    mover_interesado(i.id,'emitida',funcionario_id,nota=f'Póliza {p.numero_poliza} registrada desde cotización elegida #{c.id}.')
+    return p

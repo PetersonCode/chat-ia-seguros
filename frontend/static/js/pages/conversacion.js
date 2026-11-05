@@ -134,6 +134,17 @@ function renderizarMensajes() {
 function renderizarCliente(detalle) {
     panelCliente.replaceChildren();
     const cliente = detalle.cliente_info;
+    if (detalle.interesado) {
+        const i = detalle.interesado;
+        const ficha = crearElemento('a', 'btn btn-outline-primary btn-sm mb-2', `Interesado: ${i.nombre} ${i.apellido ?? ''}`);
+        ficha.href = `/panel/interesado/?id=${i.id}`;
+        panelCliente.append(ficha);
+        const datos = crearElemento('dl', 'small');
+        for (const [clave, etiqueta] of Object.entries({patente:'Patente',marca:'Marca',modelo:'Modelo',anio:'Año',uso:'Uso',localidad:'Localidad'})) {
+            if (i.datos[clave]) datos.append(crearElemento('dt','text-muted',etiqueta),crearElemento('dd','',String(i.datos[clave])));
+        }
+        panelCliente.append(datos);
+    }
     if (!cliente) {
         panelCliente.append(crearElemento("p", "mb-1", "Contacto desconocido"));
         panelCliente.append(crearElemento("p", "text-muted small mb-3", detalle.whatsapp));
@@ -502,6 +513,8 @@ async function cargarNuevosMensajes() {
         renderizarMensajes();
         if (hayMensajesNuevos) {
             mensajesChat.scrollTop = mensajesChat.scrollHeight;
+            const detalle = await api.get(`/api/conversaciones/${idConversacion}/`);
+            renderizarCliente(detalle);
         }
     } catch (error) {
         mostrarMensajePagina(error.mensaje ?? error.message ?? "No se pudieron actualizar los mensajes.", true);

@@ -308,6 +308,8 @@ def registrar_cotizacion_del_bot(
     nota = "El cliente dejó por WhatsApp los datos para cotizar."
     existente = interesado_abierto_de(contacto.pk)
     if existente is not None:
+        if datos_limpios.get('patente') and existente.datos.get('patente') and datos_limpios['patente'] != existente.datos['patente']:
+            existente.datos = {k:v for k,v in existente.datos.items() if k not in {'patente','marca','modelo','anio','uso','localidad'}}
         existente.datos = _mezclar(existente.datos, datos_limpios)
         campos = ["datos"]
         if existente.proximo_contacto is None:
@@ -462,6 +464,7 @@ def convertir_en_cliente(
             contacto = ContactoWhatsapp.objects.get(numero=normalizar_telefono(str(numero)))
 
     interesado.cliente = cliente
+    guardar_vehiculo_del_interesado(interesado, cliente, funcionario_id)
     interesado.contacto = contacto
     interesado.datos = _mezclar(interesado.datos, {"dni": dni_normalizado})
     _tocar(interesado, "cliente", "contacto", "datos")
@@ -471,6 +474,23 @@ def convertir_en_cliente(
         f"Convertido en cliente: {cliente.nombre} {cliente.apellido} (DNI {cliente.dni}).",
     )
     return interesado
+
+
+def guardar_vehiculo_del_interesado(interesado, cliente, funcionario_id):
+    """Conservar el vehículo confirmado al convertir, sin duplicar ni reasignar patentes."""
+    from datos.models import Vehiculo
+    from negocio.vehiculos import alta_vehiculo
+    datos = interesado.datos or {}
+    if not all(datos.get(k) for k in ('patente','marca','modelo','anio')):
+        return None
+    patente = normalizar_patente(datos['patente'])
+    existente = Vehiculo.objects.select_for_update().filter(patente=patente).first()
+    if existente:
+        if existente.cliente_id != cliente.id:
+            raise DatosInvalidos('La patente pertenece a otro cliente. Revisá el vehículo antes de convertir.')
+        return existente
+    return alta_vehiculo(cliente.id,patente,datos['marca'],datos['modelo'],datos['anio'],
+                         datos.get('uso') or 'particular',funcionario_id=funcionario_id)
 
 
 def _vincular_contacto(contacto: ContactoWhatsapp | None, cliente: Cliente) -> None:
