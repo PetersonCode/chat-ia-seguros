@@ -112,3 +112,75 @@ class DniMalEscritoTests(BaseCotizacionBotTests):
         segundo = self._turno(conversacion, "santiago cof 30111222")
 
         self.assertNotEqual(self._respuesta(segundo).texto, plantillas.PEDIDO_DNI_REVISAR)
+
+
+class AltaConDatosAdelantadosTests(BaseCotizacionBotTests):
+    """Conversación 43: «Marca Ford» quedó como nombre y apellido, y una duda de
+    cobertura en medio del alta reabrió el pedido de nombre y DNI."""
+
+    def _borrador(self, conversacion):
+        from datos.models import BorradorPoliza
+
+        return BorradorPoliza.objects.get(conversacion=conversacion)
+
+    def _empezar(self):
+        conversacion = self._conversacion("1004")  # desconocido
+        self._turno(conversacion, "quiero asegurar mi auto")
+        return conversacion
+
+    def test_un_dato_con_rotulo_adelantado_no_se_toma_por_el_nombre(self):
+        conversacion = self._empezar()
+
+        self._turno(conversacion, "Patente BBB111")
+        respuesta = self._turno(conversacion, "Marca Ford")
+
+        datos = self._borrador(conversacion).datos
+        self.assertEqual(datos["patente"], "BBB111")
+        self.assertEqual(datos["marca"], "Ford")
+        self.assertNotIn("nombre", datos)
+        self.assertIn("nombre y apellido", self._respuesta(respuesta).texto)
+
+    def test_nombre_apellido_y_dni_con_rotulo_en_la_misma_tanda(self):
+        conversacion = self._empezar()
+
+        self._turno(conversacion, "Mi nombre es Daniel, mi apellido Peterson\nMi dni es 46337714")
+
+        datos = self._borrador(conversacion).datos
+        self.assertEqual((datos["nombre"], datos["apellido"]), ("Daniel", "Peterson"))
+        self.assertEqual(datos["dni"], "46337714")
+
+    def test_el_nombre_explicito_corrige_uno_mal_tomado(self):
+        conversacion = self._empezar()
+        borrador = self._borrador(conversacion)
+        borrador.datos = {**borrador.datos, "nombre": "Marca", "apellido": "Ford"}
+        borrador.save(update_fields=["datos"])
+
+        self._turno(conversacion, "me llamo daniel peterson")
+
+        datos = self._borrador(conversacion).datos
+        self.assertEqual((datos["nombre"], datos["apellido"]), ("daniel", "peterson"))
+
+    def test_anio_con_rotulo(self):
+        conversacion = self._empezar()
+
+        self._turno(conversacion, "año 2011")
+
+        self.assertEqual(self._borrador(conversacion).datos["anio"], 2011)
+
+    def test_una_palabra_de_dato_como_nombre_se_rechaza(self):
+        conversacion = self._empezar()
+
+        respuesta = self._turno(conversacion, "Marca")
+
+        self.assertNotIn("nombre", self._borrador(conversacion).datos)
+        self.assertIn("nombre", self._respuesta(respuesta).texto.lower())
+
+    def test_una_duda_de_cobertura_no_reabre_el_registro(self):
+        conversacion = self._empezar()
+
+        respuesta = self._turno(conversacion, "que me cubre")
+
+        texto = self._respuesta(respuesta).texto
+        self.assertNotIn(plantillas.MARCA_PEDIDO_DATOS, texto)
+        self.assertIn("asesor", texto)
+        self.assertIn("nombre y apellido", texto)  # sigue la pregunta pendiente

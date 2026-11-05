@@ -34,6 +34,34 @@ ALIAS.update({'nombre y apellido': 'nombre_completo', 'nombre': 'nombre_completo
     'vencimiento': 'fecha_vencimiento', 'tipo de vehiculo': 'clase', 'email': 'email'})
 OMITIR = {'omitir', 'no tengo', 'no se', 'sin dato', 'no lo tengo'}
 
+# «Patente BBB111», «mi dni es 4633…», «año 2011»: el cliente adelanta un dato con
+# su rótulo sin escribir los dos puntos. Sin esto se tomaba como respuesta al paso
+# pendiente (en la conversación 43, «Marca Ford» quedó como nombre y apellido).
+ROTULOS = {
+    'patente': 'patente', 'dominio': 'patente', 'marca': 'marca', 'modelo': 'modelo',
+    'anio': 'anio', 'ano': 'anio', 'uso': 'uso', 'clase': 'clase', 'chasis': 'chasis',
+    'dni': 'dni', 'documento': 'dni', 'email': 'email', 'correo': 'email',
+    'apellido': 'apellido_solo', 'nombre': 'nombre_solo',
+}
+RE_ROTULADO = re.compile(
+    r'^(?:mi |el |la )?(' + '|'.join(sorted(ROTULOS, key=len, reverse=True)) + r')(?:\s+(?:es|son))?\s*[:=]?\s+(\S.*)$')
+RE_ME_LLAMO = re.compile(r'^(?:me llamo|mi nombre es|mi nombre completo es|nombre y apellido(?: es)?)\s*:?\s+(\S.*)$')
+
+
+def _entradas_rotuladas(texto):
+    """Los datos que el cliente dio con su rótulo, en cualquier momento del alta."""
+    entradas = {}
+    for trozo in re.split(r'[;\n,]+', texto):
+        original = trozo.strip()
+        n = normalizar(original)
+        if (m := RE_ME_LLAMO.match(n)):
+            valor = original[len(original) - len(m.group(1)):].strip()
+            entradas['nombre_completo' if len(valor.split()) >= 2 else 'nombre_solo'] = valor
+        elif (m := RE_ROTULADO.match(n)):
+            valor = original[len(original) - len(m.group(2)):].strip()
+            entradas[ROTULOS[m.group(1)]] = valor
+    return entradas
+
 
 def quiere_alta(texto):
     t = normalizar(texto)
@@ -57,9 +85,15 @@ def _validar(campo, valor, datos, contacto):
     n = normalizar(texto)
     if campo == 'nombre_completo':
         partes = texto.split(maxsplit=1)
+        if partes and normalizar(partes[0]) in ROTULOS:
+            raise DatosInvalidos('Eso parece otro dato. Necesito tu nombre y apellido, por ejemplo «Juan Pérez».')
         if len(partes) != 2:
             raise DatosInvalidos('Necesito nombre y apellido completos para dejar el alta lista.')
         datos.update(nombre=_nombre_validado(partes[0], 'nombre'), apellido=_nombre_validado(partes[1], 'apellido'))
+    elif campo == 'nombre_solo':
+        datos['nombre'] = _nombre_validado(texto, 'nombre')
+    elif campo == 'apellido_solo':
+        datos['apellido'] = _nombre_validado(texto, 'apellido')
     elif campo == 'dni':
         datos[campo] = normalizar_dni(texto)
     elif campo == 'patente':
@@ -118,6 +152,14 @@ def _validar(campo, valor, datos, contacto):
         datos[campo] = fecha.isoformat()
 
 
+def _pregunta(campo):
+    pregunta = PREGUNTAS[campo]
+    if campo == 'compania_id':
+        companias = list(Compania.objects.filter(activa=True).order_by('nombre'))
+        pregunta += '\n' + '\n'.join(f'{c.id}: {c.nombre}' for c in companias)
+    return pregunta
+
+
 @transaction.atomic
 def preparar_turno(texto, conversacion, mensaje_id):
     """Devuelve respuesta/acción preparadas o None cuando el turno es otra consulta."""
@@ -154,7 +196,14 @@ def preparar_turno(texto, conversacion, mensaje_id):
             etiqueta, valor = linea.split(':', 1)
             if (clave := ALIAS.get(normalizar(etiqueta).strip())):
                 entradas[clave] = valor.strip()
+    for clave, valor in _entradas_rotuladas(texto).items():
+        entradas.setdefault(clave, valor)
     if not entradas and borrador.campo and not empieza:
+        if clasificar(texto) == 'consulta_cobertura':
+            # No se cambia de flujo ni se vuelve a pedir nombre y DNI: la duda la
+            # responde un asesor y la solicitud sigue donde estaba.
+            return {'texto': 'Esa duda sobre la cobertura la responde el asesor cuando revise tu solicitud; '
+                    'por acá no puedo confirmarla. Sigamos con la solicitud. ' + _pregunta(borrador.campo), 'accion': None}
         if '?' in texto or '¿' in texto or clasificar(texto) in {
             'saldo','vencimiento','asistencia','consulta_cobertura','pago','saludo','agradecimiento','ajeno'}:
             return None
