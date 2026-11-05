@@ -883,6 +883,8 @@ def _respuesta_cotizacion(
             derivar_a=DERIVACION_POR_DEFECTO,
             cotizacion=datos,
         )
+    if datos.como_datos():
+        _registrar_cotizacion(conversacion.contacto, datos, None)
     pedido = (
         plantillas.PEDIDO_COTIZACION_UNO
         if len(datos.faltantes) == 1

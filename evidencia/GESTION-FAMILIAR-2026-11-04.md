@@ -46,3 +46,9 @@ Ajuste posterior del chat: se comprobó que Ver detalle completo restaura el flo
 Bandeja por contacto: suite completa inicial 1015 pruebas Django OK. Tras ajustar el acuse del bot, cinco pruebas específicas OK (agrupación, bot sin pendientes, respuesta humana, derivaciones repetidas, cerradas y acuse de derivación). JavaScript: 68 aprobadas. En navegador se verificó vista inicial Necesitan atención, contadores por contactos y listado Todos los contactos sin duplicar el historial. Sin borrado de datos históricos.
 
 Verificación final previa a publicación del PR: **1016 pruebas Django aprobadas** (79,369 s), 68 pruebas JavaScript aprobadas y `git diff --cached --check` sin errores.
+
+Corrección de datos de cotización: una ejecución completa en serie terminó con 1020 pruebas Django aprobadas. JavaScript: 68 aprobadas. Se verificó en navegador la ficha compartida y la extracción exacta de Santiago. Se descartaron dos ejecuciones que interfirieron al usar simultáneamente la misma base de pruebas. El ajuste final de prefijos se verificó con la suite específica de cotización. No se enviaron WhatsApps reales.
+
+Corrección de conversión: 37 pruebas API aprobadas, incluyendo vehículo propio idempotente y rechazo con rollback de patente ajena; 68 pruebas JavaScript aprobadas. Se recuperó en la demo el vehículo de Mateo sin emitir póliza. En navegador se verificó la cotización elegida precargada, con fechas vacías para revisión humana.
+
+Registro directo desde cotización elegida: 1025 pruebas Django aprobadas y 68 JavaScript aprobadas. Se verificó en navegador el resumen contractual y las fechas vacías de Valentina; se canceló la revisión sin crear póliza. Las pruebas verifican selección de compañía/precio/vehículo desde la base, cambio a Emitida, rechazo de duplicados, permisos y fechas faltantes.
