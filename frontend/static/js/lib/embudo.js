@@ -6,8 +6,13 @@
  * pedirle nada.
  */
 
+<<<<<<< HEAD
 import { formatearFecha } from "./formato.js?v=20261105revision10";
 import { etiquetaUso } from "./vehiculos.js?v=20261105revision10";
+=======
+import { formatearFecha } from "./formato.js?v=20261105burbujas1";
+import { etiquetaUso } from "./vehiculos.js?v=20261105burbujas1";
+>>>>>>> origin/main
 
 /** Las etapas, en el orden del embudo. `perdida` es la salida y va al final. */
 export const ETAPAS = [

@@ -1,8 +1,16 @@
+<<<<<<< HEAD
 import { api } from "../api.js?v=20261105revision10";
 import { inicializarNav } from "../nav.js?v=20261105revision10";
 import { formatearPorcentaje, validarCompania } from "../lib/companias.js?v=20261105revision10";
 import { inicializarPlanes } from "../lib/planes.js?v=20261105revision10";
 import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105revision10";
+=======
+import { api } from "../api.js?v=20261105burbujas1";
+import { inicializarNav } from "../nav.js?v=20261105burbujas1";
+import { formatearPorcentaje, validarCompania } from "../lib/companias.js?v=20261105burbujas1";
+import { inicializarPlanes } from "../lib/planes.js?v=20261105burbujas1";
+import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105burbujas1";
+>>>>>>> origin/main
 
 const mensajePagina = document.getElementById("mensaje-pagina");
 const contenido = document.getElementById("contenido-companias");

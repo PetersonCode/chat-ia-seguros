@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { api } from "./api.js?v=20261105revision10";
+=======
+import { api } from "./api.js?v=20261105burbujas1";
+>>>>>>> origin/main
 
 const contadores = [
     { clave: "acciones", etiqueta: "Acciones", destino: "/panel/acciones/" },
@@ -181,14 +185,12 @@ function crearNavegacion(nav) {
 
     const derecha = crearElemento("div", "barra-derecha");
     derecha.append(
-        pendientes,
-        crearElemento("span", "nav-separador"),
         identidad,
         salida,
     );
 
     contenedor.append(marca, menu, principal, derecha);
-    nav.replaceChildren(contenedor);
+    nav.replaceChildren(contenedor); document.querySelector(".burbujas-pendientes")?.remove(); const burbujas = crearElemento("div", "burbujas-pendientes"); pendientes.className = "burbujas-lista"; burbujas.append(pendientes); nav.after(burbujas);
     return { usuario, avatar, enlaces, principal };
 }
 

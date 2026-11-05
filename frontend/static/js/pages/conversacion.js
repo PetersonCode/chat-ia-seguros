@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { api } from "../api.js?v=20261105revision10";
 import { abrirRegistroPago } from '../lib/pagos.js?v=20261105revision10';
 import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105revision10";
@@ -6,6 +7,15 @@ import { crearTarjetaAdjunto, esMarcadorDeArchivo } from "../lib/adjuntos.js?v=2
 import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261105revision10";
 import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261105revision10";
 import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261105revision10";
+=======
+import { api } from "../api.js?v=20261105burbujas1";
+import { abrirRegistroPago } from '../lib/pagos.js?v=20261105revision9';
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105burbujas1";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261105burbujas1";
+import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261105burbujas1";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261105burbujas1";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261105burbujas1";
+>>>>>>> origin/main
 
 const idConversacion = new URLSearchParams(globalThis.location.search).get("id");
 const tituloChat = document.getElementById("titulo-chat");

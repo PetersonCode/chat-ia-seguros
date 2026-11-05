@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 import { api } from "../api.js?v=20261105revision10";
 import { inicializarNav } from "../nav.js?v=20261105revision10";
 import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105revision10";
+=======
+import { api } from "../api.js?v=20261105burbujas1";
+import { inicializarNav } from "../nav.js?v=20261105burbujas1";
+import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105burbujas1";
+>>>>>>> origin/main
 
 const ROLES = {
     propietario: "Propietario",

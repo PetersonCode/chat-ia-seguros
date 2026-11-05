@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { api, ApiError } from "../api.js?v=20261105revision10";
+=======
+import { api, ApiError } from "../api.js?v=20261105burbujas1";
+>>>>>>> origin/main
 
 const formulario = document.getElementById("formulario-login");
 const aviso = document.getElementById("mensaje-login");
