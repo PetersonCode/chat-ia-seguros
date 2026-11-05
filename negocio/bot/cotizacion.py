@@ -544,6 +544,21 @@ def _es_del_bot_y_visible(mensaje: Mensaje) -> bool:
     )
 
 
+def cerrada_hace_poco(conversacion_id: int, dias: int = 7) -> bool:
+    """Si en esta conversación ya se cerró un pedido de cotización hace poco.
+
+    Con el bot siguiendo en la charla después de cotizar, un «¿y cuánto sale?»
+    no tiene que volver a pedir los datos: la cotización ya la tiene el asesor.
+    """
+    from datetime import timedelta
+
+    desde = timezone.now() - timedelta(days=dias)
+    return Mensaje.objects.filter(
+        conversacion_id=conversacion_id, direccion=Direccion.SALIENTE, emisor=Emisor.BOT,
+        texto__contains=plantillas.COTIZACION_REGISTRADA, fecha_hora__gte=desde,
+    ).exclude(estado_envio__in=NO_SE_MOSTRARON).exists()
+
+
 def datos_de_la_cotizacion(conversacion_id: int) -> DatosCotizacion:
     """Reconstruye el pedido desde el log: qué se pidió y qué contestó el cliente.
 

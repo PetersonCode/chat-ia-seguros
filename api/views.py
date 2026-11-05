@@ -584,9 +584,24 @@ def _cliente_detalle(cliente: Cliente, ver_comision: bool = False) -> dict:
 
 
 def _poliza_detalle(poliza: Poliza, ver_comision: bool = False) -> dict:
+    from datos.models import CondicionesPoliza
+
     payload = _poliza_con_bien(poliza, ver_comision)
+    condiciones = (
+        CondicionesPoliza.objects.filter(poliza_id=poliza.id).select_related("plan").first()
+    )
     payload.update(
         {
+            "plan": (
+                {
+                    "id": condiciones.plan_id,
+                    "nombre": condiciones.plan.nombre,
+                    "version": condiciones.plan_version,
+                }
+                if condiciones and condiciones.plan_id
+                else None
+            ),
+            "condiciones_cargadas": condiciones is not None,
             "cliente": _cliente_breve(poliza.cliente),
             "fecha_inicio": _iso(poliza.fecha_inicio),
             "prima_mensual": _dinero(poliza.prima_mensual),
@@ -1421,9 +1436,29 @@ def siniestro_transicionar(request, id):
 @permission_classes([EsAprobador])
 def poliza_crear(request, id):
     """Alta de una póliza para el cliente `id`, con su plan de cuotas."""
+    from django.db import transaction as transaccion
+    from datos.models import PlanCobertura
+    from negocio.condiciones_poliza import guardar_condiciones, plan_para_poliza
+
     datos = PolizaAltaSerializer(data=request.data)
     datos.is_valid(raise_exception=True)
-    poliza = alta_poliza(id, **datos.validated_data)
+    valores = dict(datos.validated_data)
+    plan_id = valores.pop("plan_id", None)
+    with transaccion.atomic():
+        if plan_id:
+            plan = PlanCobertura.objects.filter(pk=plan_id).first()
+            if plan is None or plan.compania_id != valores.get("compania_id"):
+                raise DatosInvalidos("El plan elegido no es de la compañía de la póliza.")
+            if plan.nivel:
+                # El nivel sale del plan: no se carga dos veces ni puede contradecirlo.
+                valores["cobertura"] = plan.nivel
+        poliza = alta_poliza(id, **valores)
+        if plan_id:
+            plan, version, campos = plan_para_poliza(poliza, plan_id, None)
+            guardar_condiciones(
+                poliza, plan=plan, plan_version=version, campos=campos,
+                funcionario=request.funcionario,
+            )
     return Response(
         _poliza_detalle(selectors.detalle_poliza(poliza.id), _ve_comision(request)),
         status=status.HTTP_201_CREATED,

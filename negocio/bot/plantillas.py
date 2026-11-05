@@ -19,6 +19,11 @@ CONSULTA_DOCUMENTAL = (
     "particular. Un asesor debe verificar las condiciones de tu contrato."
 )
 SOLICITUD_REGISTRADA = "Registramos tu solicitud. Un asesor la va a revisar y te va a confirmar por este medio."
+# Seguimiento de una solicitud que ya está pendiente: no se abre otra.
+SOLICITUD_YA_REGISTRADA = (
+    "Ya tenemos tu solicitud registrada. El asesor que la revise va a ver también este mensaje "
+    "y te confirma por este medio."
+)
 DERIVACION = "Te derivamos con un asesor, que te va a responder a la brevedad."
 DERIVACION_URGENTE = "Entendemos que es urgente. Ya avisamos a un asesor para que se comunique con vos cuanto antes."
 AVISO_NEUTRO = "Gracias por tu consulta, un asesor te responderá a la brevedad."
@@ -119,6 +124,14 @@ PEDIDO_COTIZACION = (
 PEDIDO_COTIZACION_UNO = MARCA_PEDIDO_COTIZACION + " ¿Me pasás {faltantes}?"
 COTIZACION_REGISTRADA = (
     "¡Gracias! Con estos datos un asesor te prepara la cotización y te escribe por acá."
+    # Decisión del equipo: el bot sigue en la charla y ofrece contratar ya.
+    " Si ya querés contratarlo, escribime «quiero contratarlo» y te preparo la solicitud con "
+    "estos datos; el asesor te confirma el precio antes de emitir."
+)
+# Vuelve a preguntar el precio con una cotización ya pedida: no se reinicia.
+COTIZACION_YA_PEDIDA = (
+    "Ya le pasé tu pedido de cotización al asesor, que te escribe por acá con el precio. "
+    "Si querés contratarlo ya, escribime «quiero contratarlo» y te preparo la solicitud."
 )
 # Aviso de seguimiento a los 2 y 5 días en «cotizando» (lo entrega el motor de avisos).
 SEGUIMIENTO_COTIZACION = (

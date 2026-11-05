@@ -1,10 +1,10 @@
 """Completar una póliza histórica sin alterar vigencia, prima, cuotas ni saldo."""
 from django.db import transaction
 
-from datos.models import Poliza
+from datos.models import CondicionesPoliza, Poliza
 from negocio.clientes import SIN_CAMBIO
 from negocio.companias import porcentaje_validado
-from negocio.errores import NoEncontrado
+from negocio.errores import DatosInvalidos, NoEncontrado
 from negocio.polizas import (
     _compania_activa, _vehiculo_del_cliente, validar_solapamiento,
 )
@@ -28,6 +28,17 @@ def completar_cartera(poliza_id, *, funcionario_id, vehiculo_id=SIN_CAMBIO,
     if compania_id is not SIN_CAMBIO:
         compania = _compania_activa(compania_id)
         if poliza.compania_id != compania_id:
+            con_plan = (
+                CondicionesPoliza.objects.filter(poliza=poliza, plan__isnull=False)
+                .select_related("plan").first()
+            )
+            if con_plan is not None and con_plan.plan.compania_id != compania_id:
+                # Cambiar de compañía dejaría la cobertura con un plan ajeno.
+                raise DatosInvalidos(
+                    f"La cobertura de esta póliza es el plan «{con_plan.plan.nombre}» de su "
+                    "compañía actual. Para cambiarla de compañía, primero pasá la cobertura a "
+                    "condiciones particulares en la página Pólizas."
+                )
             poliza.compania = compania
             # Nueva compañía: nuevo porcentaje explícito o su valor actual.
             poliza.comision_pct = compania.comision_pct if compania else None

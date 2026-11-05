@@ -82,6 +82,7 @@ from api.cartera import poliza_cartera, comisiones
 from api.diagnostico_bot import diagnostico
 from api.metricas import metricas_panel
 from api.condiciones_poliza import condiciones, listar as polizas_listar
+from api.eliminaciones import compania_eliminar_definitivo, plan_eliminar, poliza_eliminar_definitivo
 from api.planes_cobertura import listar_o_crear as planes_listar, detalle as plan_detalle
 from api.webhook import webhook_whatsapp
 
@@ -164,6 +165,10 @@ urlpatterns = [
     path("api/vehiculos/<int:id>/baja/", vehiculo_baja, name="api_vehiculo_baja"),
     path("api/companias/", companias_listar_o_crear, name="api_companias"),
     path("api/companias/<int:id>/", compania_modificar, name="api_compania"),
+    # Borrado físico (solo rol administrador): ver negocio/eliminaciones.py.
+    path("api/companias/<int:id>/eliminar-definitivo/", compania_eliminar_definitivo),
+    path("api/planes-cobertura/<int:id>/eliminar/", plan_eliminar),
+    path("api/polizas/<int:id>/eliminar-definitivo/", poliza_eliminar_definitivo),
     path("api/funcionarios/", funcionarios_listar, name="api_funcionarios"),
     path("api/interesados/", interesados_listar_o_crear, name="api_interesados"),
     # Antes del detalle: `<int:id>` no captura "embudo", pero el orden lo deja claro.

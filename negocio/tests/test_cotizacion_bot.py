@@ -82,7 +82,9 @@ class PedidoDeDatosTests(BaseCotizacionBotTests):
         self.assertEqual(self._respuesta(resultado).texto, plantillas.COTIZACION_REGISTRADA)
         self.assertEqual(
             plantillas.COTIZACION_REGISTRADA,
-            "¡Gracias! Con estos datos un asesor te prepara la cotización y te escribe por acá.",
+            "¡Gracias! Con estos datos un asesor te prepara la cotización y te escribe por acá."
+            " Si ya querés contratarlo, escribime «quiero contratarlo» y te preparo la solicitud con "
+            "estos datos; el asesor te confirma el precio antes de emitir.",
         )
         interesado = Interesado.objects.get()
         derivacion = Derivacion.objects.get()
@@ -310,16 +312,17 @@ class PedidoDeDatosTests(BaseCotizacionBotTests):
         self.assertEqual(Derivacion.objects.count(), 1)
 
     # AC-T3-85
-    def test_la_confirmacion_le_llega_al_cliente_aunque_la_conversacion_pase_a_un_asesor(self):
-        """Al derivar la charla pasa a modo humano y se descartan los mensajes automáticos
-        que no estén en la lista de los permitidos: la confirmación tiene que estar."""
+    def test_la_confirmacion_le_llega_y_el_bot_sigue_en_la_charla(self):
+        """Decisión del equipo: con la cotización completa el asesor recibe la
+        derivación, pero el chat sigue con el bot para que pueda contratar ya."""
         conversacion = self._conversacion("1001")
         self._turno(conversacion, "cuanto sale asegurar mi auto")
 
         resultado = self._turno(conversacion, COMPLETA)
 
         conversacion.refresh_from_db()
-        self.assertEqual(conversacion.modo, "humano")
+        self.assertEqual(conversacion.modo, "bot")
+        self.assertEqual(Derivacion.objects.get().derivado_a_id, self.escenario.graciela.id)
         confirmacion = self._respuesta(resultado)
         self.assertEqual(confirmacion.texto, plantillas.COTIZACION_REGISTRADA)
         self.assertEqual(confirmacion.estado_envio, EstadoEnvio.ENVIADO)
@@ -331,10 +334,6 @@ class PedidoDeDatosTests(BaseCotizacionBotTests):
         self._turno(conversacion, "cuanto sale asegurar mi auto")
         self._turno(conversacion, COMPLETA)
         self.assertEqual(Derivacion.objects.count(), 1)
-        # Un asesor atendió y devolvió la conversación al bot.
-        conversacion.modo = "bot"
-        conversacion.save(update_fields=["modo"])
-
         resultado = self._turno(conversacion, "ahora quiero cotizar la moto")
 
         texto = self._respuesta(resultado).texto

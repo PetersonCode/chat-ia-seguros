@@ -229,16 +229,13 @@ def eliminar_cliente_definitivo(cliente_id: int, funcionario_id: int) -> dict[st
     borra: guarda rutas y usuario, sin datos personales.
     """
     from datos.models import (
-        AccionPendiente,
-        AdjuntoSiniestro,
         Conversacion,
-        FinalizacionAccion,
         Funcionario,
         Poliza,
-        Siniestro,
         Vehiculo,
     )
     from negocio.supervision import borrar_rastro_del_numero
+    from negocio.eliminaciones import borrar_polizas, verificar_polizas_borrables
 
     funcionario = Funcionario.objects.filter(pk=funcionario_id, activo=True).first()
     if funcionario is None or funcionario.rol != Rol.ADMINISTRADOR:
@@ -248,21 +245,7 @@ def eliminar_cliente_definitivo(cliente_id: int, funcionario_id: int) -> dict[st
     cliente = _cliente(cliente_id)
 
     polizas = list(Poliza.objects.filter(cliente_id=cliente.id).values_list("id", flat=True))
-    bloqueos = []
-    n = Siniestro.objects.filter(poliza_id__in=polizas).count()
-    if n:
-        bloqueos.append(f"{n} siniestro(s)")
-    n = AdjuntoSiniestro.objects.filter(siniestro__poliza_id__in=polizas).count()
-    if n:
-        bloqueos.append(f"{n} foto(s) de siniestro")
-    n = FinalizacionAccion.objects.filter(accion__poliza_id__in=polizas).count()
-    if n:
-        bloqueos.append(f"{n} acción(es) finalizada(s)")
-    if bloqueos:
-        raise EstadoInvalido(
-            "No se puede eliminar el cliente: hay " + ", ".join(bloqueos)
-            + ", que la base declara inmutables. No se borró nada."
-        )
+    verificar_polizas_borrables(polizas, "el cliente")
 
     # Primero el rastro de cada número vinculado. Si algo es inmutable se niega
     # y la transacción deshace lo ya borrado.
@@ -275,42 +258,27 @@ def eliminar_cliente_definitivo(cliente_id: int, funcionario_id: int) -> dict[st
         )
         borrar_rastro_del_numero(contacto_id, conversaciones)
 
+    # Las pólizas, con la misma lógica que el borrado de póliza o de compañía.
+    resumen_polizas = borrar_polizas(polizas)
+
     vehiculos = list(Vehiculo.objects.filter(cliente_id=cliente.id).values_list("id", flat=True))
-    acciones = list(
-        AccionPendiente.objects.filter(poliza_id__in=polizas).values_list("id", flat=True)
-    )
     with connection.cursor() as c:
 
         def ids(sql, *params):
             c.execute(sql, params)
             return [r[0] for r in c.fetchall()]
 
-        cuotas = ids("SELECT id FROM cuotas WHERE poliza_id = ANY(%s)", polizas)
         interesados = ids("SELECT id FROM interesados WHERE cliente_id = %s", cliente.id)
         encuestas = ids("SELECT id FROM gestion_encuestas WHERE cliente_id = %s", cliente.id)
 
         # De las hojas hacia la raíz: la base no cascadea.
-        c.execute("DELETE FROM borradores_poliza WHERE accion_id = ANY(%s)", [acciones])
-        c.execute("DELETE FROM acciones_pendientes WHERE id = ANY(%s)", [acciones])
+        c.execute("DELETE FROM contextos_cobertura WHERE cliente_id = %s", [cliente.id])
         c.execute(
-            "DELETE FROM contextos_cobertura WHERE cliente_id = %s OR poliza_id = ANY(%s)",
-            [cliente.id, polizas],
-        )
-        c.execute(
-            "DELETE FROM gestion_avisos WHERE poliza_id = ANY(%s) OR cuota_id = ANY(%s)"
-            " OR interesado_id = ANY(%s) OR encuesta_id = ANY(%s)",
-            [polizas, cuotas, interesados, encuestas],
+            "DELETE FROM gestion_avisos WHERE interesado_id = ANY(%s) OR encuesta_id = ANY(%s)",
+            [interesados, encuestas],
         )
         c.execute("DELETE FROM gestion_encuestas WHERE id = ANY(%s)", [encuestas])
-        c.execute("DELETE FROM recordatorios_polizas WHERE poliza_id = ANY(%s)", [polizas])
-        c.execute(
-            "DELETE FROM gestion_renovaciones WHERE origen_id = ANY(%s) OR nueva_id = ANY(%s)",
-            [polizas, polizas],
-        )
-        c.execute(
-            "DELETE FROM cotizaciones WHERE poliza_id = ANY(%s) OR interesado_id = ANY(%s)",
-            [polizas, interesados],
-        )
+        c.execute("DELETE FROM cotizaciones WHERE interesado_id = ANY(%s)", [interesados])
         c.execute("DELETE FROM interesado_historial WHERE interesado_id = ANY(%s)", [interesados])
         c.execute(
             "DELETE FROM gestion_tareas WHERE cliente_id = %s OR interesado_id = ANY(%s)",
@@ -323,18 +291,12 @@ def eliminar_cliente_definitivo(cliente_id: int, funcionario_id: int) -> dict[st
             "DELETE FROM gestion_referidos WHERE referente_id = %s OR referido_id = %s",
             [cliente.id, cliente.id],
         )
-        c.execute("DELETE FROM documentos_polizas WHERE poliza_id = ANY(%s)", [polizas])
-        c.execute("DELETE FROM condiciones_poliza WHERE poliza_id = ANY(%s)", [polizas])
-        c.execute("DELETE FROM conductores_poliza WHERE poliza_id = ANY(%s)", [polizas])
-        c.execute("DELETE FROM pagos WHERE cuota_id = ANY(%s)", [cuotas])
-        c.execute("DELETE FROM cuotas WHERE id = ANY(%s)", [cuotas])
-        c.execute("DELETE FROM polizas WHERE id = ANY(%s)", [polizas])
         c.execute("DELETE FROM vehiculos WHERE id = ANY(%s)", [vehiculos])
         c.execute("DELETE FROM clientes WHERE id = %s", [cliente.id])
     return {
-        "polizas": len(polizas),
+        "polizas": resumen_polizas["polizas"],
         "vehiculos": len(vehiculos),
-        "cuotas": len(cuotas),
+        "cuotas": resumen_polizas["cuotas"],
         "interesados": len(interesados),
         "numeros": len(contactos),
     }

@@ -35,5 +35,11 @@ def ejecutar_alta_poliza(accion, funcionario):
     poliza = alta_poliza(cliente.id, tipo_seguro='automotor', cobertura=p['cobertura'],
         fecha_inicio=inicio, fecha_vencimiento=fin, prima_mensual=p['prima_mensual'],
         vehiculo_id=vehiculo.id, compania_id=p['compania_id'])
+    if p.get('plan_id'):
+        # El plan que eligió en el chat: mismas condiciones (y documento para el
+        # bot) que una póliza cargada desde el panel.
+        from negocio.condiciones_poliza import guardar_condiciones, plan_para_poliza
+        plan, version, campos = plan_para_poliza(poliza, p['plan_id'], None)
+        guardar_condiciones(poliza, plan=plan, plan_version=version, campos=campos, funcionario=funcionario)
     accion.poliza = poliza
     accion.parametros = {**p, 'cliente_id': cliente.id}

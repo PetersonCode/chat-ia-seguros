@@ -44,7 +44,7 @@ SINONIMOS = {
     'cristales': ('cristal', 'vidrio', 'vidrios', 'parabrisas', 'ventanilla', 'ventanillas', 'luneta'),
     'automotor': ('auto', 'autos', 'coche', 'vehiculo', 'vehiculos'),
     'rotura': ('romper', 'rompe', 'rompen', 'roto', 'rompio', 'rompieron', 'roturas', 'quebrado', 'quebraron', 'quiebra', 'astillo', 'astilla'),
-    'robo': ('robado', 'robar'),
+    'robo': ('robado', 'robar', 'roban', 'robaron', 'roben', 'robarme', 'roba', 'afanaron', 'afanar'),
     'hurto': ('hurtar', 'hurtado'),
     'cobertura': ('cubre', 'cubren', 'cubierto', 'cubierta', 'coberturas', 'incluye', 'protege', 'protegido', 'protegida', 'proteccion', 'ampara', 'amparado', 'amparada', 'contempla', 'prestaciones'),
     'granizo': ('piedra', 'pedrada', 'pedrisco', 'granizada'),

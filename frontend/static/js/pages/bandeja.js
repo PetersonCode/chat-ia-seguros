@@ -250,4 +250,6 @@ api.get("/api/auth/me/")
     .catch(() => {})
     .finally(() => cargarConversaciones());
 
-setInterval(()=>{if(!document.hidden && !dialogoBorrar.open)cargarConversaciones();},15000);
+// Sin refresco automático: repintar la lista hacía perder el scroll. Se
+// actualiza a mano con el botón «Actualizar» (o con los filtros y la paginación).
+document.getElementById("boton-actualizar").addEventListener("click", () => cargarConversaciones());

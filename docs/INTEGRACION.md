@@ -20,6 +20,8 @@ Los archivos Docker se mantienen versionables en la entrega porque forman parte 
 - `13_vehiculos_companias.sql` (P1): tablas `companias` y `vehiculos` y tres columnas nuevas en `polizas`; aditivo e idempotente, se puede repetir. Aplicarlo a la base real **antes** de levantar esta versión, porque los modelos ya leen esas columnas.
 - `17_interesados.sql` (P5): tablas `interesados`, `interesado_historial` y `cotizaciones`; aditivo e idempotente. Aplicarlo **antes** de levantar esta versión (los modelos nuevos leen esas tablas). Si el motor de avisos (P2) ya existe, también suma sus dos tipos de seguimiento.
 - `14` a `16` y `18` a `21`: reservas de los planes P2–P4 y P6–P9, sin implementación.
+- `29_rol_administrador.sql`: rol `administrador` (usuario de pruebas con ELIMINACION TOTAL). Aditivo.
+- `30_nivel_en_planes.sql`: columna `nivel` (básica/intermedia/total) en `planes_cobertura`. La póliza toma el nivel de su plan: cobertura y plan dejan de cargarse por separado. Nullable: los planes existentes se completan al editarlos en Compañías. Aditivo e idempotente.
 - `23_recordatorios_polizas.sql`: pantalla de vencimientos y registro de avisos manuales desde el panel. Se aplica después de 22. No implementa el motor P2/P3 completo.
 - `22_seguridad_y_coberturas.sql`: incremento de esta revisión, aditivo y transaccional. Aplicarlo una sola vez.
 

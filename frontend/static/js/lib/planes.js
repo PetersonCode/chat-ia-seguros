@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 const campos=['cubre','no_cubre','limites','asistencia'];
 let planes=[],companias=[];
 function opcion(select,texto,valor){const o=document.createElement('option');o.textContent=texto;o.value=valor;select.append(o);}
-function nombrePlan(p){return `${companias.find(c=>c.id===p.compania_id)?.nombre??'Compañía'} · ${p.nombre} · v${p.version}${p.activo?'':' (inactivo)'}`;}
+function nombrePlan(p){return `${companias.find(c=>c.id===p.compania_id)?.nombre??'Compañía'} · ${p.nombre} · v${p.version}${p.nivel?'':' (sin nivel)'}${p.activo?'':' (inactivo)'}`;}
 async function cargar(){
     planes=[];let pagina=1;
     while(true){
@@ -13,7 +13,7 @@ async function cargar(){
     $('plan-editar').replaceChildren();opcion($('plan-editar'),'Nuevo plan','');
     for(const p of planes)opcion($('plan-editar'),nombrePlan(p),p.id);
 }
-export async function inicializarPlanes(puedeEditar,listaCompanias){
+export async function inicializarPlanes(puedeEditar,listaCompanias,opciones={}){
     if(!puedeEditar)return;
     companias=listaCompanias;
     await cargar();
@@ -22,9 +22,17 @@ export async function inicializarPlanes(puedeEditar,listaCompanias){
     $('gestionar-planes').hidden=false;
     $('plan-editar').onchange=()=>{
         const p=planes.find(x=>String(x.id)===$('plan-editar').value);
-        for(const k of ['nombre','compania_id',...campos])$('form-plan').elements[k].value=p?.[k]??'';
+        for(const k of ['nombre','compania_id','nivel',...campos])$('form-plan').elements[k].value=p?.[k]??'';
         $('plan-compania').disabled=Boolean(p);$('plan-activo').checked=p?.activo??true;
         $('estado-plan').textContent=p?`Editando versión ${p.version}. Los contratos existentes conservarán su copia.`:'';
+        $('eliminar-plan').hidden=!(opciones.esAdministrador&&p);
+    };
+    $('eliminar-plan').hidden=true;
+    $('eliminar-plan').onclick=()=>{
+        const p=planes.find(x=>String(x.id)===$('plan-editar').value);if(!p)return;
+        opciones.confirmarEliminacion(`Eliminar el plan ${p.nombre}`,
+            'Se borra el plan. Las pólizas que lo usaban conservan sus condiciones como condiciones particulares. No se puede deshacer.',
+            async()=>{await api.post(`/api/planes-cobertura/${p.id}/eliminar/`,{});await opciones.alEliminar?.(p.nombre);});
     };
     $('form-plan').onsubmit=async e=>{
         e.preventDefault();$('guardar-plan').disabled=true;

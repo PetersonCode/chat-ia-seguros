@@ -184,7 +184,7 @@ class DocumentoBreveTests(ApiTestCase):
         if not self.poliza.compania_id:
             self.poliza.compania=fabricas.crear_compania()
             self.poliza.save()
-        datos={'compania_id':self.poliza.compania_id,'nombre':'Terceros completo',
+        datos={'compania_id':self.poliza.compania_id,'nombre':'Terceros completo','nivel':'intermedia',
             'cubre':'Responsabilidad civil y rotura de cristales.', 'no_cubre':'No cubre granizo.',
             'limites':'Hasta $100.000.000.', 'asistencia':'0800-123-4567'}
         datos.update(campos)

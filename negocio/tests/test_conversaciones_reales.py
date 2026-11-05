@@ -6,6 +6,9 @@ Cada test fija una falla vista en producción de pruebas, para que no vuelva.
 from __future__ import annotations
 
 from django.test import SimpleTestCase
+from django.utils import timezone
+
+from datos import fabricas
 
 from negocio.bot import plantillas
 from negocio.bot.clasificador import clasificar
@@ -158,7 +161,7 @@ class AltaConDatosAdelantadosTests(BaseCotizacionBotTests):
         self._turno(conversacion, "me llamo daniel peterson")
 
         datos = self._borrador(conversacion).datos
-        self.assertEqual((datos["nombre"], datos["apellido"]), ("daniel", "peterson"))
+        self.assertEqual((datos["nombre"], datos["apellido"]), ("Daniel", "Peterson"))  # prolijo para el asesor
 
     def test_anio_con_rotulo(self):
         conversacion = self._empezar()
@@ -182,5 +185,50 @@ class AltaConDatosAdelantadosTests(BaseCotizacionBotTests):
 
         texto = self._respuesta(respuesta).texto
         self.assertNotIn(plantillas.MARCA_PEDIDO_DATOS, texto)
-        self.assertIn("asesor", texto)
+        self.assertIn("Sigamos con la solicitud", texto)
         self.assertIn("nombre y apellido", texto)  # sigue la pregunta pendiente
+
+
+class TiempoDeRespuestaTests(BaseCotizacionBotTests):
+    """Las métricas necesitan saber a qué mensaje contestó el bot."""
+
+    def test_la_respuesta_queda_ligada_al_mensaje_del_cliente(self):
+        from datos.models import Mensaje
+
+        conversacion = self._conversacion("1001")
+        entrante = fabricas.crear_mensaje(conversacion, texto="hola")
+        with self.captureOnCommitCallbacks(execute=True):
+            from negocio.bot.orquestador import procesar_mensaje
+
+            resultado = procesar_mensaje(entrante.id)
+
+        respuesta = Mensaje.objects.get(pk=resultado.mensaje_respuesta_id)
+        self.assertEqual(respuesta.respuesta_a_id, entrante.id)
+
+    def test_en_una_rafaga_contesta_al_ultimo(self):
+        from datos.models import Mensaje
+        from negocio.bot.orquestador import procesar_mensaje
+
+        conversacion = self._conversacion("1001")
+        primero = fabricas.crear_mensaje(conversacion, texto="hola")
+        ultimo = fabricas.crear_mensaje(conversacion, texto="saldo")
+        with self.captureOnCommitCallbacks(execute=True):
+            resultado = procesar_mensaje(ultimo.id)
+
+        respuesta = Mensaje.objects.get(pk=resultado.mensaje_respuesta_id)
+        self.assertEqual(respuesta.respuesta_a_id, ultimo.id)
+        self.assertNotEqual(respuesta.respuesta_a_id, primero.id)
+
+    def test_el_tiempo_de_respuesta_de_las_metricas_deja_de_ser_vacio(self):
+        from datetime import date
+        from datos import selectors
+        from negocio.bot.orquestador import procesar_mensaje
+
+        conversacion = self._conversacion("1001")
+        entrante = fabricas.crear_mensaje(conversacion, texto="hola")
+        with self.captureOnCommitCallbacks(execute=True):
+            procesar_mensaje(entrante.id)
+
+        hoy = timezone.localdate()
+        datos = selectors.metricas_panel(hoy, hoy)
+        self.assertIsNotNone(datos["tiempo_respuesta_min"])

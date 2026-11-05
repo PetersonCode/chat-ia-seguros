@@ -76,3 +76,19 @@ El rol `administrador` (SQL 29) existe solo para probar flujos con pocos número
 La eliminación es un DELETE físico, sin marcas: borra todas las conversaciones del número, mensajes, casos, alertas, acciones, avisos, interesados y el contacto, de modo que el siguiente mensaje arranca desde cero. El cliente y sus pólizas se conservan. Se niega, sin borrar nada, si hay siniestros, fotos de siniestro o acciones finalizadas (inmutables por trigger). La auditoría de seguridad no se borra: guarda la ruta y el usuario, sin teléfonos ni textos. En producción real no debería existir ningún usuario con este rol.
 
 **Eliminar un cliente de cero.** El administrador ve además **ELIMINAR CLIENTE (TOTAL)** en la ficha del cliente (`POST /api/clientes/{id}/eliminar-definitivo/`). Borra físicamente el cliente con sus vehículos, pólizas (cuotas, pagos, condiciones, documentos vinculados, acciones), notas, tareas, interesados y el rastro de cada número de WhatsApp vinculado. Misma regla: con siniestros, fotos de siniestro o acciones finalizadas se niega sin borrar nada. La baja lógica de siempre sigue disponible para los demás roles.
+
+**Borrar pólizas, planes y compañías.** El administrador también ve **Eliminar póliza (total)** en cada póliza de la ficha y en la página Pólizas, **Eliminar (total)** en cada compañía y **Eliminar plan (total)** en el editor de planes. Borrar una compañía se lleva en cascada sus pólizas, planes y cotizaciones; los clientes quedan sin esas pólizas. Borrar un plan deja a sus pólizas con las mismas condiciones, como particulares. Misma regla: con siniestros o acciones finalizadas no se borra nada. Lógica única en `negocio/eliminaciones.py`, que también usa el borrado de cliente.
+
+## Cartera de demostración
+
+`python manage.py cargar_cartera_demo` carga, sobre una base sin compañías, 5 compañías ficticias con 3 planes cada una (Responsabilidad Civil = básica, Terceros Completo = intermedia, Todo Riesgo con franquicia = total) y 20 clientes con 1 o 2 vehículos, cada uno con su póliza. Todo pasa por las funciones de negocio: las pólizas generan cuotas, el plan define el nivel y deja el documento aprobado que el bot cita. Las cuotas vencidas quedan pagadas salvo para 3 clientes morosos (deben las 2 últimas). Los WhatsApp son `+54911000002NN`, números que no existen: el bot nunca escribe a una persona real. Se niega si ya hay compañías.
+
+## Entrenar y medir el bot (corpus de conversaciones)
+
+`negocio/bot/corpus_conversaciones.py` guarda cómo escribe la gente de verdad (abreviado, sin tildes, con errores, en mayúsculas, dictado por voz, con emojis, lunfardo, en ráfaga), con la intención correcta de cada mensaje. Se usa para tres cosas:
+
+1. **Nutrir a Qwen**: los mensajes marcados `para_llm=True` se le pasan como turnos ya resueltos antes de cada clasificación (aprendizaje en contexto). Es la forma de mejorar un modelo de 7B sin reentrenarlo.
+2. **Pruebas de regresión**: `negocio/tests/test_corpus_conversaciones.py`.
+3. **Medición**: `python manage.py evaluar_bot --orquestador` muestra reglas, Qwen, la decisión combinada y lo que hizo el bot con los clientes demo. Corre dentro de una transacción que se revierte: no deja datos ni envía nada.
+
+Las `VARIANTES` nunca se le muestran a Qwen: miden si generaliza. Para seguir entrenándolo, cuando una conversación real salga mal, agregá el mensaje (anonimizado) con su intención correcta; si es un caso nuevo, marcalo `para_llm=True`, y agregá una variante parecida, sin marcar, para comprobar que generaliza.

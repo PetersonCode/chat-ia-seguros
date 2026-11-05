@@ -823,6 +823,7 @@ class PlanCobertura(models.Model):
     asistencia = models.TextField(default='')
     activo = models.BooleanField(default=True)
     version = models.IntegerField(default=1)
+    nivel = models.TextField(null=True, blank=True)
     actualizado_por = models.ForeignKey(Funcionario, on_delete=models.DO_NOTHING)
     actualizado_en = models.DateTimeField(default=timezone.now)
 

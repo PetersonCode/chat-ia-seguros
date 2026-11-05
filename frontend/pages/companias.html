@@ -49,12 +49,13 @@
 <label class="form-label" for="plan-editar">Crear o editar un plan</label><select id="plan-editar" class="form-select mb-3"><option value="">Nuevo plan</option></select>
 <div class="row g-3"><div class="col-md-6"><label for="plan-compania" class="form-label">Compañía del plan</label><select id="plan-compania" name="compania_id" class="form-select" required></select></div>
 <div class="col-md-6"><label for="plan-nombre" class="form-label">Nombre del plan</label><input id="plan-nombre" name="nombre" class="form-control" required maxlength="120"></div>
+<div class="col-md-6"><label for="plan-nivel" class="form-label">Nivel de cobertura</label><select id="plan-nivel" name="nivel" class="form-select" required><option value="">Elegí el nivel</option><option value="basica">Básica</option><option value="intermedia">Intermedia</option><option value="total">Total</option></select><p class="form-text mb-0">Las pólizas con este plan toman este nivel.</p></div>
 <div class="col-md-6"><label for="plan-cubre" class="form-label">Coberturas del plan</label><textarea id="plan-cubre" name="cubre" class="form-control" required rows="3" maxlength="10000"></textarea></div>
 <div class="col-md-6"><label for="plan-no-cubre" class="form-label">Exclusiones del plan</label><textarea id="plan-no-cubre" name="no_cubre" class="form-control" rows="3" maxlength="10000"></textarea></div>
 <div class="col-md-6"><label for="plan-limites" class="form-label">Límites de referencia del plan</label><textarea id="plan-limites" name="limites" class="form-control" rows="2" maxlength="10000"></textarea></div>
 <div class="col-md-6"><label for="plan-asistencia" class="form-label">Teléfono de asistencia del plan</label><input id="plan-asistencia" name="asistencia" class="form-control" maxlength="100"></div></div>
 <label class="form-check mt-3"><input id="plan-activo" name="activo" class="form-check-input" type="checkbox" checked> Plan disponible para nuevas pólizas</label>
-<p id="estado-plan" role="status" class="small mt-2"></p><button id="guardar-plan" class="btn btn-primary">Guardar plan</button>
+<p id="estado-plan" role="status" class="small mt-2"></p><button id="guardar-plan" class="btn btn-primary">Guardar plan</button> <button id="eliminar-plan" type="button" class="btn btn-danger fw-bold ms-2" hidden>Eliminar plan (total)</button>
 </form></details>
             <section class="card shadow-sm border-0" aria-labelledby="titulo-companias">
                 <div class="card-header bg-white">
@@ -78,6 +79,17 @@
         </div>
     </main>
 
+    <dialog id="dialog-eliminar-total" class="dialog-accion">
+        <div class="p-4">
+            <h2 id="eliminar-total-titulo" class="h5"></h2>
+            <p id="eliminar-total-texto"></p>
+            <p id="eliminar-total-error" class="small text-danger mb-2" role="alert"></p>
+            <div class="d-flex justify-content-end gap-2">
+                <button id="eliminar-total-cancelar" class="btn btn-outline-secondary" type="button">Cancelar</button>
+                <button id="eliminar-total-confirmar" class="btn btn-danger fw-bold" type="button">Eliminar definitivamente</button>
+            </div>
+        </div>
+    </dialog>
     <dialog id="dialog-compania" class="dialog-accion">
         <form id="formulario-dialogo" class="p-4" method="dialog" novalidate>
             <h2 id="dialog-titulo" class="h5"></h2>
@@ -90,7 +102,7 @@
         </form>
     </dialog>
 
-    <script type="module" src="/static/js/pages/companias.js?v=20261104flotante1"></script>
+    <script type="module" src="/static/js/pages/companias.js?v=20261105borrar1"></script>
 <script type="module" src="/static/js/lib/chat-flotante.js?v=20261104flotante3"></script>
 </body>
 </html>

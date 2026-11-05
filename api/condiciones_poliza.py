@@ -1,17 +1,14 @@
-from uuid import uuid4
 import re
 from django.db import transaction
-from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
 from api.permisos import EsAprobadorParaEscribir
 from api.paginacion import Paginador
-from datos.models import Poliza,CondicionesPoliza,PlanCobertura
+from datos.models import Poliza,CondicionesPoliza
 from datos.selectors import filtrar_cartera
-from negocio.errores import NoEncontrado,DatosInvalidos
-from negocio.documentos import crear_documento,aprobar_documento,retirar_documento
-from negocio.coberturas import vincular_documento
+from negocio.errores import NoEncontrado
+from negocio.condiciones_poliza import guardar_condiciones, plan_para_poliza
 
 
 class Campos(serializers.Serializer):
@@ -42,36 +39,9 @@ def condiciones(request,id):
         selector=SeleccionPlan(data=request.data);selector.is_valid(raise_exception=True)
         plan_id=selector.validated_data.get('plan_id',info.plan_id if info else None)
         version=selector.validated_data.get('plan_version',info.plan_version if info and info.plan_id==plan_id else None)
-        anteriores={k:getattr(info,k) for k in ('cubre','no_cubre','limites','asistencia')} if info else {}
-        if plan_id:
-            plan=PlanCobertura.objects.select_for_update().filter(pk=plan_id).first()
-            if not plan or plan.compania_id!=poliza.compania_id:
-                raise DatosInvalidos('El plan debe pertenecer a la compañía de esta póliza.')
-            misma_copia=bool(info and info.plan_id==plan.id and info.plan_version==version)
-            if not misma_copia:
-                if not plan.activo or not plan.compania.activa:
-                    raise DatosInvalidos('El plan o su compañía están inactivos.')
-                if version is not None and version!=plan.version:
-                    raise DatosInvalidos('El plan cambió mientras editabas. Volvé a seleccionarlo antes de guardar.')
-                anteriores={k:getattr(plan,k) for k in ('cubre','no_cubre','limites','asistencia')}
-                version=plan.version
-        else:
-            version=None
+        plan,version,anteriores=plan_para_poliza(poliza,plan_id,version,info)
         s=Campos(data={**anteriores,**{k:request.data[k] for k in request.data}});s.is_valid(raise_exception=True)
-        d=s.validated_data
-        titulo=f'Condiciones cargadas en póliza {poliza.numero_poliza}'
-        if info and info.documento_id and info.documento.estado=='aprobado':
-            retirar_documento(info.documento_id,request.funcionario.id)
-        contenido=('Cobertura informada: '+d['cubre']+'\nExclusiones: '+(d['no_cubre'] or 'No informadas.')+
-            '\nLímites y franquicia: '+(d['limites'] or 'No informados.')+
-            '\nTeléfono de asistencia: '+(d['asistencia'] or 'No informado.'))
-        doc=crear_documento(titulo=titulo,version=uuid4().hex,referencia='Datos ingresados en la ficha de esta póliza por un aprobador.',
-            contenido=contenido,funcionario_id=request.funcionario.id)
-        aprobar_documento(doc.id,request.funcionario.id)
-        vincular_documento(poliza.numero_poliza,doc.id,request.funcionario.id)
-        info,_=CondicionesPoliza.objects.update_or_create(poliza=poliza,defaults={**d,'documento':doc,
-            'plan_id':plan_id,'plan_version':version,
-            'actualizado_por':request.funcionario,'actualizado_en':timezone.now()})
+        info=guardar_condiciones(poliza,plan=plan,plan_version=version,campos=s.validated_data,funcionario=request.funcionario)
     return Response({'poliza':poliza.numero_poliza,**{k:getattr(info,k,'') for k in ('cubre','no_cubre','limites','asistencia')},
         'plan_id':info.plan_id if info else None,'plan_version':info.plan_version if info else None,
         'lista':bool(info and info.documento_id and info.documento.estado=='aprobado')})
