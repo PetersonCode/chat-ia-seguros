@@ -89,3 +89,15 @@ La bandeja utiliza una conversación representativa por contacto: prioriza la ab
 La vista inicial es Necesitan atención: conversaciones abiertas con respuestas retenidas, último mensaje del cliente en atención humana o una derivación pendiente sin respuesta final de un funcionario. El acuse del bot no oculta la derivación. Primero urgencias y después antigüedad del último mensaje. Al responder el funcionario, el cliente pasa a Esperando al cliente, salvo que queden respuestas retenidas para revisión. También se puede consultar Atendiendo el bot, Resueltas y Todos los contactos.
 
 Los cuatro contadores de la bandeja cuentan contactos, no consultas del bot; respetan los filtros de búsqueda. La bandeja se actualiza cada quince segundos con la pestaña visible. Los indicadores de Acciones y Alertas críticas de navegación siguen representando operaciones administrativas y alertas de seguridad: son unidades diferentes de clientes esperando respuesta.
+
+## Datos de cotización compartidos
+
+El bot interpreta datos explícitos del primer mensaje y frases como «Tengo un Toyota Corolla 2020, patente AE432ZZ. Uso particular, en Buenos Aires». Completa faltantes con los datos del interesado abierto del mismo contacto y guarda avances parciales sin esperar al final. No copia el vehículo anterior cuando aparece una patente diferente ni reutiliza automáticamente una cotización ya cerrada. Los datos ambiguos siguen requiriendo una aclaración; no se inventan precios ni coberturas.
+
+El detalle de conversación muestra el enlace al interesado y sus datos para cotizar; al detectar nuevos mensajes vuelve a consultarlos. La ficha de Interesados lee esos mismos datos guardados. No supone un alta de cliente, póliza ni emisión externa. Los mensajes históricos no se reescriben.
+
+## De cotización elegida a póliza
+
+Convertir al interesado conserva también el vehículo completo en el cliente, sin duplicar una patente propia ni apropiarse de una ajena. Una cotización elegida es una propuesta, no un contrato emitido. Desde Documentación, Registrar póliza en el cliente abre la póliza con compañía, cobertura, prima y vehículo de la cotización elegida. El asesor revisa y completa las fechas; no se usa el vencimiento de la oferta como vigencia del seguro. Después de confirmar el registro, puede marcar Emitida.
+
+La ruta preferida desde Documentación es ahora **Registrar póliza con la cotización elegida**: pide únicamente inicio y vencimiento, recupera la opción elegida en el servidor (sin aceptar precios ni compañía del navegador), guarda póliza y cuotas y pasa a Emitida en una transacción. Solo aprobadores; un segundo intento se rechaza. No confirma una oferta vencida ni emite ante la aseguradora. El formulario general de pólizas permanece disponible para carga manual.

@@ -25,6 +25,8 @@ const formularioCartera = document.getElementById("formulario-cartera");
 const errorCartera = document.getElementById("cartera-error");
 const guardarCartera = document.getElementById("cartera-guardar");
 let polizaEnCartera = null;
+let cotizacionPrellenada = false;
+const interesadoOrigen = Number(new URLSearchParams(location.search).get('interesado'));
 
 async function abrirCartera(poliza) {
     errorCartera.textContent = "";
@@ -671,6 +673,7 @@ async function cargarFicha() {
         ).values()];
         renderizarSiniestros(siniestrosUnicos);
         mostrarEstado("");
+        if (interesadoOrigen && !cotizacionPrellenada) panelNuevaPoliza.open = true;
     } catch (error) {
         mostrarEstado(error.mensaje ?? error.message ?? "No se pudo cargar la ficha del cliente.", true);
     }
@@ -758,6 +761,23 @@ panelNuevaPoliza.addEventListener("toggle", async () => {
         await cargarOpcionesPoliza();
         // Cada vez que se abre: los vehículos pudieron cambiar desde la última vez.
         await cargarCompaniasDePoliza();
+        if (interesadoOrigen && !cotizacionPrellenada) {
+            try {
+                const i = await api.get(`/api/interesados/${interesadoOrigen}/`);
+                if (i.cliente?.id !== Number(idCliente)) throw new Error('El interesado no corresponde a este cliente.');
+                const c = i.cotizaciones.find(c => c.elegida);
+                if (!c) throw new Error('Elegí una cotización antes de registrar la póliza.');
+                const v = vehiculosDelCliente.find(v => v.patente === i.datos.patente);
+                if (!v) throw new Error('Falta vincular el vehículo del interesado.');
+                const f = formularioPoliza.elements;
+                f.tipo_seguro.value = 'automotor'; f.cobertura.value = c.cobertura;
+                f.prima_mensual.value = c.prima_mensual;
+                f.compania_id.value = String(c.compania.id); f.vehiculo_id.value = String(v.id);
+                cotizacionPrellenada = true;
+                mostrarEstadoNuevaPoliza('Cotización elegida recuperada. Revisá la compañía, cobertura e importe y completá las fechas de vigencia antes de confirmar.');
+                formularioPoliza.scrollIntoView({block:'center'});
+            } catch (e) { mostrarEstadoNuevaPoliza(e.mensaje ?? e.message,true); }
+        }
     }
 });
 

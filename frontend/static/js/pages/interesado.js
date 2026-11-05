@@ -136,8 +136,15 @@ function pintarSeguimiento() {
 
     const acciones = $("acciones-etapa");
     acciones.replaceChildren();
+    if (esAprobador && interesado.cliente && interesado.estado === 'documentacion') {
+        const elegida = interesado.cotizaciones?.find(c=>c.elegida);
+        const registrar = crearElemento('button','btn btn-success','Registrar póliza con la cotización elegida');
+        registrar.type='button';registrar.disabled=!elegida;
+        registrar.onclick=()=>abrirRegistroPoliza(elegida);
+        acciones.append(registrar);
+    }
     const siguiente = siguienteEtapa(interesado.estado);
-    if (siguiente) {
+    if (siguiente && !(siguiente === 'emitida' && esAprobador && interesado.cliente && interesado.cotizaciones?.some(c=>c.elegida))) {
         const avanzar = crearElemento(
             "button",
             "btn btn-primary",
@@ -540,3 +547,17 @@ $("formulario-convertir").addEventListener("submit", confirmarConversion);
 $("convertir-cancelar").addEventListener("click", () => dialogoConvertir.close());
 
 iniciar();
+
+function abrirRegistroPoliza(c) {
+    const d=document.createElement('dialog');d.className='dialog-accion';
+    d.append(document.getElementById('plantilla-registrar-poliza').content.cloneNode(true));
+    d.querySelector('[data-resumen]').textContent=`${c.compania.nombre} · ${etiquetaCobertura(c.cobertura)} · ${formatearMonto(c.prima_mensual)} mensuales · ${interesado.datos.patente}. Revisá las fechas del contrato antes de confirmar.`;
+    d.querySelector('[data-cancelar]').onclick=()=>d.close();d.onclose=()=>d.remove();
+    const f=d.querySelector('form');f.onsubmit=async e=>{
+        e.preventDefault();const b=f.querySelector('[type=submit]');b.disabled=true;
+        try{interesado=await api.post(`/api/interesados/${idInteresado}/registrar-poliza/`,Object.fromEntries(new FormData(f)));pintar();d.close();mostrarAviso(mensajePagina,'Póliza registrada. El interesado quedó como Emitido.');}
+        catch(e){d.querySelector('[role=alert]').textContent=textoError(e,'No se pudo registrar la póliza.');}
+        finally{b.disabled=false;}
+    };
+    document.body.append(d);d.showModal();
+}

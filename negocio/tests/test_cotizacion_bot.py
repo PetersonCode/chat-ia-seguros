@@ -602,14 +602,14 @@ class ReconstruirElPedidoTests(BaseCotizacionBotTests):
         self.assertEqual(cotizacion.datos_de_la_cotizacion(conversacion.id).intentos, 1)
 
     # AC-T3-85
-    def test_lo_dicho_antes_del_primer_pedido_no_cuenta_salvo_la_patente(self):
+    def test_reutiliza_datos_explicitos_del_primer_mensaje(self):
         conversacion = self._conversacion("1001")
         fabricas.crear_mensaje(conversacion, texto="tengo un Toyota Corolla 2020 particular, el AB123CD")
         self._saliente(conversacion, plantillas.PEDIDO_COTIZACION.format(faltantes="x"))
 
         datos = cotizacion.datos_de_la_cotizacion(conversacion.id)
 
-        self.assertEqual(datos.como_datos(), {"patente": "AB123CD"})
+        self.assertEqual(datos.como_datos(), {"patente":"AB123CD","marca":"Toyota","modelo":"Corolla","anio":2020,"uso":"particular"})
         self.assertEqual(datos.intentos, 1)
 
     # AC-T3-85
@@ -622,3 +622,40 @@ class ReconstruirElPedidoTests(BaseCotizacionBotTests):
         )
 
         self.assertEqual(cotizacion.datos_de_la_cotizacion(conversacion.id).como_datos(), {})
+
+
+class DatosAutomaticosTests(BaseCotizacionBotTests):
+    def test_frase_natural_santiago_no_repite_marca_y_modelo(self):
+        c=self._conversacion('1001')
+        self._turno(c,'Quiero cotizar un seguro para mi auto')
+        r=self._turno(c,'Tengo un Toyota Corolla 2020, patente AE432ZZ. Uso particular, en Buenos Aires.')
+        d=cotizacion.datos_de_la_cotizacion(c.id)
+        i=Interesado.objects.get(contacto=c.contacto)
+        self.assertEqual(i.datos['marca'],'Toyota')
+        self.assertEqual(i.datos['modelo'],'Corolla')
+        self.assertNotIn('¿Me pasás marca y modelo?',self._respuesta(r).texto)
+
+    def test_datos_previos_del_interesado_completan_la_cotizacion(self):
+        c=self._conversacion('1001')
+        from negocio.interesados import registrar_cotizacion_del_bot
+        registrar_cotizacion_del_bot(c.contacto,{'patente':'AE432ZZ','marca':'Toyota','modelo':'Corolla','anio':2020,'uso':'particular','localidad':'Buenos Aires'})
+        r=self._turno(c,'Quiero cotizar un seguro para mi auto')
+        self.assertIn(plantillas.COTIZACION_REGISTRADA,self._respuesta(r).texto)
+
+    def test_datos_parciales_se_guardan_antes_de_terminar(self):
+        c=self._conversacion('1001')
+        self._turno(c,'Quiero cotizar un seguro')
+        self._turno(c,'Patente AE432ZZ')
+        self.assertEqual(Interesado.objects.get(contacto=c.contacto).datos['patente'],'AE432ZZ')
+
+    def test_otra_patente_no_reutiliza_marca_del_auto_anterior(self):
+        c=self._conversacion('1001')
+        from negocio.interesados import registrar_cotizacion_del_bot
+        registrar_cotizacion_del_bot(c.contacto,{'patente':'AB123CD','marca':'Ford','modelo':'Fiesta','anio':2018,'uso':'particular','localidad':'Rosario'})
+        self._turno(c,'Quiero cotizar el AE432ZZ')
+        i=Interesado.objects.get(contacto=c.contacto)
+        self.assertEqual(i.datos['patente'],'AE432ZZ')
+        self.assertNotIn('marca',i.datos)
+
+    def test_no_recorta_localidad_que_empieza_con_en(self):
+        self.assertEqual(_interpretar(['Localidad: Ensenada'],{})['localidad'],'Ensenada')

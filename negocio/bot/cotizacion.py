@@ -307,8 +307,10 @@ def _anio_en(segmento: str) -> tuple[int, str] | None:
 
 def _texto_libre(resto: str) -> str | None:
     """Lo que sobra de un renglón, si parece un dato (un nombre, un lugar) y no charla."""
-    limpio = re.sub(r"^(?:vivo\s+en|soy\s+de|estoy\s+en|en)\s+", "", resto.strip(" -:.,;"), flags=re.IGNORECASE)
+    limpio = re.sub(r"^(?:tengo\s+(?:un|una)|mi\s+(?:auto|moto|veh[ií]culo)\s+es(?:\s+(?:un|una))?|vivo\s+en|soy\s+de|estoy\s+en|en)\s+", "", resto.strip(" -:.,;"), flags=re.IGNORECASE)
     palabras = limpio.split()
+    if _normalizado(limpio) in {"el", "la", "mi", "un", "una"}:
+        return None
     if not palabras or len(palabras) > 6 or len(limpio) > 60:
         return None
     if sum(c.isalpha() for c in limpio) < 2:
@@ -355,14 +357,14 @@ def _interpretar(respuestas: list[str], actuales: dict[str, Any]) -> dict[str, A
                 continue
             resto = segmento
             tipados: list[str] = []
-            if datos.get("patente") is None and (hallado := _patente_en(resto)):
-                datos["patente"], resto = hallado
+            if hallado := _patente_en(resto):
+                datos.setdefault('patente',hallado[0]); resto = hallado[1]
                 tipados.append("patente")
-            if datos.get("uso") is None and (hallado := _uso_en(resto)):
-                datos["uso"], resto = hallado
+            if hallado := _uso_en(resto):
+                datos.setdefault('uso',hallado[0]); resto = hallado[1]
                 tipados.append("uso")
-            if datos.get("anio") is None and (hallado := _anio_en(resto)):
-                datos["anio"], resto = hallado
+            if hallado := _anio_en(resto):
+                datos.setdefault('anio',hallado[0]); resto = hallado[1]
                 tipados.append("anio")
             libre = _texto_libre(resto) if resto.strip(" -:.,;") else None
             eventos.extend(_eventos_del_renglon(tipados, libre))
@@ -491,7 +493,7 @@ def datos_de_la_cotizacion(conversacion_id: int) -> DatosCotizacion:
     Cuenta solo desde el último cierre (`COTIZACION_REGISTRADA`), así una
     cotización nueva en la misma conversación empieza de cero. La patente, que
     es inconfundible, también se lee de lo que dijo **antes** del primer pedido
-    («quiero cotizar el AB123CD»); lo demás, solo después, como en `registro.py`.
+    («quiero cotizar el AB123CD»); también se aprovechan los datos explícitos del primer mensaje y la ficha del mismo contacto.
     """
     mensajes = list(
         Mensaje.objects.filter(conversacion_id=conversacion_id)
@@ -525,10 +527,21 @@ def datos_de_la_cotizacion(conversacion_id: int) -> DatosCotizacion:
             hallada = _patente_en(segmento)
             if hallada:
                 datos["patente"] = hallada[0]
+    datos = _interpretar(del_cliente(0, antes), datos)
 
     for posicion, indice in enumerate(pedidos):
         fin = pedidos[posicion + 1] if posicion + 1 < len(pedidos) else len(mensajes)
         datos = _interpretar(del_cliente(indice + 1, fin), datos)
+
+    # Reutilizar la ficha del mismo contacto sin arrastrar otro vehículo.
+    from datos.models import Conversacion
+    from negocio.interesados import interesado_abierto_de
+    contacto_id = Conversacion.objects.filter(pk=conversacion_id).values_list('contacto_id',flat=True).first()
+    interesado = interesado_abierto_de(contacto_id) if contacto_id else None
+    guardados = interesado.datos if interesado else {}
+    if inicio == 0 and (not datos.get('patente') or datos.get('patente') == guardados.get('patente')):
+        for campo in ('patente','marca','modelo','anio','uso','localidad'):
+            if not datos.get(campo) and guardados.get(campo):datos[campo]=guardados[campo]
 
     return DatosCotizacion(
         patente=datos.get("patente"),

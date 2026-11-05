@@ -390,6 +390,10 @@ def _conversacion_detalle(conversacion_id: int) -> dict:
     # Para prellenar el alta cuando el contacto es desconocido: es lo único que
     # sabemos de esa persona antes de que un humano cargue sus datos reales.
     payload['contacto_reconocido'] = bool(conversacion.contacto.cliente_id and conversacion.contacto.cliente.activo)
+    from negocio.interesados import interesado_abierto_de
+    interesado_chat = interesado_abierto_de(contacto_id)
+    payload['interesado'] = ({'id':interesado_chat.id,'nombre':interesado_chat.nombre,
+        'apellido':interesado_chat.apellido,'datos':interesado_chat.datos or {}} if interesado_chat else None)
     payload["nombre_perfil"] = (
         conversacion.contacto.nombre_perfil if conversacion.contacto else None
     )
@@ -1848,3 +1852,16 @@ def cotizacion_elegir(request, id):
 def cotizacion_quitar(request, id):
     quitar_cotizacion(id, request.funcionario.id)
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['POST'])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsAprobador])
+def interesado_registrar_poliza(request,id):
+    from rest_framework import serializers
+    from negocio.cotizaciones import registrar_poliza_elegida
+    if not Interesado.objects.filter(pk=id).exists():raise NoEncontrado('El interesado no existe.')
+    inicio=serializers.DateField().run_validation(request.data.get('fecha_inicio'))
+    fin=serializers.DateField().run_validation(request.data.get('fecha_vencimiento'))
+    registrar_poliza_elegida(id,request.funcionario.id,inicio,fin)
+    return Response(_interesado_detalle(selectors.detalle_interesado(id),_ve_comision(request)),status=201)
