@@ -683,6 +683,16 @@ def pendientes(request):
 @authentication_classes([SessionAuthentication])
 @permission_classes([EsFuncionario])
 def conversaciones_listar(request):
+    if request.query_params.get('agrupada') == '1':
+        qs, cantidades = selectors.bandeja_contactos(
+            vista=request.query_params.get('vista','atencion'),
+            con_alertas=request.query_params.get('con_alertas')=='1',
+            esperando_humano=request.query_params.get('esperando_humano')=='1',
+            q=request.query_params.get('q') or None,
+        )
+        respuesta = _pagina(qs, request, _conversacion_resumen)
+        respuesta.data['clientes'] = cantidades
+        return respuesta
     queryset = selectors.bandeja(
         estado=request.query_params.get("estado") or None,
         con_alertas=request.query_params.get("con_alertas") == "1",
@@ -1614,6 +1624,11 @@ def _cotizacion_item(cotizacion: Cotizacion, ver_comision: bool) -> dict:
 def _interesado_detalle(interesado: Interesado, ver_comision: bool) -> dict:
     """La ficha: la tarjeta más el historial, las cotizaciones (de la más barata) y el cliente."""
     payload = _interesado_item(interesado)
+    payload['conversacion_id'] = (
+        Conversacion.objects.filter(contacto_id=interesado.contacto_id)
+        .order_by('-creada_en', '-id').values_list('id', flat=True).first()
+        if interesado.contacto_id else None
+    )
     payload.update(
         {
             "cliente": _cliente_breve(interesado.cliente),
@@ -1680,10 +1695,9 @@ def interesados_listar_o_crear(request):
     if request.method == "POST":
         datos = InteresadoAltaSerializer(data=request.data)
         datos.is_valid(raise_exception=True)
-        antes = timezone.now()
         interesado = crear_interesado(request.funcionario.id, **datos.validated_data)
         # Si el número ya tenía un interesado abierto, se devuelve ese: no es un alta.
-        ya_existia = interesado.creado_en < antes
+        ya_existia = bool(getattr(interesado, '_ya_existia', False))
         payload = _interesado_detalle(selectors.detalle_interesado(interesado.id), ver_comision)
         payload["ya_existia"] = ya_existia
         return Response(

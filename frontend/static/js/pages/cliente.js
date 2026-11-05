@@ -1,22 +1,24 @@
-import { api } from "../api.js?v=20261104altas1";
-import { inicializarNav } from "../nav.js?v=20261104altas1";
-import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261104altas1";
+import { api } from "../api.js?v=20261104gestion2";
+import { inicializarNav } from "../nav.js?v=20261104flotante1";
+import { iniciarNotas } from "../lib/notas.js?v=20261104gestion2";
+import { iniciarFidelizacion } from "../lib/fidelizacion.js?v=20261104gestion2";
+import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261104gestion2";
 import {
     etiquetaEstadoPoliza,
     mesesDeCobertura,
     ordenarPolizas,
     validarPoliza,
-} from "../lib/polizas.js?v=20261104altas1";
-import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261104altas1";
-import { normalizarPatente } from "../lib/patente.js?v=20261104altas1";
+} from "../lib/polizas.js?v=20261104gestion2";
+import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261104gestion2";
+import { normalizarPatente } from "../lib/patente.js?v=20261104gestion2";
 import {
     USOS,
     CLASES,
     descripcionVehiculo,
     etiquetaUso,
     validarVehiculo,
-} from "../lib/vehiculos.js?v=20261104altas1";
-import { formatearPorcentaje } from "../lib/companias.js?v=20261104altas1";
+} from "../lib/vehiculos.js?v=20261104gestion2";
+import { formatearPorcentaje } from "../lib/companias.js?v=20261104gestion2";
 
 const dialogoCartera = document.getElementById("dialog-cartera");
 const formularioCartera = document.getElementById("formulario-cartera");
@@ -240,6 +242,43 @@ function renderizarPoliza(poliza) {
     agregarDato(cuerpo, "Saldo pendiente", formatearMonto(poliza.saldo_pendiente));
     agregarDato(cuerpo, "Próximo vencimiento de pago", formatearFecha(poliza.proximo_vencimiento_pago));
     renderizarCuotas(cuerpo, poliza.cuotas);
+    const diagnostico = crearElemento('details', 'mt-3');
+    const tituloBot = crearElemento('summary', 'small', 'Condiciones que puede leer el bot');
+    const estadoBot = crearElemento('p', 'small text-muted mt-2', 'Abrí para comprobar vigencia y documentos vinculados.');
+    const contenidoBot = crearElemento('div', 'mt-2');
+    diagnostico.append(tituloBot, estadoBot, contenidoBot);
+    diagnostico.addEventListener('toggle', async () => {
+        if (!diagnostico.open) return;
+        estadoBot.textContent = 'Comprobando…';
+        try {
+            const d = await api.get(`/api/polizas/${poliza.id}/diagnostico-bot/`);
+            estadoBot.textContent = d.listo ? 'Lista para consultas desde el número de WhatsApp del cliente.' : d.problemas.join(' ');
+            contenidoBot.replaceChildren();
+            for (const doc of d.documentos) contenidoBot.append(crearElemento('p', 'small mb-1', `${doc.titulo}: ${doc.estado}`));
+            if (esAprobador) {
+                const opciones = document.createElement('select');
+                opciones.className = 'form-select form-select-sm mb-2';
+                opciones.setAttribute('aria-label', `Condiciones para ${poliza.numero_poliza}`);
+                opciones.add(new Option('Elegí un documento aprobado', ''));
+                for (const doc of d.disponibles) opciones.add(new Option(`${doc.titulo} · ${doc.version}`, String(doc.id)));
+                const vincular = botonDeVehiculo('Vincular condiciones a esta póliza', 'btn-outline-primary', async () => {
+                    if (!opciones.value) { estadoBot.textContent = 'Seleccioná las condiciones correspondientes a este contrato.'; return; }
+                    vincular.disabled = true;
+                    try {
+                        await api.post(`/api/polizas/${poliza.id}/documentos/`, {documento_id:Number(opciones.value)});
+                        estadoBot.textContent = 'Condiciones vinculadas. Si el chat está en modo humano, devolvelo al bot desde la conversación para volver a probar.';
+                    } catch (e) { estadoBot.textContent = e.mensaje ?? e.message; }
+                    finally { vincular.disabled = false; }
+                });
+                contenidoBot.append(opciones, vincular);
+            }
+        } catch (e) { estadoBot.textContent = e.mensaje ?? e.message; }
+    });
+    cuerpo.append(diagnostico);
+    const credencial=crearElemento('a','btn btn-outline-secondary mt-3 me-2','Credencial para celular · PNG');
+    credencial.href=`/api/gestion/polizas/${poliza.id}/credencial/?formato=png`;cuerpo.append(credencial);
+    const versionWeb=crearElemento('a','btn btn-outline-secondary mt-3 me-2','Versión web de la credencial');
+    versionWeb.href=`/api/gestion/polizas/${poliza.id}/credencial/`;cuerpo.append(versionWeb);
     if (esAprobador) {
         cuerpo.append(botonDeVehiculo("Completar vehículo y compañía", "btn-outline-primary mt-3",
             () => abrirCartera(poliza)));
@@ -775,3 +814,5 @@ formularioPoliza.addEventListener("submit", async (evento) => {
 });
 
 cargarFicha();
+if(idCliente)iniciarNotas(idCliente);
+if(idCliente)iniciarFidelizacion(idCliente).catch(e=>mostrarEstado(e.mensaje??e.message));

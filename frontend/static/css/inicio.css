@@ -1,0 +1,50 @@
+/* Inicio: superficies claras, conservando la navegación azul de la agencia. */
+body.pagina-inicio { background: #f3f5f8; }
+.pagina-inicio main {
+    --sc-texto: #203047;
+    --sc-texto-suave: #59687b;
+    --sc-borde: #dce3ec;
+    --sc-superficie: #fff;
+    --sc-sombra: 0 3px 14px #20304708;
+    --bs-heading-color: #203047;
+    color: #203047;
+    max-width: 1800px;
+    margin-inline: auto;
+}
+.inicio-cabecera { padding: .75rem 0 .25rem; }
+.inicio-etiqueta { display: block; font-size: .72rem; letter-spacing: .14em; font-weight: 750; color: #526582; margin-bottom: .6rem; }
+.inicio-cabecera h1 { font-size: clamp(1.8rem, 3vw, 2.3rem); margin-bottom: .4rem; }
+.pagina-inicio main .card { background: #fff; color: #203047; border: 1px solid #dce3ec; box-shadow: 0 3px 14px #20304708; overflow: hidden; }
+.pagina-inicio main .card-header { background: #fff; border-bottom: 1px solid #e8edf3; padding: 1.1rem 1.25rem; font-size: 1.05rem; font-weight: 700; margin-bottom: 0; }
+.pagina-inicio main .card-body { padding: 1.25rem; }
+.pagina-inicio main a:not(.btn) { color: #315e92; }
+.pagina-inicio main a:not(.btn):hover { color: #183f70; text-decoration: underline; }
+.pagina-inicio main .indicador { border-top: 4px solid var(--indicador, #367f9c) !important; position: relative; }
+.pagina-inicio main .indicador strong { color: var(--indicador, #367f9c); font-size: 2.2rem; margin-top: .55rem; font-variant-numeric: tabular-nums; }
+.indicador-renovaciones { --indicador: #277e70; }
+.indicador-morosos { --indicador: #b54451; }
+.indicador-interesados { --indicador: #7955ab; }
+.indicador-siniestros { --indicador: #a46b16; }
+.indicador-sin_respuesta { --indicador: #347695; }
+.pagina-inicio main .btn { font-weight: 650; border-radius: .55rem; padding: .5rem .85rem; margin-block: .2rem; box-shadow: none; }
+.pagina-inicio main .btn-primary { --bs-btn-bg: #315e92; --bs-btn-border-color: #315e92; --bs-btn-hover-bg: #244b79; --bs-btn-hover-border-color: #244b79; --bs-btn-color: #fff; }
+.pagina-inicio main .btn-success { --bs-btn-bg: #237564; --bs-btn-border-color: #237564; --bs-btn-hover-bg: #195b4e; --bs-btn-hover-border-color: #195b4e; --bs-btn-color: #fff; }
+.pagina-inicio main .btn-renovar { color: #fff; background: #7b5718; border-color: #7b5718; margin-left: .65rem; }
+.pagina-inicio main .btn-renovar:hover { background: #604211; }
+.pagina-inicio main .btn-whatsapp { color: #fff; background: #237564; border-color: #237564; }
+.pagina-inicio main .btn-whatsapp:hover { background: #195b4e; }
+.pagina-inicio main .btn-outline-danger { --bs-btn-color: #a23c4b; --bs-btn-border-color: #dfb6be; --bs-btn-hover-bg: #a23c4b; --bs-btn-hover-border-color: #a23c4b; --bs-btn-hover-color: #fff; }
+.pagina-inicio main .form-control, .pagina-inicio main .form-select { background-color: #fff; color: #203047; border-color: #cbd5e2; color-scheme: light; }
+.pagina-inicio main .form-control::placeholder { color: #6a788a; }
+.pagina-inicio main :is(input, select, button, a):focus-visible { outline: 3px solid #7955ab; outline-offset: 3px; }
+.pagina-inicio main input[type=checkbox] { accent-color: #237564; }
+#nueva-tarea { background: #f7f9fc; padding: .75rem; border-radius: .75rem; margin-inline: 0; }
+#tareas article, #avisos article { padding-inline: .75rem; }
+#tareas article:nth-child(odd), #avisos article:nth-child(odd) { background: #f7f9fc; border-radius: .65rem; }
+#tareas article > a { display: inline-block; margin-right: .8rem; }
+#tareas .form-select { max-width: 24rem; }
+#reporte > div { padding: 1rem; border-left: 3px solid #d4deec; }
+#reporte strong { color: #237564; font-variant-numeric: tabular-nums; }
+#mes-reporte { max-width: 15rem; }
+#estado:empty { display: none; }
+@media (max-width: 575px) { .pagina-inicio main .card-body { padding: 1rem; } .pagina-inicio main .btn-renovar { margin-left: 0; display: inline-block; } }

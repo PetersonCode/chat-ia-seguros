@@ -43,9 +43,10 @@ def _normalizar(texto: str) -> str:
 SINONIMOS = {
     'cristales': ('cristal', 'vidrio', 'vidrios', 'parabrisas', 'ventanilla', 'ventanillas', 'luneta'),
     'automotor': ('auto', 'autos', 'coche', 'vehiculo', 'vehiculos'),
-    'rotura': ('romper', 'roto', 'rompio', 'rompieron', 'roturas', 'quebrado', 'quebraron', 'quiebra', 'astillo'),
-    'robo': ('sustraccion', 'hurtar', 'hurto', 'robado', 'robar'),
-    'cobertura': ('cubre', 'cubren', 'cubierto', 'coberturas', 'incluye', 'protege', 'proteccion'),
+    'rotura': ('romper', 'rompe', 'rompen', 'roto', 'rompio', 'rompieron', 'roturas', 'quebrado', 'quebraron', 'quiebra', 'astillo', 'astilla'),
+    'robo': ('robado', 'robar'),
+    'hurto': ('hurtar', 'hurtado'),
+    'cobertura': ('cubre', 'cubren', 'cubierto', 'cubierta', 'coberturas', 'incluye', 'protege', 'protegido', 'protegida', 'proteccion', 'ampara', 'amparado', 'amparada', 'contempla', 'prestaciones'),
     'granizo': ('piedra', 'pedrada', 'pedrisco', 'granizada'),
     'hogar': ('casa', 'vivienda', 'departamento'),
 }
@@ -173,7 +174,7 @@ def retirar_documento(documento_id: int, funcionario_id: int) -> DocumentoGenera
     return documento
 
 
-def buscar_fragmentos(consulta: str, *, documentos_ids=None, incluir_vinculados=False) -> dict:
+def buscar_fragmentos(consulta: str, *, documentos_ids=None, incluir_vinculados=False, exigir_todos=False) -> dict:
     terminos_consulta = _terminos(consulta)
     if not terminos_consulta:
         return {
@@ -195,9 +196,11 @@ def buscar_fragmentos(consulta: str, *, documentos_ids=None, incluir_vinculados=
     from negocio.busqueda_semantica import similitud
     for fragmento in fragmentos.select_related("documento").order_by("id").distinct()[:2000]:
         coincidencias, total_terminos = puntuar_fragmento(consulta, fragmento.texto)
-        lexical = coincidencias >= _requeridos(total_terminos)
+        lexical = coincidencias >= (total_terminos if exigir_todos else _requeridos(total_terminos))
         semantica = None
         if not lexical:
+            if exigir_todos:
+                continue
             try:
                 semantica = similitud(consulta, fragmento.texto)
             except Exception:

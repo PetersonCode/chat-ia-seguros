@@ -472,6 +472,7 @@ def mensaje_permitido_durante_atencion(mensaje: Mensaje) -> bool:
     """Avisos de derivación, respuestas liberadas explícitamente y texto humano."""
     from negocio.bot.plantillas import DERIVACION, DERIVACION_URGENTE, AVISO_NEUTRO, COTIZACION_REGISTRADA, DATOS_REGISTRADOS, SINIESTRO_INSTRUCCIONES, SIN_ASISTENCIA, SIN_POLIZAS, SIN_CLIENTE
     from datos.models import Derivacion
+    from negocio.coberturas import AVISOS_COBERTURA
 
     if mensaje.emisor == Emisor.FUNCIONARIO:
         return True
@@ -482,7 +483,7 @@ def mensaje_permitido_durante_atencion(mensaje: Mensaje) -> bool:
     consulta = mensaje.consulta
     if (
         consulta
-        and mensaje.texto in (AVISO_NEUTRO, DATOS_REGISTRADOS, COTIZACION_REGISTRADA, SINIESTRO_INSTRUCCIONES, SIN_ASISTENCIA, SIN_POLIZAS, SIN_CLIENTE)
+        and mensaje.texto in (AVISO_NEUTRO, DATOS_REGISTRADOS, COTIZACION_REGISTRADA, SINIESTRO_INSTRUCCIONES, SIN_ASISTENCIA, SIN_POLIZAS, SIN_CLIENTE, *AVISOS_COBERTURA)
         and (mensaje.payload or {}).get("aviso_derivacion") is True
         and Derivacion.objects.filter(consulta_id=consulta.id).exists()
     ):
@@ -581,6 +582,9 @@ def enviar_pendientes(conversacion_id: int) -> int:
         for mensaje in pendientes:
             if mensaje.estado_envio in NO_SE_ENVIAN:
                 continue
+            if (mensaje.payload or {}).get('aviso_gestion_id'):
+                from negocio.gestion_diaria import validar_antes_de_enviar
+                if not validar_antes_de_enviar(mensaje):continue
             mensaje.intentos_envio += 1
             if simulado:
                 mensaje.estado_envio = EstadoEnvio.ENVIADO

@@ -247,6 +247,7 @@ class Cliente(models.Model):
 
 
 class ContactoWhatsapp(models.Model):
+    acepta_avisos = models.BooleanField(default=True)
     id = models.BigAutoField(primary_key=True)
     numero = models.TextField()
     cliente = models.ForeignKey(
@@ -812,6 +813,39 @@ class DocumentoPoliza(models.Model):
         managed = False
         db_table = "documentos_polizas"
 
+class PlanCobertura(models.Model):
+    compania = models.ForeignKey(Compania, on_delete=models.DO_NOTHING)
+    nombre = models.TextField()
+    cubre = models.TextField()
+    no_cubre = models.TextField(default='')
+    limites = models.TextField(default='')
+    asistencia = models.TextField(default='')
+    activo = models.BooleanField(default=True)
+    version = models.IntegerField(default=1)
+    actualizado_por = models.ForeignKey(Funcionario, on_delete=models.DO_NOTHING)
+    actualizado_en = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = 'planes_cobertura'
+
+
+class CondicionesPoliza(models.Model):
+    poliza = models.OneToOneField(Poliza, primary_key=True, on_delete=models.DO_NOTHING)
+    cubre = models.TextField(default='')
+    no_cubre = models.TextField(default='')
+    limites = models.TextField(default='')
+    asistencia = models.TextField(default='')
+    documento = models.ForeignKey(DocumentoGeneral, null=True, on_delete=models.DO_NOTHING)
+    plan = models.ForeignKey(PlanCobertura, null=True, on_delete=models.DO_NOTHING)
+    plan_version = models.IntegerField(null=True)
+    actualizado_por = models.ForeignKey(Funcionario, on_delete=models.DO_NOTHING)
+    actualizado_en = models.DateTimeField(default=timezone.now)
+    class Meta:
+        managed = False
+        db_table = 'condiciones_poliza'
+
+
 class ContextoCobertura(models.Model):
     conversacion = models.OneToOneField(Conversacion, primary_key=True, on_delete=models.DO_NOTHING)
     cliente = models.ForeignKey(Cliente, on_delete=models.DO_NOTHING)
@@ -951,3 +985,5 @@ class Cotizacion(models.Model):
     class Meta:
         managed = False
         db_table = "cotizaciones"
+
+from datos import gestion_models  # Registra las tablas operativas managed=False.
