@@ -42,6 +42,9 @@ class FabricasTests(TestCase):
             ("moto", "Moto"),
         }
         consultas_esperadas = {
+            ('baja_avisos','No recibir recordatorios','bot_responde'),
+            ('credencial','Credencial de contacto','bot_responde'),
+            ('encuesta_respuesta','Respuesta de encuesta','bot_responde'),
             ("saludo", "Saludo", "bot_responde"),
             ("saldo", "Saldo pendiente", "bot_responde"),
             ("vencimiento", "Vencimiento de póliza", "bot_responde"),
@@ -78,7 +81,7 @@ class FabricasTests(TestCase):
         self.assertEqual(TipoSeguro.objects.count(), 5)
         # Los doce del seed original más registro, asistencia, pago,
         # agradecimiento y fuera de tema.
-        self.assertEqual(TipoConsulta.objects.count(), 18)
+        self.assertEqual(TipoConsulta.objects.count(), 21)
 
     # AC-T4-11
     def test_fabricas_crean_registros_validos_con_defaults_unicos(self):

@@ -1,5 +1,5 @@
-import { api } from "../api.js?v=20261104vencimientos2";
-import { inicializarNav } from "../nav.js?v=20261104vencimientos2";
+import { api } from "../api.js?v=20261104gestion2";
+import { inicializarNav } from "../nav.js?v=20261104flotante1";
 import {
     COBERTURAS,
     datosDelInteresado,
@@ -14,11 +14,11 @@ import {
     siguienteEtapa,
     validarCotizacion,
     validarMotivoPerdida,
-} from "../lib/embudo.js?v=20261104vencimientos2";
-import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261104vencimientos2";
-import { patenteValida } from "../lib/patente.js?v=20261104vencimientos2";
-import { ANIO_MINIMO, USOS } from "../lib/vehiculos.js?v=20261104vencimientos2";
-import { formatearPorcentaje } from "../lib/companias.js?v=20261104vencimientos2";
+} from "../lib/embudo.js?v=20261104gestion2";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261104gestion2";
+import { patenteValida } from "../lib/patente.js?v=20261104gestion2";
+import { ANIO_MINIMO, USOS } from "../lib/vehiculos.js?v=20261104gestion2";
+import { formatearPorcentaje } from "../lib/companias.js?v=20261104gestion2";
 
 const $ = (id) => document.getElementById(id);
 const mensajePagina = $("mensaje-pagina");
@@ -91,6 +91,14 @@ async function ejecutar(boton, accion) {
 function pintarCabecera() {
     document.title = `${nombreCompleto(interesado)} | Seguros Castaño`;
     $("titulo").textContent = nombreCompleto(interesado);
+    const chat = $("ver-conversacion");
+    chat.hidden = !interesado.conversacion_id;
+    chat.removeAttribute('href');
+    if (interesado.conversacion_id) {
+        chat.href = `/panel/conversacion/?id=${interesado.conversacion_id}`;
+        chat.title = 'Abrir la conversación más reciente de este interesado';
+    }
+    $("sin-conversacion").hidden = Boolean(interesado.conversacion_id);
 
     const insignias = [crearElemento("span", "pildora pildora-activa", etiquetaEtapa(interesado.estado)),
         crearElemento("span", "pildora", `Llegó por ${etiquetaOrigen(interesado.origen)}`)];

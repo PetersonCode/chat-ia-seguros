@@ -253,6 +253,29 @@ def alertas_abiertas(
     return alertas
 
 
+def bandeja_contactos(*, vista='atencion', **filtros):
+    """Una conversación representativa por contacto, sin mezclar expedientes históricos."""
+    ultima = Conversacion.objects.filter(contacto_id=OuterRef('contacto_id')).annotate(
+        abierta_primero=Case(When(estado='abierta', then=Value(0)), default=Value(1))
+    ).order_by('abierta_primero','-creada_en','-id').values('id')[:1]
+    base = bandeja(**filtros).filter(pk=Subquery(ultima)).annotate(
+        derivacion_pendiente=Exists(Derivacion.objects.filter(consulta__conversacion_id=OuterRef('pk'),atendida_en__isnull=True))
+    )
+    necesita = Q(estado='abierta') & (Q(retenidas__gt=0) | (Q(ultimo_emisor='cliente',modo='humano')) | (Q(derivacion_pendiente=True) & ~Q(ultimo_emisor='funcionario')))
+    grupos = {
+        'atencion': necesita,
+        'bot': Q(estado='abierta',modo='bot') & ~necesita,
+        'esperando': Q(estado='abierta',modo='humano') & ~necesita,
+        'resueltas': Q(estado='cerrada'),
+        'todas': Q(),
+    }
+    if vista not in grupos:
+        from negocio.errores import DatosInvalidos
+        raise DatosInvalidos('La vista de bandeja no es válida.')
+    cantidades = {k:base.filter(v).count() for k,v in grupos.items() if k!='todas'}
+    return base.filter(grupos[vista]).order_by('prioridad_bandeja',F('ultimo_fecha_hora').asc(nulls_last=True),'id'), cantidades
+
+
 def bandeja(
     *,
     estado: str | None = None,
@@ -522,10 +545,10 @@ def _condicion_de_busqueda_de_interesado(q: str) -> Q:
     por coincidencia exacta.
     """
     condicion = Q()
-    for palabra in q.split():
+    for palabra in q.translate(str.maketrans(ACENTOS, SIMPLES)).lower().split():
         por_palabra = (
-            Q(nombre__icontains=palabra)
-            | Q(apellido__icontains=palabra)
+            Q(nombre_busqueda__contains=palabra)
+            | Q(apellido_busqueda__contains=palabra)
             | Q(datos__patente__icontains=palabra.upper())
         )
         digitos = "".join(c for c in palabra if c.isdigit())
@@ -576,6 +599,11 @@ def listar_interesados(
     if origen:
         interesados = interesados.filter(origen=origen)
     if q and q.strip():
+        interesados = interesados.alias(**{
+            campo + '_busqueda': Lower(Func(F(campo), Value(ACENTOS), Value(SIMPLES),
+                function='TRANSLATE', output_field=TextField()))
+            for campo in ('nombre','apellido')
+        })
         interesados = interesados.filter(_condicion_de_busqueda_de_interesado(q.strip()))
     if seguimiento_vencido:
         interesados = interesados.filter(vencido)

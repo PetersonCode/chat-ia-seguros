@@ -17,7 +17,7 @@ PREGUNTAS = {
     'marca': '¿Cuál es la marca del vehículo?',
     'modelo': '¿Cuál es el modelo?',
     'anio': '¿De qué año es el vehículo?',
-    'clase': '¿Es auto, camioneta, utilitario o camión?',
+    'clase': '¿Es auto, moto, camioneta, utilitario o camión?',
     'uso': '¿Qué uso tiene: particular, comercial, remis/taxi o carga?',
     'chasis': '¿Cuál es el número de chasis? Si no lo tenés, escribí «omitir».',
     'valor_asegurado': '¿Cuál es el valor asegurado solicitado? Si todavía no lo sabés, escribí «omitir».',
@@ -37,7 +37,10 @@ OMITIR = {'omitir', 'no tengo', 'no se', 'sin dato', 'no lo tengo'}
 
 def quiere_alta(texto):
     t = normalizar(texto)
-    return bool(re.search(r'\b(?:contratar|asegurar|(?:registrar|cargar|dar de alta|agregar) (?:un |una |mi |el |la )?(?:poliza|seguro|vehiculo)|alta (?:de |una |de una |mi )?poliza|nueva poliza)\b', t)) and not re.search(r'\b(?:moto|hogar|vida|comercio)\b', t)
+    # Pedir un precio inicia el embudo de cotizaciones, no una emisión.
+    if re.search(r'\b(?:cotiza\w*|presupuesto|precio|cuanto (?:cuesta|sale|saldri[aá]))\b', t):
+        return False
+    return bool(re.search(r'\b(?:contratar|asegurar|(?:registrar|cargar|dar de alta|agregar) (?:un |una |mi |el |la )?(?:poliza|seguro|vehiculo)|alta (?:de |una |de una |mi )?poliza|nueva poliza)\b', t)) and not re.search(r'\b(?:hogar|vida|comercio)\b', t)
 
 
 def _compania(valor):
@@ -75,9 +78,9 @@ def _validar(campo, valor, datos, contacto):
     elif campo == 'anio':
         datos[campo] = _anio_validado(texto)
     elif campo == 'clase':
-        n = {'coche':'auto', 'automovil':'auto', 'pickup':'camioneta'}.get(n, n)
-        if n not in ('auto', 'camioneta', 'utilitario', 'camion'):
-            raise DatosInvalidos('Para este alta trabajamos con auto, camioneta, utilitario o camión.')
+        n = {'coche':'auto', 'automovil':'auto', 'pickup':'camioneta','motocicleta':'moto'}.get(n, n)
+        if n not in ('auto', 'moto', 'camioneta', 'utilitario', 'camion'):
+            raise DatosInvalidos('Para este alta trabajamos con auto, moto, camioneta, utilitario o camión.')
         datos[campo] = n
     elif campo == 'uso':
         n = {'remis/taxi':'remis_taxi', 'remis':'remis_taxi', 'taxi':'remis_taxi'}.get(n, n)

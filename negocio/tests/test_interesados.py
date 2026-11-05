@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone as tz
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
@@ -176,8 +177,11 @@ class MoverInteresadoTests(BaseInteresadosTests):
         interesado = self._crear(telefono="1155550010")
         antes = interesado.actualizado_en
 
-        interesados.mover_interesado(interesado.pk, "cotizando", self.diego.id, nota="Pidió precio")
-        interesados.mover_interesado(interesado.pk, "documentacion", self.graciela.id)
+        # Reloj controlado: dos llamadas rápidas pueden tener la misma marca
+        # temporal en Windows, sin que eso implique un error de persistencia.
+        with patch('negocio.interesados.timezone.now', return_value=antes+timedelta(seconds=1)):
+            interesados.mover_interesado(interesado.pk, "cotizando", self.diego.id, nota="Pidió precio")
+            interesados.mover_interesado(interesado.pk, "documentacion", self.graciela.id)
         # Emitir exige cliente y póliza: se prueba aparte.
 
         interesado.refresh_from_db()
@@ -501,7 +505,8 @@ class GestionDelInteresadoTests(BaseInteresadosTests):
         interesado = self._crear()
         antes = interesado.actualizado_en
 
-        interesados.asignar_interesado(interesado.pk, self.graciela.id, self.diego.id)
+        with patch('negocio.interesados.timezone.now', return_value=antes+timedelta(seconds=1)):
+            interesados.asignar_interesado(interesado.pk, self.graciela.id, self.diego.id)
 
         interesado.refresh_from_db()
         self.assertEqual(interesado.responsable_id, self.graciela.id)

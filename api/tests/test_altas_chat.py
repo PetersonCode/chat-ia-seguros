@@ -62,6 +62,19 @@ class AltasChatTests(ApiTestCase):
             aprobar_accion(accion.id, self.aprobadora.id, prima_mensual='48000')
         self.assertEqual(Mensaje.objects.filter(payload__accion_id=accion.id).count(), 1)
 
+    def test_moto_se_prepara_y_el_humano_confirma_ingresando_solo_la_prima(self):
+        self.turno('Quiero asegurar mi moto')
+        self.turno(self.datos(Patente='A123BCD',Clase='moto',Marca='Honda',Modelo='Wave'))
+        accion=AccionPendiente.objects.get(tipo_accion='alta_poliza')
+        self.assertEqual(accion.parametros['clase'],'moto')
+        self.entrar()
+        with self.captureOnCommitCallbacks(execute=True):
+            r=self.cliente_api.post(f'/api/acciones/{accion.id}/aprobar/',{'prima_mensual':'18000'},format='json')
+        self.assertEqual(r.status_code,200,r.content)
+        accion.refresh_from_db()
+        self.assertEqual(accion.poliza.vehiculo.clase,'moto')
+        self.assertEqual(accion.poliza.vehiculo.patente,'A123BCD')
+
     def test_faltan_prima_y_permiso_no_se_crea_nada_y_todo_sigue_pendiente(self):
         accion = self.preparar()
         self.entrar(self.operador)

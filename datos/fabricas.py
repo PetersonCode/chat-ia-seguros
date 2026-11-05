@@ -58,6 +58,9 @@ _TIPOS_SEGURO = (
 )
 
 _TIPOS_CONSULTA = (
+    ('baja_avisos','No recibir recordatorios','bot_responde'),
+    ('credencial','Credencial de contacto','bot_responde'),
+    ('encuesta_respuesta','Respuesta de encuesta','bot_responde'),
     ("saludo", "Saludo", "bot_responde"),
     ("saldo", "Saldo pendiente", "bot_responde"),
     ("vencimiento", "Vencimiento de póliza", "bot_responde"),

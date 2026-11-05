@@ -1,6 +1,7 @@
-import { api } from "../api.js?v=20261104altas1";
-import { inicializarNav } from "../nav.js?v=20261104altas1";
-import { formatearPorcentaje, validarCompania } from "../lib/companias.js?v=20261104altas1";
+import { api } from "../api.js?v=20261104gestion2";
+import { inicializarNav } from "../nav.js?v=20261104flotante1";
+import { formatearPorcentaje, validarCompania } from "../lib/companias.js?v=20261104gestion2";
+import { inicializarPlanes } from "../lib/planes.js?v=20261104gestion2";
 
 const mensajePagina = document.getElementById("mensaje-pagina");
 const contenido = document.getElementById("contenido-companias");
@@ -150,6 +151,7 @@ function renderizar(companias) {
 async function cargarCompanias() {
     const respuesta = await api.get("/api/companias/");
     renderizar(respuesta.resultados ?? []);
+    await inicializarPlanes(esAprobador,respuesta.resultados??[]);
 }
 
 function pintarErroresAlta(errores) {

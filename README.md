@@ -27,7 +27,7 @@ Copy-Item .env.demo.example .env
 
 Editar `.env` con el secreto generado y la conexión de una base propia. Usar `.venv` para los comandos siguientes (activar el entorno o llamar su `python.exe`). No subir `.env` a GitHub.
 
-En una base nueva de demostración aplicar SQL **01 a 13, 17, 22 y 23 en orden**, incluyendo 02 para cargar funcionarios y catálogos ficticios. SQL 12 agrega la charla de tu compañero; SQL 13 (P1) agrega vehículos y compañías; SQL 17 (P5) agrega el embudo de interesados y las cotizaciones; SQL 22 incorpora el hardening y SQL 23 agrega los recordatorios de vencimiento. Los números 14–16 y 18–21 están reservados para los planes P2–P4 y P6–P9 y todavía no tienen scripts ni implementación. Nunca ejecutar 00 sobre datos que quieran conservar. Ejemplo PowerShell, adaptando la conexión a `.env`:
+En una base nueva de demostración aplicar SQL **01 a 13, 17 y 22 a 28 en orden**, incluyendo 02 para cargar funcionarios y catálogos ficticios. SQL 12 agrega la charla; SQL 13 agrega vehículos y compañías; SQL 17 agrega interesados y cotizaciones; SQL 22 incorpora el hardening, SQL 23 los recordatorios, SQL 24 la cartera, SQL 25 las altas por chat y SQL 26 los planes y las condiciones de póliza. Los números 14–16 y 18–21 están reservados para especificaciones futuras. Nunca ejecutar 00 sobre datos que quieran conservar. Ejemplo PowerShell, adaptando la conexión a `.env`:
 
 ```powershell
 Get-ChildItem .\SDD\sql\*.sql |
@@ -55,15 +55,17 @@ python manage.py reprocesar_pendientes --continuo
 
 ### Base existente del ZIP final recibido
 
-Respaldar. Si ya se aplicaron 01 a 11, aplicar **SQL 12 (charla), 13 (vehículos/compañías), 22 (seguridad), 23 (recordatorios), 24 (cartera) y 25 (altas por chat)**, y ejecutar `migrate`. No volver a ejecutar el seed ni 00.
+Respaldar. Si ya se aplicaron 01 a 11, aplicar **SQL 12 (charla), 13 (vehículos/compañías), 17 (interesados), 22 (seguridad), 23 (recordatorios), 24 (cartera), 25 (altas por chat) y 26 (planes y condiciones por póliza)**, y ejecutar `migrate`. No volver a ejecutar el seed ni 00.
 
 ```powershell
 psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\12_tipos_de_charla.sql
 psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\13_vehiculos_companias.sql
+psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\17_interesados.sql
 psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\22_seguridad_y_coberturas.sql
 psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\23_recordatorios_polizas.sql
 psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\24_cartera_vehiculos.sql
 psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\25_altas_por_chat.sql
+psql -h localhost -p 5432 -U seguros_dev -d proyecto -v ON_ERROR_STOP=1 -f .\SDD\sql\26_condiciones_en_poliza.sql
 python manage.py migrate
 python manage.py check
 ```
@@ -116,7 +118,9 @@ En producción: `DJANGO_DEBUG=false`, `MODO_DEMOSTRACION=false`, secreto propio,
 
 ## Cargar información de la agencia
 
-Entrar como aprobador en **Documentos**. Pegar texto, indicar el número de póliza si son condiciones particulares, guardar borrador y aprobarlo. Esa preparación se hace una vez, no para cada cliente. No hay importador automático de PDF/Word: el lote de exposición ya incorpora el texto relevante del PDF sin cargar sus DNI o registros operativos en el buscador.
+Entrar como aprobador en **Compañías → Planes por compañía**. Cargar una vez qué cubre cada plan, sus exclusiones, límites de referencia y asistencia. En **Pólizas**, elegir el plan de esa compañía, revisar las particularidades del contrato y guardar: el bot ya puede consultar esa copia, sin un trámite documental separado. Editar un plan no modifica contratos existentes. La pantalla histórica de Documentos se conserva fuera del menú, junto con sus datos y vínculos. No hay importador automático de PDF/Word.
+
+Para actualizar desde `main` e8b1b46, aplicar **solo SQL 26** y reiniciar web y worker. [Flujo de planes, actualización y límites del bot](docs/POLIZAS-Y-PLANES.md).
 
 El modelo gratuito de FastEmbed/ONNX se descarga con `preparar_busqueda` una sola vez y corre localmente. Los pesos no están dentro del ZIP para evitar cientos de MB; se conservan en `.modelos/` o en el volumen Docker `modelos`. Si falta, sigue la búsqueda por conceptos. No hace falta una API paga.
 
@@ -141,3 +145,9 @@ La suite crea y destruye `test_proyecto`, requiere CREATEDB y fuerza simulación
 - `evidencia/RESULTADOS.md`: pruebas realmente ejecutadas y sus límites.
 
 Los SDD previos se conservan como antecedentes; README y `docs/` describen esta versión. P1 y P5 están entregados (P5 sin el seguimiento automático ni el comparador de renovaciones, que esperan a P2 y P3); P2–P4 y P6–P9 son especificaciones futuras, no funcionalidades entregadas: el verificador SDD también cuenta sus criterios pendientes. Esto no constituye una certificación ISO ni un informe SOC 2. Repetir la exposición en la computadora del equipo y declarar la asistencia de IA conforme a la consigna.
+
+## Gestión del equipo y fidelización
+
+Inicio reúne los pendientes del día, tareas, avisos y el reporte mensual. El menú es lateral en escritorio y desplegable en móvil. Incluye notas internas, renovación confirmada por un aprobador, credencial de contacto, cumpleaños opcionales, referidos y encuesta breve.
+
+Desde el PR #8: respaldar, aplicar SQL 27 y 28 en orden y reiniciar web y workers. Los envíos automáticos se activan desde Inicio; la actualización los deja apagados inicialmente. [Guía de funcionamiento, reglas de envío y demostración](docs/GESTION-FAMILIAR.md).

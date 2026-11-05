@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20261104altas1";
+import { api } from "./api.js?v=20261104gestion2";
 
 const contadores = [
     { clave: "acciones", etiqueta: "Acciones", destino: "/panel/acciones/" },
@@ -11,12 +11,13 @@ const SITIO_WEB = "https://beelyora.com/castano-page";
 const LOGO = "/static/img/logo-castano.png?v=1";
 
 const destinos = [
+    { etiqueta: "Inicio", destino: "/panel/inicio/" },
     { etiqueta: "Bandeja", destino: "/panel/" },
     { etiqueta: "Clientes", destino: "/panel/clientes/" },
+    { etiqueta: "Pólizas", destino: "/panel/polizas/" },
     { etiqueta: "Interesados", destino: "/panel/interesados/" },
     { etiqueta: "Compañías", destino: "/panel/companias/" },
     { etiqueta: "Vencimientos", destino: "/panel/vencimientos/" },
-    { etiqueta: "Documentos", destino: "/panel/documentos/" },
     { etiqueta: "Siniestros", destino: "/panel/siniestros/" },
     { etiqueta: "Reportes", destino: "/panel/reportes/" },
     { etiqueta: "Casos cerrados", destino: "/panel/cerrados/" },
@@ -103,6 +104,7 @@ function iniciales(nombre) {
  */
 function crearNavegacion(nav) {
     nav.className = "navbar bg-white border-bottom";
+    document.body.classList.add('con-menu-lateral');
     const contenedor = crearElemento("div", "container-fluid barra");
 
     // El logo lleva al sitio de la agencia; el nombre, a la bandeja.
@@ -115,13 +117,17 @@ function crearNavegacion(nav) {
     logo.append(imagen);
 
     const nombre = crearElemento("a", "navbar-brand", "Seguros Castaño");
-    nombre.href = "/panel/";
+    nombre.href = "/panel/inicio/";
 
     const marca = crearElemento("div", "nav-marca");
     marca.append(logo, nombre);
 
     // Grupo 1: navegación.
     const principal = crearElemento("ul", "navbar-nav nav-principal flex-row");
+    principal.id='navegacion-secciones';
+    const menu=crearElemento('button','btn btn-outline-secondary btn-sm nav-menu-toggle','Menú');
+    menu.type='button';menu.setAttribute('aria-controls',principal.id);menu.setAttribute('aria-expanded','false');
+    menu.onclick=()=>{const abierto=nav.classList.toggle('menu-abierto');menu.setAttribute('aria-expanded',String(abierto));};
     for (const destino of destinos) {
         const item = crearElemento("li", "nav-item");
         const enlace = crearElemento("a", "nav-link", destino.etiqueta);
@@ -165,6 +171,7 @@ function crearNavegacion(nav) {
         salida.disabled = true;
         try {
             await api.post("/api/auth/logout/");
+            try { for (const clave of Object.keys(sessionStorage)) { if (clave.startsWith("castano.chat.")) sessionStorage.removeItem(clave); } } catch {}
             globalThis.location.assign("/");
         } catch (error) {
             mostrarError(nav, error.mensaje ?? "No se pudo cerrar la sesión.");
@@ -180,7 +187,7 @@ function crearNavegacion(nav) {
         salida,
     );
 
-    contenedor.append(marca, principal, derecha);
+    contenedor.append(marca, menu, principal, derecha);
     nav.replaceChildren(contenedor);
     return { usuario, avatar, enlaces, principal };
 }

@@ -5,6 +5,8 @@ from django.conf import settings
 from django.http import JsonResponse
 
 from api.paginas import servir_pagina
+from api import gestion_diaria as gestion
+from api import fidelizacion
 from api.views import (
     accion_aprobar,
     accion_finalizar,
@@ -74,11 +76,37 @@ from api.views import (
 )
 from api.vencimientos import vencimientos, recordatorio
 from api.cartera import poliza_cartera, comisiones
+from api.diagnostico_bot import diagnostico
+from api.condiciones_poliza import condiciones, listar as polizas_listar
+from api.planes_cobertura import listar_o_crear as planes_listar, detalle as plan_detalle
 from api.webhook import webhook_whatsapp
 
 from api.views import poliza_vincular_documento
 
 urlpatterns = [
+    path('panel/inicio/',servir_pagina),
+    path('api/gestion/inicio/',gestion.inicio),
+    path('api/gestion/reporte/',fidelizacion.reporte),
+    path('api/gestion/encuestas/',fidelizacion.encuestas),
+    path('api/gestion/clientes/<int:id>/perfil/',fidelizacion.perfil),
+    path('api/gestion/clientes/<int:id>/referidos/',fidelizacion.referido_crear),
+    path('api/gestion/referidos/<int:id>/',fidelizacion.referido_resolver),
+    path('api/gestion/polizas/<int:id>/renovar/',fidelizacion.poliza_renovar),
+    path('api/gestion/polizas/<int:id>/credencial/',fidelizacion.credencial),
+    path('api/gestion/tareas/',gestion.tareas),
+    path('api/gestion/tareas/<int:id>/',gestion.tarea_cambiar),
+    path('api/gestion/clientes/<int:id>/notas/',gestion.notas),
+    path('api/gestion/avisos/',gestion.avisos),
+    path('api/gestion/avisos/<int:id>/resolver/',gestion.aviso_resolver),
+    path('api/gestion/config/',gestion.configurar),
+    path('api/gestion/actualizar/',gestion.actualizar),
+    path('api/gestion/contactos/<int:id>/',gestion.preferencia),
+    path('api/polizas/',polizas_listar),
+    path('api/planes-cobertura/',planes_listar),
+    path('api/planes-cobertura/<int:id>/',plan_detalle),
+    path('api/polizas/<int:id>/condiciones/',condiciones),
+    path('panel/polizas/',servir_pagina),
+    path('api/polizas/<int:id>/diagnostico-bot/', diagnostico),
     path("api/polizas/<int:id>/cartera/", poliza_cartera, name="api_poliza_cartera"),
     path("api/reportes/comisiones/", comisiones, name="api_comisiones"),
     path("api/vencimientos/", vencimientos, name="api_vencimientos"),

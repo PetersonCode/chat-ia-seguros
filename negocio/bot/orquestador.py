@@ -240,11 +240,19 @@ def _respuesta_asistencia(cliente_id: int | None) -> _Respuesta:
     sin póliza vigente el bot no elige un número al azar, deriva (R12).
     """
     vigentes = list(polizas_vigentes(cliente_id).filter(tipo_seguro__codigo="automotor")) if cliente_id is not None else []
-    cubiertas = [
-        (poliza, plantillas.TELEFONOS_ASISTENCIA[poliza.cobertura])
-        for poliza in vigentes
-        if poliza.cobertura in plantillas.TELEFONOS_ASISTENCIA
-    ]
+    from datos.models import CondicionesPoliza
+    condiciones = {c.poliza_id: c for c in CondicionesPoliza.objects.filter(
+        poliza_id__in=[p.id for p in vigentes]).select_related('documento','plan')}
+    cubiertas = []
+    for poliza in vigentes:
+        propias = condiciones.get(poliza.id)
+        if propias is not None:
+            valida = not propias.plan_id or propias.plan.compania_id == poliza.compania_id
+            telefono = propias.asistencia if valida and propias.documento_id and propias.documento.estado == 'aprobado' else ''
+        else:
+            telefono = plantillas.TELEFONOS_ASISTENCIA.get(poliza.cobertura)
+        if telefono:
+            cubiertas.append((poliza, telefono))
     if not cubiertas:
         return _Respuesta(plantillas.SIN_ASISTENCIA, derivar_a=DERIVACION_POR_DEFECTO)
 
@@ -253,11 +261,12 @@ def _respuesta_asistencia(cliente_id: int | None) -> _Respuesta:
 
     if len(cubiertas) == 1:
         poliza, telefono = cubiertas[0]
-        texto = plantillas.ASISTENCIA_UNICA.format(
+        texto = (f'El teléfono de asistencia registrado para tu póliza {poliza.numero_poliza} es {telefono}.'
+                 if poliza.id in condiciones else plantillas.ASISTENCIA_UNICA.format(
             numero_poliza=poliza.numero_poliza,
             cobertura=poliza.cobertura,
             telefono=telefono,
-        )
+        ))
     else:
         lineas = "\n".join(
             plantillas.LINEA_ASISTENCIA.format(
@@ -305,7 +314,7 @@ def _respuesta_documental(texto: str, conversacion=None) -> _Respuesta:
             contexto = contexto_vigente(conversacion)
             eligiendo = bool(contexto and contexto.pregunta)
             requiere_asesor = personal[1] is None and not eligiendo
-            return _Respuesta(plantillas.DERIVACION if requiere_asesor else personal[0], fragmento_documental_id=personal[1],
+            return _Respuesta(personal[0], fragmento_documental_id=personal[1],
                 derivar_a=DERIVACION_POR_DEFECTO if requiere_asesor else None)
     recuperacion = buscar_fragmentos(texto)
     if not recuperacion["respaldo_suficiente"]:
@@ -353,10 +362,22 @@ def _armar_respuesta(
 ) -> _Respuesta:
     if politica == Politica.SEGURIDAD:
         return _Respuesta(plantillas.RECHAZO_SEGURIDAD)
+    if tipo == 'baja_avisos':
+        from negocio.gestion_diaria import desactivar_avisos
+        desactivar_avisos(contacto.id)
+        return _Respuesta('Listo, no te vamos a mandar más recordatorios. Si necesitás algo, escribinos cuando quieras.')
+    if tipo == 'encuesta_respuesta':
+        from negocio.fidelizacion import responder_encuesta
+        import re
+        return _Respuesta(responder_encuesta(contacto,int(re.search(r'[1-5]',texto).group())))
+    if tipo == 'credencial':
+        from negocio.fidelizacion import credencial_chat
+        contenido,verificados=credencial_chat(conversacion)
+        return _Respuesta(contenido,datos_verificados=frozenset(verificados))
     import re
     from negocio.bot.clasificador import normalizar
-    if tipo not in {'siniestro_urgente', 'siniestro'} and re.search(r'(?:seguro|poliza) (?:de |del )?(?:hogar|vida|comercio|moto)|(?:la|el) de (?:hogar|vida|comercio|moto)', normalizar(texto)):
-        return _Respuesta('Actualmente trabajamos solo con seguros automotores. Puedo ayudarte con tu auto, sus coberturas, pagos o siniestros.')
+    if tipo not in {'siniestro_urgente', 'siniestro'} and re.search(r'(?:seguro|poliza) (?:de |del )?(?:hogar|vida|comercio)|(?:la|el) de (?:hogar|vida|comercio)', normalizar(texto)):
+        return _Respuesta('Actualmente trabajamos con seguros de autos y motos. Puedo ayudarte con sus coberturas, pagos o siniestros.')
     if tipo == "consulta_cobertura":
         return _respuesta_documental(texto, conversacion)
     # El alta de cliente es `requiere_aprobacion` pero no se puede pedir sin
@@ -414,7 +435,7 @@ def _crear_alertas(
 
 
 def _crear_saliente(
-    conversacion, consulta: ConsultaBot, texto: str, estado: str
+    conversacion, consulta: ConsultaBot, texto: str, estado: str, *, aviso_derivacion=False
 ) -> Mensaje:
     return Mensaje.objects.create(
         conversacion=conversacion,
@@ -425,7 +446,7 @@ def _crear_saliente(
         estado_envio=estado,
         payload=(
             {"aviso_derivacion": True}
-            if texto in (plantillas.AVISO_NEUTRO, plantillas.DATOS_REGISTRADOS, plantillas.COTIZACION_REGISTRADA, plantillas.SINIESTRO_INSTRUCCIONES, plantillas.SIN_ASISTENCIA, plantillas.SIN_POLIZAS, plantillas.SIN_CLIENTE)
+            if aviso_derivacion or texto in (plantillas.AVISO_NEUTRO, plantillas.DATOS_REGISTRADOS, plantillas.COTIZACION_REGISTRADA, plantillas.SINIESTRO_INSTRUCCIONES, plantillas.SIN_ASISTENCIA, plantillas.SIN_POLIZAS, plantillas.SIN_CLIENTE)
             else None
         ),
         fecha_hora=timezone.now(),
@@ -881,7 +902,7 @@ def _continuar_cotizacion(
     o un siniestro (que salen de reglas fijas, no del LLM) y un intento de
     manipulación interrumpen el pedido. `None` si no hay ninguno en curso.
     """
-    if tipo in {"cotizacion", "siniestro_urgente", "siniestro"}:
+    if tipo in {"baja_avisos", "encuesta_respuesta", "credencial", "cotizacion", "siniestro_urgente", "siniestro", "consulta_cobertura", "saldo", "vencimiento", "asistencia"}:
         return None  # la cotización la arma `_armar_respuesta`; lo otro, no espera
     if contacto is None or politica == Politica.SEGURIDAD:
         return None
@@ -974,6 +995,9 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
         "conversacion", "conversacion__contacto"
     ).get(pk=mensaje_id)
     conversacion = mensaje.conversacion
+    if mensaje.direccion == 'entrante' and clasificar_por_reglas(mensaje.texto or '') == 'baja_avisos':
+        from negocio.gestion_diaria import desactivar_avisos
+        desactivar_avisos(conversacion.contacto_id)
 
     # Un número que insistió en manipular al bot queda ignorado un tiempo, lo
     # atienda el bot o una persona.
@@ -1019,7 +1043,8 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
     tipo_por_reglas = clasificar_por_reglas(texto)
     alta_preparada = None
     from negocio.bot.alta_poliza import preparar_turno, quiere_alta
-    if not alertas_entrada and tipo_por_reglas not in {'siniestro_urgente','siniestro','baja','reclamo'} and (tipo_por_reglas != 'modificacion' or quiere_alta(texto)) and not pide_un_humano(texto):
+    cotizacion_en_curso = cotizacion.datos_de_la_cotizacion(conversacion.id).intentos > 0
+    if not cotizacion_en_curso and not alertas_entrada and tipo_por_reglas not in {'baja_avisos','encuesta_respuesta','credencial','siniestro_urgente','siniestro','baja','reclamo'} and (tipo_por_reglas != 'modificacion' or quiere_alta(texto)) and not pide_un_humano(texto):
         alta_preparada = preparar_turno(texto, conversacion, max(previo.id for previo in agrupados))
         if alta_preparada:
             tipo_por_reglas = 'alta_poliza'
@@ -1029,7 +1054,7 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
     if alertas_entrada:
         # AC-T3-32: con inyección no se llama al LLM y se responde el rechazo.
         tipo = "prompt_injection"
-    elif tipo_por_reglas in {"alta_poliza", "siniestro_urgente", "siniestro", "consulta_cobertura", "agradecimiento", "ajeno"}:
+    elif tipo_por_reglas in {"baja_avisos", "encuesta_respuesta", "credencial", "alta_poliza", "siniestro_urgente", "siniestro", "consulta_cobertura", "agradecimiento", "ajeno"}:
         # Un modelo generativo no puede ocultar un incidente ni cambiar un cierre cordial.
         tipo = tipo_por_reglas
     else:
@@ -1163,6 +1188,7 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
             consulta,
             respuesta.texto,
             EstadoEnvio.RETENIDO if retenido else EstadoEnvio.PENDIENTE_ENVIO,
+            aviso_derivacion=respuesta.derivar_a is not None and not retenido,
         )
         _crear_alertas(consulta, alertas_salida, saliente)
 

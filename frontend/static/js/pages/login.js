@@ -1,4 +1,4 @@
-import { api, ApiError } from "../api.js?v=20261104altas1";
+import { api, ApiError } from "../api.js?v=20261104gestion2";
 
 const formulario = document.getElementById("formulario-login");
 const aviso = document.getElementById("mensaje-login");
@@ -31,7 +31,7 @@ formulario.addEventListener("submit", async (evento) => {
             email: datos.get("email"),
             password: datos.get("password"),
         });
-        globalThis.location.assign("/panel/");
+        globalThis.location.assign("/panel/inicio/");
     } catch (error) {
         if (error instanceof ApiError) {
             mostrarMensaje(error.mensaje);

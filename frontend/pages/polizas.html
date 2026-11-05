@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pólizas | Seguros Castaño</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/app.css?v=20261104gestion2">
+    <link rel="stylesheet" href="/static/css/tema.css?v=20261104tema3"></head><body>
+<nav id="nav" aria-label="Navegación principal"></nav>
+<main class="container-fluid px-3 px-lg-4 py-4"><h1 class="h3">Pólizas</h1>
+<p class="text-muted">Elegí la póliza y cargá qué cubre, sus exclusiones y límites. El bot consulta los datos de ese cliente.</p>
+<p class="small">Para registrar una póliza nueva o completar su compañía, entrá a la <a href="/panel/clientes/">ficha del cliente</a>. También podés preparar un alta desde el chat.</p>
+<p class="small">Los planes reutilizables se administran en <a href="/panel/companias/">Compañías</a>.</p>
+<form id="buscar-polizas" class="input-group mb-3"><input id="busqueda" class="form-control" aria-label="Buscar póliza, cliente o patente"><button class="btn btn-primary">Buscar</button></form>
+<p id="estado" role="status"></p><div class="card border-0"><div class="table-responsive"><table class="table table-hover mb-0">
+<thead><tr><th>Póliza</th><th>Cliente</th><th>Patente</th><th>Compañía</th><th>Estado</th><th>Condiciones</th></tr></thead><tbody id="filas"></tbody></table></div></div>
+<div class="d-flex gap-3 mt-3"><button id="anterior" class="btn btn-outline-secondary">Anterior</button><span id="pagina"></span><button id="siguiente" class="btn btn-outline-secondary">Siguiente</button></div>
+<dialog id="editar-condiciones" class="dialog-accion"><form id="condiciones" class="p-4">
+<h2 id="titulo-condiciones" class="h5"></h2><p class="small">Al guardar, estos datos quedan disponibles para las consultas del bot. No hace falta cargar ni vincular un documento aparte.</p>
+<label for="elegir-plan" class="form-label">Plan de esta compañía (opcional)</label><select id="elegir-plan" class="form-select mb-2"></select>
+<button id="aplicar-plan" type="button" class="btn btn-sm btn-outline-primary mb-2">Completar desde este plan</button>
+<p id="version-plan" class="small text-muted">Podés cargar condiciones particulares sin usar un plan.</p>
+<label for="cubre" class="form-label">Qué cubre</label><textarea id="cubre" name="cubre" class="form-control mb-3" rows="3" required maxlength="10000"></textarea>
+<label for="no-cubre" class="form-label">Qué no cubre</label><textarea id="no-cubre" name="no_cubre" class="form-control mb-3" rows="2" maxlength="10000"></textarea>
+<label for="limites" class="form-label">Límites y franquicia</label><textarea id="limites" name="limites" class="form-control mb-3" rows="2" maxlength="10000"></textarea>
+<label for="asistencia" class="form-label">Teléfono de asistencia</label><input id="asistencia" name="asistencia" class="form-control mb-3" maxlength="100">
+<p id="error" class="text-danger" role="alert"></p><div class="d-flex justify-content-end gap-2"><button id="cancelar" type="button" class="btn btn-outline-secondary">Cerrar</button><button id="guardar" class="btn btn-primary">Guardar condiciones</button></div>
+</form></dialog></main><script type="module" src="/static/js/pages/polizas.js?v=20261104flotante1"></script><script type="module" src="/static/js/lib/chat-flotante.js?v=20261104flotante3"></script>
+</body></html>
