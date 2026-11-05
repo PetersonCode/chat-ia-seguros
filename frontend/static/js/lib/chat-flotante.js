@@ -1,7 +1,7 @@
-import { api } from '../api.js?v=20261105revision10';
-import { fusionarMensajes } from './mensajes.js?v=20261105revision10';
-import { formatearFechaHora } from './formato.js?v=20261105revision10';
-import { crearTarjetaAdjunto, esMarcadorDeArchivo } from './adjuntos.js?v=20261105revision10';
+import { api } from '../api.js?v=20261105burbujas1';
+import { fusionarMensajes } from './mensajes.js?v=20261105burbujas1';
+import { formatearFechaHora } from './formato.js?v=20261105burbujas1';
+import { crearTarjetaAdjunto, esMarcadorDeArchivo } from './adjuntos.js?v=20261105burbujas1';
 
 // Solo referencias y borradores por usuario; nunca se almacena el historial.
 const PREFIJO = 'castano.chat.';

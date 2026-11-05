@@ -1,12 +1,6 @@
-<<<<<<< HEAD
-import { api } from "../api.js?v=20261105revision10";
-import { inicializarNav } from "../nav.js?v=20261105revision10";
-import { abrirRenovacion } from "../lib/renovacion.js?v=20261105revision10";
-=======
 import { api } from "../api.js?v=20261105burbujas1";
 import { inicializarNav } from "../nav.js?v=20261105burbujas1";
 import { abrirRenovacion } from "../lib/renovacion.js?v=20261105burbujas1";
->>>>>>> origin/main
 let puedeAprobar=false,personaActual=null,equipo=[];
 const $=id=>document.getElementById(id);
 const el=(tag,texto,clase='')=>{const n=document.createElement(tag);n.textContent=texto;n.className=clase;return n;};

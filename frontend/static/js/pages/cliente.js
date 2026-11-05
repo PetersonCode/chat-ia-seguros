@@ -1,47 +1,26 @@
-<<<<<<< HEAD
-import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105revision10";
-import { api } from "../api.js?v=20261105revision10";
-import { abrirRegistroPago } from '../lib/pagos.js?v=20261105revision10';
-import { inicializarNav } from "../nav.js?v=20261105revision10";
-import { iniciarNotas } from "../lib/notas.js?v=20261105revision10";
-import { iniciarFidelizacion } from "../lib/fidelizacion.js?v=20261105revision10";
-import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261105revision10";
-=======
 import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105burbujas1";
 import { api } from "../api.js?v=20261105burbujas1";
-import { abrirRegistroPago } from '../lib/pagos.js?v=20261105revision9';
+import { abrirRegistroPago } from '../lib/pagos.js?v=20261105burbujas1';
 import { inicializarNav } from "../nav.js?v=20261105burbujas1";
 import { iniciarNotas } from "../lib/notas.js?v=20261105burbujas1";
 import { iniciarFidelizacion } from "../lib/fidelizacion.js?v=20261105burbujas1";
 import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261105burbujas1";
->>>>>>> origin/main
 import {
     etiquetaEstadoPoliza,
     mesesDeCobertura,
     ordenarPolizas,
     validarPoliza,
-<<<<<<< HEAD
-} from "../lib/polizas.js?v=20261105revision10";
-import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261105revision10";
-import { normalizarPatente } from "../lib/patente.js?v=20261105revision10";
-=======
 } from "../lib/polizas.js?v=20261105burbujas1";
 import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261105burbujas1";
 import { normalizarPatente } from "../lib/patente.js?v=20261105burbujas1";
->>>>>>> origin/main
 import {
     USOS,
     CLASES,
     descripcionVehiculo,
     etiquetaUso,
     validarVehiculo,
-<<<<<<< HEAD
-} from "../lib/vehiculos.js?v=20261105revision10";
-import { formatearPorcentaje } from "../lib/companias.js?v=20261105revision10";
-=======
 } from "../lib/vehiculos.js?v=20261105burbujas1";
 import { formatearPorcentaje } from "../lib/companias.js?v=20261105burbujas1";
->>>>>>> origin/main
 
 const dialogoCartera = document.getElementById("dialog-cartera");
 const formularioCartera = document.getElementById("formulario-cartera");

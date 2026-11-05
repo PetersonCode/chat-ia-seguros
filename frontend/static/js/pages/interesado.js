@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-import { api } from "../api.js?v=20261105revision10";
-import { inicializarNav } from "../nav.js?v=20261105revision10";
-=======
 import { api } from "../api.js?v=20261105burbujas1";
 import { inicializarNav } from "../nav.js?v=20261105burbujas1";
->>>>>>> origin/main
 import {
     COBERTURAS,
     datosDelInteresado,
@@ -19,19 +14,11 @@ import {
     siguienteEtapa,
     validarCotizacion,
     validarMotivoPerdida,
-<<<<<<< HEAD
-} from "../lib/embudo.js?v=20261105revision10";
-import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261105revision10";
-import { patenteValida } from "../lib/patente.js?v=20261105revision10";
-import { ANIO_MINIMO, USOS, CLASES } from "../lib/vehiculos.js?v=20261105revision10";
-import { formatearPorcentaje } from "../lib/companias.js?v=20261105revision10";
-=======
 } from "../lib/embudo.js?v=20261105burbujas1";
 import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261105burbujas1";
 import { patenteValida } from "../lib/patente.js?v=20261105burbujas1";
 import { ANIO_MINIMO, USOS, CLASES } from "../lib/vehiculos.js?v=20261105burbujas1";
 import { formatearPorcentaje } from "../lib/companias.js?v=20261105burbujas1";
->>>>>>> origin/main
 
 const $ = (id) => document.getElementById(id);
 const mensajePagina = $("mensaje-pagina");

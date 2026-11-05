@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { formatearMonto } from "./formato.js?v=20261105revision10";
-=======
 import { formatearMonto } from "./formato.js?v=20261105burbujas1";
->>>>>>> origin/main
 
 const tiposQueRequierenPoliza = new Set([
     "baja_poliza",
