@@ -1,25 +1,26 @@
-import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105borrar1";
-import { api } from "../api.js?v=20261104gestion2";
-import { inicializarNav } from "../nav.js?v=20261104flotante1";
-import { iniciarNotas } from "../lib/notas.js?v=20261104gestion2";
-import { iniciarFidelizacion } from "../lib/fidelizacion.js?v=20261104gestion2";
-import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261104gestion2";
+import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105revision9";
+import { api } from "../api.js?v=20261105revision9";
+import { abrirRegistroPago } from '../lib/pagos.js?v=20261105revision9';
+import { inicializarNav } from "../nav.js?v=20261105revision9";
+import { iniciarNotas } from "../lib/notas.js?v=20261105revision9";
+import { iniciarFidelizacion } from "../lib/fidelizacion.js?v=20261105revision9";
+import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261105revision9";
 import {
     etiquetaEstadoPoliza,
     mesesDeCobertura,
     ordenarPolizas,
     validarPoliza,
-} from "../lib/polizas.js?v=20261104gestion2";
-import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261104gestion2";
-import { normalizarPatente } from "../lib/patente.js?v=20261104gestion2";
+} from "../lib/polizas.js?v=20261105revision9";
+import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261105revision9";
+import { normalizarPatente } from "../lib/patente.js?v=20261105revision9";
 import {
     USOS,
     CLASES,
     descripcionVehiculo,
     etiquetaUso,
     validarVehiculo,
-} from "../lib/vehiculos.js?v=20261104gestion2";
-import { formatearPorcentaje } from "../lib/companias.js?v=20261104gestion2";
+} from "../lib/vehiculos.js?v=20261105revision9";
+import { formatearPorcentaje } from "../lib/companias.js?v=20261105revision9";
 
 const dialogoCartera = document.getElementById("dialog-cartera");
 const formularioCartera = document.getElementById("formulario-cartera");
@@ -218,7 +219,7 @@ function renderizarCuotas(contenedor, cuotas) {
     cabecera.append(encabezado);
     tabla.append(cabecera);
     const cuerpo = document.createElement("tbody");
-    for (const cuota of cuotas) {
+    for (const cuota of [...cuotas].sort((a,b)=>a.vencimiento.localeCompare(b.vencimiento)||a.id-b.id)) {
         const fila = document.createElement("tr");
         fila.append(crearElemento("td", "", formatearFecha(cuota.periodo)));
         fila.append(crearElemento("td", "", formatearMonto(cuota.importe)));
@@ -258,36 +259,29 @@ function renderizarPoliza(poliza) {
     agregarDato(cuerpo, "Saldo pendiente", formatearMonto(poliza.saldo_pendiente));
     agregarDato(cuerpo, "Próximo vencimiento de pago", formatearFecha(poliza.proximo_vencimiento_pago));
     renderizarCuotas(cuerpo, poliza.cuotas);
+    if (esAprobador && Number(poliza.saldo_pendiente) > 0) {
+        cuerpo.append(botonDeVehiculo('Registrar pago', 'btn-success mt-3 me-2', async () => {
+            try { await abrirRegistroPago(poliza, async () => {await cargarFicha();mostrarEstado('Cobro registrado. Saldo y cuotas actualizados.');}); }
+            catch(e){mostrarEstado(e.mensaje??e.message,true);}
+        }));
+    }
     const diagnostico = crearElemento('details', 'mt-3');
     const tituloBot = crearElemento('summary', 'small', 'Condiciones que puede leer el bot');
-    const estadoBot = crearElemento('p', 'small text-muted mt-2', 'Abrí para comprobar vigencia y documentos vinculados.');
+    const estadoBot = crearElemento('p', 'small text-muted mt-2', 'Abrí para consultar las condiciones confirmadas de este contrato.');
     const contenidoBot = crearElemento('div', 'mt-2');
     diagnostico.append(tituloBot, estadoBot, contenidoBot);
     diagnostico.addEventListener('toggle', async () => {
         if (!diagnostico.open) return;
         estadoBot.textContent = 'Comprobando…';
         try {
-            const d = await api.get(`/api/polizas/${poliza.id}/diagnostico-bot/`);
-            estadoBot.textContent = d.listo ? 'Lista para consultas desde el número de WhatsApp del cliente.' : d.problemas.join(' ');
+            const d = await api.get(`/api/polizas/${poliza.id}/condiciones/`);
+            estadoBot.textContent = d.lista ? 'Condiciones confirmadas, disponibles para el bot desde el WhatsApp del cliente.' : 'Esta póliza todavía necesita condiciones de cobertura.';
             contenidoBot.replaceChildren();
-            for (const doc of d.documentos) contenidoBot.append(crearElemento('p', 'small mb-1', `${doc.titulo}: ${doc.estado}`));
-            if (esAprobador) {
-                const opciones = document.createElement('select');
-                opciones.className = 'form-select form-select-sm mb-2';
-                opciones.setAttribute('aria-label', `Condiciones para ${poliza.numero_poliza}`);
-                opciones.add(new Option('Elegí un documento aprobado', ''));
-                for (const doc of d.disponibles) opciones.add(new Option(`${doc.titulo} · ${doc.version}`, String(doc.id)));
-                const vincular = botonDeVehiculo('Vincular condiciones a esta póliza', 'btn-outline-primary', async () => {
-                    if (!opciones.value) { estadoBot.textContent = 'Seleccioná las condiciones correspondientes a este contrato.'; return; }
-                    vincular.disabled = true;
-                    try {
-                        await api.post(`/api/polizas/${poliza.id}/documentos/`, {documento_id:Number(opciones.value)});
-                        estadoBot.textContent = 'Condiciones vinculadas. Si el chat está en modo humano, devolvelo al bot desde la conversación para volver a probar.';
-                    } catch (e) { estadoBot.textContent = e.mensaje ?? e.message; }
-                    finally { vincular.disabled = false; }
-                });
-                contenidoBot.append(opciones, vincular);
-            }
+            for (const [campo, etiqueta] of [['cubre','Cubre'],['no_cubre','No cubre'],['limites','Límites'],['asistencia','Asistencia']])
+                contenidoBot.append(crearElemento('p','small mb-1',`${etiqueta}: ${d[campo] || 'No informado.'}`));
+            const editar = crearElemento('a','btn btn-sm btn-outline-primary mt-2',esAprobador?'Revisar / editar en Pólizas':'Ver en Pólizas');
+            editar.href=`/panel/polizas/?q=${encodeURIComponent(poliza.numero_poliza)}`;
+            contenidoBot.append(editar);
         } catch (e) { estadoBot.textContent = e.mensaje ?? e.message; }
     });
     cuerpo.append(diagnostico);
@@ -564,10 +558,11 @@ function prepararAbm(cliente) {
     insigniaActivo.className = dadoDeBaja
         ? "badge text-bg-secondary mt-2"
         : "badge text-bg-success mt-2";
-    botonBaja.classList.toggle("d-none", dadoDeBaja);
+    botonBaja.classList.toggle("d-none", !esAprobador || dadoDeBaja);
+    document.getElementById('panel-edicion-cliente').hidden = !esAprobador;
     // Solo el rol administrador; la API lo exige igual.
     botonEliminar.classList.toggle("d-none", !esAdministrador);
-    botonReactivar.classList.toggle("d-none", !dadoDeBaja);
+    botonReactivar.classList.toggle("d-none", !esAprobador || !dadoDeBaja);
 
     formularioEdicion.elements.dni.value = cliente.dni ?? "";
     formularioEdicion.elements.nombre.value = cliente.nombre ?? "";
@@ -682,7 +677,7 @@ async function cargarFicha() {
         // A un cliente dado de baja no se le agregan pólizas (el alta lo
         // rechaza con un 409), así que ahí ni se ofrece.
         polizasCliente.append(columnaNuevaPoliza);
-        columnaNuevaPoliza.classList.toggle("d-none", cliente.activo === false);
+        columnaNuevaPoliza.classList.toggle("d-none", !esAprobador || cliente.activo === false);
 
         const siniestros = Array.isArray(cliente.siniestros) && cliente.siniestros.length > 0
             ? cliente.siniestros

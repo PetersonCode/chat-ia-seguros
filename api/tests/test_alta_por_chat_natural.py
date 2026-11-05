@@ -74,6 +74,55 @@ class AltaPorChatNaturalTests(ApiTestCase):
         self.assertEqual(accion.poliza.cobertura, "total")
         self.assertEqual(condiciones.documento.estado, "aprobado")
 
+    def test_plan_cambiado_no_reemplaza_la_oferta_pendiente_del_chat(self):
+        self.charla_completa()
+        accion = AccionPendiente.objects.get(tipo_accion='alta_poliza')
+        plan = PlanCobertura.objects.get(pk=accion.parametros['plan_id'])
+        nombre, cubre, version = plan.nombre, plan.cubre, plan.version
+        plan.nombre='Catálogo nuevo'; plan.cubre='Otras condiciones'; plan.nivel='basica'; plan.version += 1
+        plan.save()
+        with self.captureOnCommitCallbacks(execute=True):
+            aprobar_accion(accion.id, self.aprobadora.id, prima_mensual='95000')
+        accion.refresh_from_db()
+        condiciones = CondicionesPoliza.objects.get(poliza=accion.poliza)
+        self.assertEqual((condiciones.nombre_plan_confirmado, condiciones.cubre, condiciones.plan_version), (nombre,cubre,version))
+        self.assertEqual(accion.poliza.cobertura, 'total')
+
+    def test_duda_durante_el_alta_no_inventa_granizo_para_todo_terceros(self):
+        from negocio.bot.alta_poliza import _respuesta_a_una_duda, _elegir_plan
+        borrador = BorradorPoliza(conversacion=self.conversacion, campo='fecha_inicio',datos={'compania_id':self.compania.id})
+        plan = PlanCobertura.objects.get(compania=self.compania,nivel='intermedia')
+        plan.no_cubre='Granizo excluido.';plan.save()
+        _elegir_plan('terceros completo',borrador.datos)
+        texto = _respuesta_a_una_duda('¿Qué cubre este plan?',borrador)
+        self.assertIn('Granizo excluido.', texto)
+        self.assertNotIn('suma robo, incendio, granizo',texto)
+
+    def test_limites_del_catalogo_no_provocan_derivacion_por_monto_inventado(self):
+        plan=PlanCobertura.objects.get(compania=self.compania,nivel='total')
+        plan.limites='Cristales hasta $300.000.';plan.save()
+        for texto in ('Quiero asegurar mi auto','Carla Ibáñez 38999310','AB345CD','Chevrolet Onix','2020',
+                      'particular','no sé','no sé','Pampa','todo riesgo'):
+            self.turno(texto)
+        respuesta=self.turno('¿Qué cubre el plan?')
+        self.assertIn('$300.000',respuesta)
+        self.conversacion.refresh_from_db()
+        self.assertEqual(self.conversacion.modo,'bot')
+        self.assertFalse(Mensaje.objects.filter(estado_envio='retenido').exists())
+
+    def test_aprobar_el_alta_cierra_la_propuesta_del_mismo_vehiculo(self):
+        from datos.models import Interesado
+        interesado=fabricas.crear_interesado(contacto=self.contacto,datos={'patente':'AB345CD'},estado='cotizando')
+        self.charla_completa()
+        accion=AccionPendiente.objects.get(tipo_accion='alta_poliza')
+        with self.captureOnCommitCallbacks(execute=True):
+            aprobar_accion(accion.id,self.aprobadora.id,prima_mensual='95000')
+        accion.refresh_from_db();interesado.refresh_from_db()
+        self.assertEqual(interesado.estado,'emitida')
+        self.assertEqual(interesado.poliza_registrada_id,accion.poliza_id)
+        self.assertEqual(interesado.cliente_id,accion.poliza.cliente_id)
+        self.assertEqual(interesado.vehiculo_id,accion.poliza.vehiculo_id)
+
     def test_todo_en_el_primer_mensaje_no_se_vuelve_a_preguntar(self):
         self.turno("buenas! quiero contratar un seguro para mi auto. Soy Laura Méndez, DNI 36222302, "
                    "patente AF234GH, Chevrolet Onix 2020")
@@ -82,13 +131,23 @@ class AltaPorChatNaturalTests(ApiTestCase):
         self.assertEqual((datos["patente"], datos["marca"], datos["modelo"], datos["anio"]),
                          ("AF234GH", "Chevrolet", "Onix", 2020))
 
+    def test_el_alta_reutiliza_identidad_y_datos_de_la_propuesta(self):
+        fabricas.crear_interesado(contacto=self.contacto,nombre='Laura',apellido='Méndez',
+            datos={'dni':'36222302','patente':'AF234GH','marca':'Chevrolet','modelo':'Onix',
+                   'anio':2020,'uso':'particular','clase':'auto','chasis':'DEMOXYZ1234','valor_asegurado':'2000000'})
+        respuesta=self.turno('quiero contratar el seguro para mi auto')
+        self.assertIn('compañía',respuesta)
+        borrador=BorradorPoliza.objects.get().datos
+        self.assertEqual((borrador['nombre'],borrador['apellido'],borrador['dni']),('Laura','Méndez','36222302'))
+        self.assertEqual(borrador['chasis'],'DEMOXYZ1234')
+
     def test_una_pregunta_en_el_medio_se_contesta_sin_abandonar_el_alta(self):
         self.turno("quiero asegurar mi auto")
         respuesta = self.turno("y cuanto me va a salir por mes?")
         self.assertIn("lo calcula el asesor", respuesta)
         self.assertIn("nombre y apellido", respuesta)
         respuesta = self.turno("que diferencia hay entre los planes?")
-        self.assertIn("todo riesgo", respuesta)
+        self.assertIn("condiciones cargadas", respuesta)
         self.assertNotIn("Para registrarte", respuesta)
         self.assertTrue(BorradorPoliza.objects.get().activo)
 

@@ -14,22 +14,22 @@ from negocio.reglas import ventana_24h_abierta
 from negocio.whatsapp import enviar_pendientes
 
 def pendientes():
-    return Interesado.objects.exclude(estado__in=['emitida','perdida']).filter(Q(proximo_contacto__lte=timezone.localdate())|Q(proximo_contacto__isnull=True)).select_related('responsable','contacto').order_by(F('proximo_contacto').asc(nulls_first=True),'id')
+    return Interesado.objects.exclude(estado__in=['emitida','perdida']).filter(Q(proximo_contacto__lte=timezone.localdate())|Q(proximo_contacto__isnull=True)).select_related('responsable','contacto','cliente').order_by(F('proximo_contacto').asc(nulls_first=True),'id')
 
 def resumen():
     hoy=timezone.localdate()
     renovaciones=Poliza.objects.filter(cliente__activo=True,tipo_seguro__codigo='automotor',estado='vigente',gestion_renovada__isnull=True,fecha_vencimiento__range=(hoy,hoy+timedelta(days=30))).select_related('cliente','vehiculo').order_by('fecha_vencimiento','id')
     morosos=Cuota.objects.filter(estado__in=['pendiente','vencida'],vencimiento__lt=hoy,poliza__cliente__activo=True,poliza__tipo_seguro__codigo='automotor').exclude(poliza__estado='dada_de_baja').values('poliza_id','poliza__numero_poliza','poliza__cliente_id','poliza__cliente__nombre','poliza__cliente__apellido').annotate(importe=Sum('importe'),desde=Min('vencimiento')).order_by('desde','poliza_id')
     siniestros=Siniestro.objects.exclude(estado__in=['cerrado','rechazado']).annotate(ultima=Greatest('creado_en',Coalesce(Max('historial__fecha'),F('creado_en')),Coalesce(Max('adjuntos__creado_en'),F('creado_en')))).filter(ultima__lte=timezone.now()-timedelta(days=7)).order_by('ultima','id')
-    chats=bandeja(estado='abierta').filter(ultimo_emisor='cliente',ultimo_fecha_hora__lte=timezone.now()-timedelta(hours=2))
+    chats=bandeja(estado='abierta').filter(ultimo_emisor_atencion='cliente',ultima_atencion_en__lte=timezone.now()-timedelta(hours=2))
     leads=pendientes()
     return {'fecha':str(hoy),'automaticos':ConfigGestion.objects.get(pk=1).automaticos,
       'cantidades':{'renovaciones':renovaciones.count(),'morosos':morosos.count(),'interesados':leads.count(),'siniestros':siniestros.count(),'sin_respuesta':chats.count()},
       'renovaciones':[{'id':p.id,'cliente_id':p.cliente_id,'numero':p.numero_poliza,'cliente':f'{p.cliente.nombre} {p.cliente.apellido}','vence':str(p.fecha_vencimiento),'patente':p.vehiculo.patente if p.vehiculo else ''} for p in renovaciones[:20]],
       'morosos':list(morosos[:20]),
-      'interesados':[{'id':i.id,'nombre':i.nombre,'fecha':str(i.proximo_contacto or hoy),'responsable':i.responsable.nombre if i.responsable else 'Sin asignar'} for i in leads[:20]],
+      'interesados':[{'id':i.id,'nombre':f'{i.cliente.nombre} {i.cliente.apellido}' if i.cliente_id else f'{i.nombre} {i.apellido or ""}'.strip(),'fecha':str(i.proximo_contacto or hoy),'responsable':i.responsable.nombre if i.responsable else 'Sin asignar'} for i in leads[:20]],
       'siniestros':[{'id':s.id,'numero':s.numero_siniestro,'desde':s.ultima.isoformat()} for s in siniestros[:20]],
-      'sin_respuesta':[{'id':c.id,'numero':c.contacto.numero,'desde':c.ultimo_fecha_hora.isoformat()} for c in chats[:20]]}
+      'sin_respuesta':[{'id':c.id,'numero':c.contacto.numero,'desde':c.ultima_atencion_en.isoformat()} for c in chats[:20]]}
 
 def candidatos(hoy):
     from negocio.fidelizacion import extras

@@ -1,6 +1,6 @@
-import { formatearMonto } from "../lib/formato.js?v=20261104gestion2";
-import { api } from "../api.js?v=20261104gestion2";
-import { inicializarNav } from "../nav.js?v=20261104flotante1";
+import { formatearMonto } from "../lib/formato.js?v=20261105revision9";
+import { api } from "../api.js?v=20261105revision9";
+import { inicializarNav } from "../nav.js?v=20261105revision9";
 
 const formulario = document.getElementById("filtros-reportes");
 const campoDesde = document.getElementById("reporte-desde");
@@ -109,7 +109,7 @@ function renderizarReporte(reporte) {
         ),
         crearIndicador(
             "Importe de cobros",
-            `$${reporte.cobros.importe_total}`,
+            formatearMonto(reporte.cobros.importe_total),
             "Suma de movimientos Pago en moneda registrada; no se infiere de cuotas impagas.",
         ),
     );

@@ -69,7 +69,7 @@ class MetricasPanelTests(ApiTestCase):
         self.assertEqual(sum(r["porcentaje"] for r in datos["ramos"]), 100.0)
         nombres = [r["nombre"] for r in datos["ramos"]]
         self.assertNotIn("Seguros de Vida y Accidentes", nombres)
-        self.assertIn("Seguros de Accidentes", nombres)
+        self.assertIn("Siniestros automotores", nombres)
 
     def test_motivos_de_derivacion_ordenados_por_frecuencia(self):
         self._cargar_muestra()
@@ -136,4 +136,4 @@ class MetricasApiTests(ApiTestCase):
         respuesta = self.cliente_api.get("/api/metricas/?periodo=hoy&formato=csv")
         self.assertEqual(respuesta.status_code, 200)
         self.assertIn("text/csv", respuesta["Content-Type"])
-        self.assertIn("Seguros de Accidentes", respuesta.content.decode("utf-8"))
+        self.assertIn("Siniestros automotores", respuesta.content.decode("utf-8"))

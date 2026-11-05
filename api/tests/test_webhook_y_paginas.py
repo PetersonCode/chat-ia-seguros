@@ -182,6 +182,11 @@ class WebhookEntranteTests(TestCase):
 
 
 class PaginasTests(TestCase):
+    def test_la_pantalla_documental_antigua_redirige_a_companias(self):
+        respuesta=self.client.get('/panel/documentos/')
+        self.assertEqual(respuesta.status_code,302)
+        self.assertEqual(respuesta['Location'],'/panel/companias/')
+
     RUTAS = {
         "/": "login.html",
         "/panel/": "bandeja.html",
@@ -194,7 +199,6 @@ class PaginasTests(TestCase):
         "/panel/cliente/": "cliente.html",
         "/panel/siniestros/": "siniestros.html",
         "/panel/reportes/": "reportes.html",
-        "/panel/documentos/": "documentos.html",
     }
 
     # AC-T2-21

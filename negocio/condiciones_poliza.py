@@ -54,7 +54,7 @@ def plan_para_poliza(poliza, plan_id, version, info=None):
     return plan, plan.version, {k: getattr(plan, k) for k in CAMPOS}
 
 
-def guardar_condiciones(poliza, *, plan, plan_version, campos, funcionario):
+def guardar_condiciones(poliza, *, plan, plan_version, campos, funcionario, plan_nombre=None):
     """Guarda la copia de condiciones, su documento para el bot y sincroniza el nivel."""
     info = (
         CondicionesPoliza.objects.filter(poliza=poliza).select_related("documento").first()
@@ -83,12 +83,15 @@ def guardar_condiciones(poliza, *, plan, plan_version, campos, funcionario):
             "documento": documento,
             "plan_id": plan.id if plan else None,
             "plan_version": plan_version if plan else None,
+            "plan_nombre": (plan_nombre if plan_nombre is not None else plan.nombre if plan_version == plan.version else
+                            info.nombre_plan_confirmado if info else '') if plan else '',
             "actualizado_por": funcionario,
             "actualizado_en": timezone.now(),
         },
     )
     # Una sola fuente: el nivel de la póliza es el del plan, si el plan lo dice.
-    if plan is not None and plan.nivel and poliza.cobertura != plan.nivel:
+    if (plan is not None and plan_version == plan.version and plan.nivel
+            and poliza.cobertura != plan.nivel):
         poliza.cobertura = plan.nivel
         poliza.save(update_fields=["cobertura"])
     return info

@@ -1,4 +1,4 @@
-import { api, ApiError } from "../api.js?v=20261104gestion2";
+import { api, ApiError } from "../api.js?v=20261105revision9";
 
 const formulario = document.getElementById("formulario-login");
 const aviso = document.getElementById("mensaje-login");

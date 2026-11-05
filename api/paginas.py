@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from django.http import FileResponse, Http404
+from django.shortcuts import redirect
 
 from config.settings import BASE_DIR
 
@@ -21,7 +22,6 @@ _PAGINAS = {
     "/panel/cliente/": "cliente.html",
     "/panel/siniestros/": "siniestros.html",
     "/panel/reportes/": "reportes.html",
-    "/panel/documentos/": "documentos.html",
     "/panel/usuarios/": "usuarios.html",
     "/panel/companias/": "companias.html",
     "/panel/interesados/": "interesados.html",
@@ -32,6 +32,8 @@ _PAGINAS = {
 
 def servir_pagina(request, path: str | None = None):
     ruta = request.path
+    if ruta == '/panel/documentos/':
+        return redirect('/panel/companias/')
     nombre = _PAGINAS.get(ruta)
     if nombre is None:
         raise Http404()

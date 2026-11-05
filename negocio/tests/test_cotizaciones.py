@@ -125,6 +125,15 @@ class CargarCotizacionTests(BaseCotizacionesTests):
 
 
 class ElegirYQuitarTests(BaseCotizacionesTests):
+    def test_una_cotizacion_vencida_no_se_puede_elegir(self):
+        from django.utils import timezone
+        from datetime import timedelta
+        oferta=self._cargar(vigencia_hasta=timezone.localdate()-timedelta(days=1))
+        with self.assertRaises(EstadoInvalido):
+            cotizaciones.elegir_cotizacion(oferta.id,self.diego.id)
+        oferta.refresh_from_db()
+        self.assertFalse(oferta.elegida)
+
     # AC-T3-87
     def test_elegir_marca_la_elegida_y_desmarca_la_anterior_del_mismo_destino(self):
         barata = self._cargar(prima_mensual="1000")

@@ -1133,6 +1133,7 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
         respuesta = _Respuesta(plantillas.RECHAZO_SEGURIDAD)
     elif alta_preparada:
         respuesta = _Respuesta(alta_preparada['texto'], accion=alta_preparada.get('accion'),
+            datos_verificados=frozenset(alta_preparada.get('datos_verificados', [])),
             derivar_a=DERIVACION_POR_DEFECTO if alta_preparada.get('derivar') else None)
     else:
         respuesta = _continuar_cotizacion(

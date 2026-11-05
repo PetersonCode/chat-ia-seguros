@@ -29,11 +29,13 @@ No es un modelo entrenado nuevamente por cada carga. Guardar deja una fuente con
 
 ## Documentación anterior
 
-**Documentos** deja de aparecer en el menú principal. Se preservan su pantalla histórica en `/panel/documentos/`, los documentos, sus estados y vínculos existentes. Continúan funcionando como respaldo para pólizas sin condiciones particulares cargadas. Los nuevos datos se gestionan desde Compañías y Pólizas; no hace falta pasar por esa pantalla histórica.
+La carga de conocimiento se realiza en **Compañías → planes** y en las condiciones particulares de **Pólizas**. La ruta antigua `/panel/documentos/` redirige a Compañías para evitar un segundo circuito de carga. Se conservan internamente los documentos, estados y vínculos existentes como respaldo para el bot y las pólizas históricas; no se eliminan contratos ni sus fuentes.
 
-La ficha del cliente incluye **Condiciones que puede leer el bot**, con diagnóstico de vigencia, contacto, contenido y vínculos; permite vincular fuentes históricas a un aprobador. Tener un documento aprobado no lo convierte automáticamente en condiciones de todos los contratos de la compañía.
+La ficha del cliente incluye **Condiciones que puede leer el bot**, con las condiciones confirmadas del contrato y un enlace a Pólizas para revisarlas; se retiró el selector documental anterior para evitar vincular por error condiciones de otro contrato. Tener un documento aprobado no lo convierte automáticamente en condiciones de todos los contratos de la compañía.
 
-## Actualización desde main e8b1b46
+## Actualización histórica desde main e8b1b46
+
+Para la revisión del 5/11/2026 se requiere llegar hasta SQL 32. Ver [arranque de esta entrega](ARRANQUE-REVISION-20261105.md); los pasos siguientes describen únicamente la incorporación histórica de SQL 26.
 
 Respaldar la base. Aplicar `SDD/sql/26_condiciones_en_poliza.sql` a la base de la aplicación **antes** de levantar el código nuevo y reiniciar web/worker. Es aditivo e idempotente; no vuelve a cargar catálogos ni borra contratos. No ejecutar SQL 00 ni seeds sobre una base existente.
 

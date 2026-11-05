@@ -29,6 +29,7 @@ from django.utils import timezone
 from datos.limpieza import normalizar_dni, normalizar_patente, normalizar_telefono
 from datos.models import (
     Cliente,
+    ClaseVehiculo,
     ContactoWhatsapp,
     Direccion,
     Emisor,
@@ -153,6 +154,10 @@ def datos_normalizados(datos: dict | None) -> dict[str, Any]:
                     "El uso tiene que ser uno de: " + ", ".join(UsoVehiculo.values) + "."
                 )
             limpios[clave] = uso
+        elif clave == "clase":
+            if texto.lower() not in ClaseVehiculo.values:
+                raise DatosInvalidos('Elegí una clase de vehículo válida.')
+            limpios[clave] = texto.lower()
         else:
             limpios[clave] = texto
     return limpios
@@ -308,10 +313,25 @@ def registrar_cotizacion_del_bot(
     nota = "El cliente dejó por WhatsApp los datos para cotizar."
     existente = interesado_abierto_de(contacto.pk)
     if existente is not None:
-        if datos_limpios.get('patente') and existente.datos.get('patente') and datos_limpios['patente'] != existente.datos['patente']:
-            existente.datos = {k:v for k,v in existente.datos.items() if k not in {'patente','marca','modelo','anio','uso','localidad'}}
-        existente.datos = _mezclar(existente.datos, datos_limpios)
+        existente = Interesado.objects.select_for_update(of=('self',)).select_related('vehiculo').get(pk=existente.pk)
+        anterior = existente.vehiculo.patente if existente.vehiculo_id else existente.datos.get('patente')
+        cambio_vehiculo = datos_limpios.get('patente') and anterior and datos_limpios['patente'] != anterior
         campos = ["datos"]
+        if cambio_vehiculo:
+            existente.datos = {k:v for k,v in existente.datos.items() if k not in {'patente','marca','modelo','anio','uso','localidad','clase','chasis','valor_asegurado'}}
+            # Cotizar otro vehículo no modifica el auto ya guardado en la cartera.
+            existente.vehiculo_id = None
+            campos.append('vehiculo')
+            from datos.models import Cotizacion
+            hasta = timezone.localdate() - dt.timedelta(days=1)
+            for cotizacion in Cotizacion.objects.select_for_update().filter(interesado=existente):
+                cotizacion.elegida = False
+                if cotizacion.vigencia_hasta is None or cotizacion.vigencia_hasta > hasta:
+                    cotizacion.vigencia_hasta = hasta
+                cotizacion.notas = (f'Vehículo anterior {anterior}: requiere una nueva cotización. ' + (cotizacion.notas or ''))[:1000]
+                cotizacion.save(update_fields=['elegida','vigencia_hasta','notas'])
+            nota += ' Cambió el vehículo solicitado; se conserva el anterior en Clientes y hay que elegir una cotización para el nuevo.'
+        existente.datos = _mezclar(existente.datos, datos_limpios)
         if existente.proximo_contacto is None:
             existente.proximo_contacto = timezone.localdate()
             campos.append("proximo_contacto")
@@ -402,19 +422,61 @@ def mover_interesado(
 
 
 def _exigir_poliza_emitida(interesado: Interesado) -> None:
-    """Emitida es cuando existe la póliza: el cliente tiene una creada después del interesado."""
+    """El cierre corresponde a este contrato explícito, no a otra venta del cliente."""
     if interesado.cliente_id is None:
         raise EstadoInvalido(
             "Para marcarlo como emitido primero hay que convertirlo en cliente."
         )
-    hay_poliza = Poliza.objects.filter(
-        cliente_id=interesado.cliente_id, creado_en__gt=interesado.creado_en
-    ).exists()
+    hay_poliza = Poliza.objects.filter(pk=interesado.poliza_registrada_id,
+        cliente_id=interesado.cliente_id, creado_en__gt=interesado.creado_en).exists()
     if not hay_poliza:
         raise EstadoInvalido(
-            "Para marcarlo como emitido el cliente tiene que tener una póliza cargada "
-            "después de que se creó el interesado."
+            "Registrá la póliza elegida o vinculá explícitamente una póliza ya registrada de esta venta."
         )
+
+
+@transaction.atomic
+def vincular_poliza_registrada(interesado_id, poliza_id, funcionario_id):
+    """Completa la venta si el contrato ya se cargó desde la ficha del cliente."""
+    _aprobador(funcionario_id)
+    i = _interesado(interesado_id, bloquear=True)
+    if i.estado != E.DOCUMENTACION or not i.cliente_id:
+        raise EstadoInvalido('Primero confirmá al cliente en Documentación.')
+    p = Poliza.objects.select_for_update().filter(pk=poliza_id).first()
+    if not p or p.cliente_id != i.cliente_id:
+        raise DatosInvalidos('La póliza debe pertenecer al cliente de esta venta.')
+    if p.creado_en <= i.creado_en or p.estado == 'dada_de_baja':
+        raise DatosInvalidos('Elegí un contrato registrado para esta venta, que no esté dado de baja.')
+    if i.vehiculo_id and p.vehiculo_id != i.vehiculo_id:
+        raise DatosInvalidos('La póliza corresponde a otro vehículo. Revisá la venta antes de vincularla.')
+    if not p.vehiculo_id or not p.compania_id:
+        raise DatosInvalidos('Completá el vehículo y la compañía en la ficha del cliente antes de vincularla.')
+    if Interesado.objects.filter(poliza_registrada=p).exclude(pk=i.pk).exists():
+        raise DatosInvalidos('Ese contrato ya está vinculado a otra venta.')
+    i.poliza_registrada = p
+    i.vehiculo_id = p.vehiculo_id
+    i.save(update_fields=['poliza_registrada','vehiculo'])
+    return mover_interesado(i.id, E.EMITIDA, funcionario_id,
+        nota=f'Contrato {p.numero_poliza} vinculado desde la cartera; no se creó otra póliza ni se duplicaron cuotas.')
+
+
+def finalizar_interesado_por_alta_chat(contacto, poliza, funcionario_id):
+    """La aprobación del alta también cierra la propuesta del mismo vehículo."""
+    i = Interesado.objects.select_for_update().filter(contacto=contacto).exclude(
+        estado__in=[E.EMITIDA,E.PERDIDA]).first()
+    if not i or (i.vehiculo_id and i.vehiculo_id != poliza.vehiculo_id):
+        return
+    if Interesado.objects.filter(poliza_registrada=poliza).exclude(pk=i.pk).exists():
+        return
+    patente = (i.datos or {}).get('patente')
+    if not i.vehiculo_id and patente and normalizar_patente(patente) != poliza.vehiculo.patente:
+        return
+    anterior = i.estado
+    i.cliente_id=poliza.cliente_id;i.vehiculo_id=poliza.vehiculo_id;i.poliza_registrada=poliza
+    i.estado=E.EMITIDA;i.motivo_perdida=None
+    _tocar(i,'cliente','vehiculo','poliza_registrada','estado','motivo_perdida')
+    _asentar(i,funcionario_id,f'Alta por chat confirmada: contrato {poliza.numero_poliza}. La prima final fue confirmada por el asesor.',
+             estado_anterior=anterior,estado_nuevo=E.EMITIDA)
 
 
 @transaction.atomic
@@ -480,6 +542,11 @@ def guardar_vehiculo_del_interesado(interesado, cliente, funcionario_id):
     """Conservar el vehículo confirmado al convertir, sin duplicar ni reasignar patentes."""
     from datos.models import Vehiculo
     from negocio.vehiculos import alta_vehiculo
+    if interesado.vehiculo_id:
+        vehiculo = Vehiculo.objects.select_for_update().get(pk=interesado.vehiculo_id)
+        if vehiculo.cliente_id != cliente.id:
+            raise DatosInvalidos('El vehículo vinculado pertenece a otro cliente.')
+        return vehiculo
     datos = interesado.datos or {}
     if not all(datos.get(k) for k in ('patente','marca','modelo','anio')):
         return None
@@ -488,9 +555,15 @@ def guardar_vehiculo_del_interesado(interesado, cliente, funcionario_id):
     if existente:
         if existente.cliente_id != cliente.id:
             raise DatosInvalidos('La patente pertenece a otro cliente. Revisá el vehículo antes de convertir.')
-        return existente
-    return alta_vehiculo(cliente.id,patente,datos['marca'],datos['modelo'],datos['anio'],
-                         datos.get('uso') or 'particular',funcionario_id=funcionario_id)
+        vehiculo = existente
+    else:
+        vehiculo = alta_vehiculo(cliente.id,patente,datos['marca'],datos['modelo'],datos['anio'],
+                         datos.get('uso') or 'particular', chasis=datos.get('chasis'),
+                         valor_asegurado=datos.get('valor_asegurado'),
+                         clase=datos.get('clase') or 'sin_especificar', funcionario_id=funcionario_id)
+    interesado.vehiculo = vehiculo
+    interesado.save(update_fields=['vehiculo'])
+    return vehiculo
 
 
 def _vincular_contacto(contacto: ContactoWhatsapp | None, cliente: Cliente) -> None:
@@ -560,6 +633,15 @@ def actualizar_datos_interesado(
     _funcionario_activo(funcionario_id)
     nuevos = datos_normalizados(datos)
     interesado = _interesado(interesado_id, bloquear=True)
+    if interesado.estado == E.EMITIDA:
+        raise EstadoInvalido('La propuesta emitida conserva su historial. Modificá los datos actuales desde la ficha del cliente.')
+    if interesado.cliente_id and 'dni' in nuevos and nuevos['dni'] != interesado.cliente.dni:
+        raise DatosInvalidos('El DNI corresponde al cliente vinculado. No se cambia la titularidad desde la propuesta.')
+    campos_vehiculo = {k:v for k,v in nuevos.items() if k in {
+        'patente','marca','modelo','anio','uso','clase','chasis','valor_asegurado'}}
+    if interesado.vehiculo_id and campos_vehiculo:
+        from negocio.vehiculos import modificar_vehiculo
+        modificar_vehiculo(interesado.vehiculo_id, funcionario_id=funcionario_id, **campos_vehiculo)
     interesado.datos = _mezclar(interesado.datos, nuevos)
     _tocar(interesado, "datos")
     cambiados = ", ".join(sorted(nuevos)) or "sin cambios"

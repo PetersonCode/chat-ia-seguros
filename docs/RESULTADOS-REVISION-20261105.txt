@@ -1,0 +1,16 @@
+RESULTADOS DE REVISIÓN — 05/11/2026
+Base: origin/main 1cbe23d. Destino: integrar-backend.
+
+Django: 1146 aprobadas, 105.127 s según runner.
+JavaScript: 71 aprobadas, 0 fallidas y 0 omitidas.
+manage.py check: sin errores.
+pip check: No broken requirements found.
+git diff --check: sin errores de whitespace.
+Concurrencia: 2 conexiones eligiendo ofertas; una sola elegida y sin errores.
+Modelo ONNX gratuito real: paráfrasis 0.5049; fuera de dominio -0.0166; inferencia correcta.
+Instalación nueva: SQL hasta 32, seed limpio, migrate y check correctos; cero registros de negocio precargados.
+
+Aceptación: Django/PostgreSQL locales, operaciones por frontend con asesor/aprobador y datos ficticios.
+Entrada de cliente con simular_whatsapp; envíos simulados. No se tocó producción ni se probó entrega real de Meta.
+Matriz y evidencia: docs/REVISION-20261105.md y docs/evidencia-20261105/.
+Las pruebas técnicas complementan las pantallas y no garantizan ausencia absoluta de errores.

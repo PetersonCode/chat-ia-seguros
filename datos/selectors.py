@@ -261,7 +261,7 @@ def bandeja_contactos(*, vista='atencion', **filtros):
     base = bandeja(**filtros).filter(pk=Subquery(ultima)).annotate(
         derivacion_pendiente=Exists(Derivacion.objects.filter(consulta__conversacion_id=OuterRef('pk'),atendida_en__isnull=True))
     )
-    necesita = Q(estado='abierta') & (Q(retenidas__gt=0) | (Q(ultimo_emisor='cliente',modo='humano')) | (Q(derivacion_pendiente=True) & ~Q(ultimo_emisor='funcionario')))
+    necesita = Q(estado='abierta') & (Q(retenidas__gt=0) | (Q(ultimo_emisor_atencion='cliente',modo='humano')) | (Q(derivacion_pendiente=True) & ~Q(ultimo_emisor_atencion='funcionario')))
     grupos = {
         'atencion': necesita,
         'bot': Q(estado='abierta',modo='bot') & ~necesita,
@@ -286,6 +286,10 @@ def bandeja(
     ultimo_mensaje = Mensaje.objects.filter(
         conversacion_id=OuterRef("pk")
     ).order_by("-fecha_hora", "-id")
+    # Un recordatorio de cobranza y un envío fallido no contestan la consulta
+    # pendiente del cliente. El último mensaje visible sigue incluyendo ambos.
+    ultimo_operativo = ultimo_mensaje.exclude(payload__has_key='recordatorio_poliza_id').exclude(payload__has_key='aviso_gestion_id').exclude(
+        direccion='saliente', estado_envio__in=['fallido', 'descartado', 'pendiente_envio'])
     conversaciones = Conversacion.objects.annotate(
         derivacion_urgente=Exists(
             Derivacion.objects.filter(
@@ -333,6 +337,8 @@ def bandeja(
         ),
         ultimo_texto=Subquery(ultimo_mensaje.values("texto")[:1]),
         ultimo_emisor=Subquery(ultimo_mensaje.values("emisor")[:1]),
+        ultimo_emisor_atencion=Subquery(ultimo_operativo.values("emisor")[:1]),
+        ultima_atencion_en=Subquery(ultimo_operativo.values("fecha_hora")[:1]),
         ultimo_fecha_hora=Subquery(ultimo_mensaje.values("fecha_hora")[:1]),
     ).select_related("contacto__cliente", "funcionario")
 
@@ -407,7 +413,7 @@ def consultas_cerradas_con_alertas() -> QuerySet[ConsultaBot]:
     return ConsultaBot.objects.filter(
         estado=EstadoConsulta.CERRADO,
         alertas__estado__in=_ALERTAS_ABIERTAS,
-    ).distinct()
+    ).distinct().order_by('-fecha_hora', '-id')
 
 
 def listar_acciones(
@@ -549,14 +555,18 @@ def _condicion_de_busqueda_de_interesado(q: str) -> Q:
         por_palabra = (
             Q(nombre_busqueda__contains=palabra)
             | Q(apellido_busqueda__contains=palabra)
+            | Q(nombre_cliente_busqueda__contains=palabra)
+            | Q(apellido_cliente_busqueda__contains=palabra)
             | Q(datos__patente__icontains=palabra.upper())
+            | Q(vehiculo__patente__icontains=palabra)
+            | Q(vehiculo__chasis__icontains=palabra)
         )
         digitos = "".join(c for c in palabra if c.isdigit())
         if len(digitos) >= 3:
             por_palabra |= Q(contacto__numero__contains=digitos)
         condicion &= por_palabra
     try:
-        condicion |= Q(datos__patente=normalizar_patente(q))
+        condicion |= Q(datos__patente=normalizar_patente(q)) | Q(vehiculo__patente=normalizar_patente(q))
     except ValueError:
         pass
     # Un teléfono escrito con espacios o guiones ("11 2691-4442") son varias
@@ -584,7 +594,7 @@ def listar_interesados(
     hoy = hoy or timezone.localdate()
     vencido = Q(proximo_contacto__lt=hoy) & ~Q(estado__in=_INTERESADO_CERRADO)
     interesados = Interesado.objects.select_related(
-        "responsable", "contacto", "cliente"
+        "responsable", "contacto", "cliente", "vehiculo"
     ).annotate(
         orden_vencido=Case(
             When(vencido, then=Value(0)),
@@ -600,9 +610,10 @@ def listar_interesados(
         interesados = interesados.filter(origen=origen)
     if q and q.strip():
         interesados = interesados.alias(**{
-            campo + '_busqueda': Lower(Func(F(campo), Value(ACENTOS), Value(SIMPLES),
+            alias: Lower(Func(F(campo), Value(ACENTOS), Value(SIMPLES),
                 function='TRANSLATE', output_field=TextField()))
-            for campo in ('nombre','apellido')
+            for alias,campo in (('nombre_busqueda','nombre'),('apellido_busqueda','apellido'),
+                ('nombre_cliente_busqueda','cliente__nombre'),('apellido_cliente_busqueda','cliente__apellido'))
         })
         interesados = interesados.filter(_condicion_de_busqueda_de_interesado(q.strip()))
     if seguimiento_vencido:
@@ -676,6 +687,18 @@ def cotizaciones_de(
     return cotizaciones.order_by("prima_mensual", "id")
 
 
+def datos_actuales_interesado(interesado):
+    """La cartera es la fuente de verdad después de la conversión."""
+    datos = dict(interesado.datos or {})
+    if interesado.vehiculo_id:
+        v = interesado.vehiculo
+        datos.update({k:getattr(v,k) for k in ('patente','marca','modelo','anio','uso','clase','chasis')})
+        datos['valor_asegurado'] = str(v.valor_asegurado) if v.valor_asegurado is not None else None
+    if interesado.cliente_id:
+        datos['dni'] = interesado.cliente.dni
+    return datos
+
+
 def detalle_interesado(interesado_id: int) -> Interesado:
     """El interesado con su historial (viejo a nuevo), sus cotizaciones y su contacto.
 
@@ -689,7 +712,7 @@ def detalle_interesado(interesado_id: int) -> Interesado:
         "prima_mensual", "id"
     )
     return (
-        Interesado.objects.select_related("responsable", "contacto", "cliente")
+        Interesado.objects.select_related("responsable", "contacto", "cliente", "vehiculo")
         .prefetch_related(
             Prefetch("historial", queryset=historial),
             Prefetch("cotizaciones", queryset=cotizaciones),
@@ -779,8 +802,8 @@ TIPOS_OTROS = frozenset(
     }
 )
 RAMOS_METRICAS = (
-    ("automotor", "Seguros de Automotor"),
-    ("accidentes", "Seguros de Accidentes"),
+    ("automotor", "Consultas de autos y motos"),
+    ("accidentes", "Siniestros automotores"),
     ("otros", "Otros / Consultas Generales"),
 )
 

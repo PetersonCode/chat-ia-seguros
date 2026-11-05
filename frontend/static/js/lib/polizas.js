@@ -38,7 +38,7 @@ function partesDeFecha(iso) {
 }
 
 /**
- * Meses enteros que cubre una póliza, para anticipar cuántas cuotas se generan.
+ * Ciclos mensuales, incluido el último parcial, para anticipar las cuotas.
  *
  * Espeja a propósito `negocio.polizas.meses_de_cobertura`: acá es solo el aviso
  * que ve el funcionario antes de guardar, y el que manda es el del servidor.
@@ -54,8 +54,10 @@ export function mesesDeCobertura(inicio, vencimiento) {
         return 0;
     }
     let meses = (hasta.anio - desde.anio) * 12 + (hasta.mes - desde.mes);
-    if (hasta.dia < desde.dia) {
-        meses -= 1;
+    const ultimoDia = new Date(Date.UTC(hasta.anio, hasta.mes, 0)).getUTCDate();
+    const aniversario = Math.min(desde.dia, ultimoDia);
+    if (aniversario < hasta.dia) {
+        meses += 1;
     }
     return Math.max(1, meses);
 }

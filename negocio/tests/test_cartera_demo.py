@@ -54,3 +54,17 @@ class CarteraDemoTests(TestCase):
 
         with self.assertRaises(CommandError):
             call_command("cargar_cartera_demo", stdout=StringIO())
+
+    def test_pedir_cobertura_de_la_moto_no_exige_palabra_moto_en_las_condiciones(self):
+        from negocio.bot.clasificador import clasificar
+        poliza = Poliza.objects.select_related('vehiculo').first()
+        poliza.vehiculo.clase = 'moto'
+        poliza.vehiculo.save(update_fields=['clase'])
+        contacto = ContactoWhatsapp.objects.get(cliente=poliza.cliente)
+        conversacion = fabricas.crear_conversacion(contacto)
+        texto, fuente = responder_cobertura('hola, que cubre mi moto', conversacion)
+        self.assertIsNotNone(fuente, texto)
+        self.assertIn(poliza.numero_poliza, texto)
+        for pregunta in ('cuánta plata debo', 'cuánto dinero debo', 'cuánto tengo pendiente'):
+            with self.subTest(pregunta=pregunta):
+                self.assertEqual(clasificar(pregunta), 'saldo')

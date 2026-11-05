@@ -76,11 +76,28 @@ def _compania_activa(compania_id: int) -> Compania:
 def _cotizacion(cotizacion_id: int, *, bloquear: bool = False) -> Cotizacion:
     consulta = Cotizacion.objects.all()
     if bloquear:
+        destino = consulta.filter(pk=cotizacion_id).values('interesado_id','poliza_id').first()
+        if destino is None:
+            raise NoEncontrado('La cotización no existe.')
+        # Mismo orden que emitir: primero el destino, después sus cotizaciones.
+        # Dos asesores eligiendo alternativas no deben bloquearse mutuamente.
+        modelo, pk = (Interesado, destino['interesado_id']) if destino['interesado_id'] else (Poliza, destino['poliza_id'])
+        modelo.objects.select_for_update().get(pk=pk)
         consulta = consulta.select_for_update()
     cotizacion = consulta.filter(pk=cotizacion_id).first()
     if cotizacion is None:
         raise NoEncontrado("La cotización no existe.")
     return cotizacion
+
+
+def _propuesta_abierta(interesado_id):
+    if interesado_id is None:
+        return
+    interesado = Interesado.objects.select_for_update().filter(pk=interesado_id).first()
+    if interesado is None:
+        raise NoEncontrado('El interesado no existe.')
+    if interesado.estado in ('emitida', 'perdida'):
+        raise EstadoInvalido('La propuesta está cerrada. Conservá sus cotizaciones como historial; para otra venta, abrí un nuevo interesado.')
 
 
 @transaction.atomic
@@ -98,6 +115,7 @@ def cargar_cotizacion(
     funcionario = _funcionario_activo(funcionario_id)
     if (interesado_id is None) == (poliza_id is None):
         raise DatosInvalidos("La cotización es de un interesado o de una póliza, no de ambos ni de ninguno.")
+    _propuesta_abierta(interesado_id)
     if interesado_id is not None and not Interesado.objects.filter(pk=interesado_id).exists():
         raise NoEncontrado("El interesado no existe.")
     if poliza_id is not None and not Poliza.objects.filter(pk=poliza_id).exists():
@@ -128,6 +146,10 @@ def elegir_cotizacion(cotizacion_id: int, funcionario_id: int) -> Cotizacion:
     """Marca la elegida y desmarca la anterior del mismo destino, todo o nada."""
     _funcionario_activo(funcionario_id)
     cotizacion = _cotizacion(cotizacion_id, bloquear=True)
+    _propuesta_abierta(cotizacion.interesado_id)
+    from django.utils import timezone
+    if cotizacion.vigencia_hasta and cotizacion.vigencia_hasta < timezone.localdate():
+        raise EstadoInvalido('La cotización ya no está vigente. Cargá una propuesta actualizada para este vehículo.')
     if cotizacion.elegida:
         return cotizacion
 
@@ -148,6 +170,7 @@ def quitar_cotizacion(cotizacion_id: int, funcionario_id: int) -> None:
     """Borra una cotización que no es la elegida. La elegida hay que cambiarla antes."""
     _funcionario_activo(funcionario_id)
     cotizacion = _cotizacion(cotizacion_id, bloquear=True)
+    _propuesta_abierta(cotizacion.interesado_id)
     if cotizacion.elegida:
         raise EstadoInvalido(
             "Esa es la cotización elegida. Elegí otra antes de quitarla."
@@ -172,7 +195,7 @@ def variacion_renovacion(poliza_id: int) -> Decimal | None:
 
 
 @transaction.atomic
-def registrar_poliza_elegida(interesado_id, funcionario_id, inicio, vencimiento):
+def registrar_poliza_elegida(interesado_id, funcionario_id, inicio, vencimiento, *, plan_id=None, plan_version=None):
     from negocio.interesados import _aprobador, guardar_vehiculo_del_interesado, mover_interesado
     from negocio.polizas import alta_poliza
     from django.utils import timezone
@@ -183,8 +206,20 @@ def registrar_poliza_elegida(interesado_id, funcionario_id, inicio, vencimiento)
     c=Cotizacion.objects.select_for_update().filter(interesado=i,elegida=True).first()
     if not c:raise DatosInvalidos('Falta elegir una cotización.')
     if c.vigencia_hasta and c.vigencia_hasta<timezone.localdate():raise DatosInvalidos('La cotización venció: actualizá la propuesta antes de confirmar.')
+    from datos.models import PlanCobertura, Funcionario
+    from negocio.condiciones_poliza import plan_para_poliza, guardar_condiciones
+    if not plan_id and PlanCobertura.objects.filter(compania_id=c.compania_id, activo=True).exists():
+        raise DatosInvalidos('Elegí el plan de la compañía para conservar sus condiciones en la póliza.')
     v=guardar_vehiculo_del_interesado(i,i.cliente,funcionario_id)
     if not v:raise DatosInvalidos('Completá patente, marca, modelo y año del vehículo.')
     p=alta_poliza(i.cliente_id,tipo_seguro='automotor',cobertura=c.cobertura,fecha_inicio=inicio,fecha_vencimiento=vencimiento,prima_mensual=c.prima_mensual,vehiculo_id=v.id,compania_id=c.compania_id)
+    if plan_id:
+        plan, version, campos = plan_para_poliza(p, plan_id, plan_version)
+        if plan.nivel and plan.nivel != c.cobertura:
+            raise DatosInvalidos('El nivel del plan debe coincidir con la cotización elegida. Revisá la propuesta antes de confirmar.')
+        guardar_condiciones(p, plan=plan, plan_version=version, campos=campos,
+                            funcionario=Funcionario.objects.get(pk=funcionario_id))
+    i.poliza_registrada = p
+    i.save(update_fields=['poliza_registrada'])
     mover_interesado(i.id,'emitida',funcionario_id,nota=f'Póliza {p.numero_poliza} registrada desde cotización elegida #{c.id}.')
     return p

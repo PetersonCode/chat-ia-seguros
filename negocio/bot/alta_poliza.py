@@ -168,7 +168,8 @@ def _elegir_plan(valor, datos):
             elegido = next((p for p in planes if p.nivel == nivel), None)
         if elegido is None:
             raise DatosInvalidos('Elegí uno de los planes por su número o su nombre.')
-        datos.update(plan_id=elegido.id, plan_nombre=elegido.nombre)
+        datos.update(plan_id=elegido.id, plan_nombre=elegido.nombre, plan_version=elegido.version,
+                     plan_condiciones={k: getattr(elegido, k) for k in ('cubre', 'no_cubre', 'limites', 'asistencia')})
         if elegido.nivel:
             datos['cobertura'] = elegido.nivel
             return
@@ -268,6 +269,8 @@ def _validar(campo, valor, datos, contacto):
         if datos.get('compania_id') != c.id:
             datos.pop('plan_id', None)
             datos.pop('plan_nombre', None)
+            datos.pop('plan_version', None)
+            datos.pop('plan_condiciones', None)
         datos.update(compania_id=c.id, compania_nombre=c.nombre)
     elif campo == 'cobertura':
         _elegir_plan(texto, datos)
@@ -341,10 +344,29 @@ def _respuesta_a_una_duda(texto, borrador):
         return ('El importe mensual lo calcula el asesor con estos datos y te lo confirma antes de emitir la póliza: '
                 'no se emite nada sin tu acuerdo.' + seguir)
     if re.search(r'\b(?:plan|planes|diferencia|cubre|cobertura|basica|intermedia|total|todo riesgo|terceros)\b', n):
-        return ('En general: la cobertura básica es responsabilidad civil (daños a terceros); la intermedia (terceros completo) '
-                'suma robo, incendio, granizo y cristales; la total (todo riesgo) suma además los daños a tu propio vehículo, '
-                'con franquicia. Cuando elijas la compañía te muestro sus planes.' + seguir)
+        datos = borrador.datos or {}
+        condiciones = datos.get('plan_condiciones')
+        if condiciones:
+            detalle = '\n'.join(f'{etiqueta}: {condiciones.get(campo) or "No informado."}'
+                                for campo, etiqueta in (('cubre', 'Cubre'), ('no_cubre', 'No cubre'),
+                                                        ('limites', 'Límites'), ('asistencia', 'Asistencia')))
+            return f'El plan solicitado {datos.get("plan_nombre", "")} informa:\n{detalle}' + seguir
+        planes = _planes(datos.get('compania_id')) if datos.get('compania_id') else []
+        if planes:
+            return ('Estas son las condiciones cargadas por la agencia:\n' + '\n\n'.join(
+                f'{p.nombre}: {p.cubre}\nNo cubre: {p.no_cubre or "No informado."}' for p in planes) + seguir)
+        return ('Las coberturas, exclusiones y franquicias dependen del plan de cada compañía. '
+                'Primero elijamos la compañía para consultar sus condiciones cargadas.' + seguir)
     return 'Esa consulta la ve el asesor cuando revise tu solicitud.' + seguir
+
+
+def _valores_del_plan(datos):
+    """Solo importes de las condiciones recuperadas del catálogo, nunca del texto del cliente."""
+    from negocio.bot.guardrails import RE_MONTO
+    copia = datos.get('plan_condiciones')
+    fuentes = list(copia.values()) if isinstance(copia, dict) else [
+        valor for plan in _planes(datos.get('compania_id')) for valor in (plan.cubre, plan.no_cubre)] if datos.get('compania_id') else []
+    return [m.replace(' ', '') for fuente in fuentes if isinstance(fuente, str) for m in RE_MONTO.findall(fuente)]
 
 
 def _entradas_rotuladas(texto):
@@ -387,11 +409,18 @@ def acepta_oferta(texto, conversacion):
 
 def _datos_de_la_cotizacion(contacto, datos):
     """Lo que el interesado ya dio al cotizar (patente, vehículo, año, uso): no se repregunta."""
-    from datos.selectors import interesado_abierto_de
+    from datos.selectors import interesado_abierto_de, datos_actuales_interesado
 
     interesado = interesado_abierto_de(contacto.id)
-    previos = (interesado.datos if interesado else {}) or {}
-    for campo in ('patente', 'marca', 'modelo', 'anio', 'uso'):
+    previos = datos_actuales_interesado(interesado) if interesado else {}
+    if interesado:
+        for campo,valor in (('nombre_solo', interesado.cliente.nombre if interesado.cliente_id else interesado.nombre),
+                            ('apellido_solo', interesado.cliente.apellido if interesado.cliente_id else interesado.apellido)):
+            clave=campo.removesuffix('_solo')
+            if valor and not datos.get(clave):
+                try: _validar(campo, valor, datos, contacto)
+                except (ErrorNegocio,ValueError): pass
+    for campo in ('dni', 'patente', 'marca', 'modelo', 'anio', 'uso', 'clase', 'chasis', 'valor_asegurado'):
         if previos.get(campo) and campo not in datos:
             try:
                 _validar(campo, previos[campo], datos, contacto)
@@ -447,7 +476,8 @@ def preparar_turno(texto, conversacion, mensaje_id):
         tipo = clasificar(texto)
         if tipo == 'consulta_cobertura' or (es_pregunta and not contacto.cliente_id):
             # Una duda no saca a la persona del alta ni le vuelve a pedir nombre y DNI.
-            return {'texto': _respuesta_a_una_duda(texto, borrador), 'accion': None}
+            return {'texto': _respuesta_a_una_duda(texto, borrador), 'accion': None,
+                    'datos_verificados': _valores_del_plan(borrador.datos)}
         if es_pregunta or tipo in {'saldo', 'vencimiento', 'asistencia', 'pago', 'saludo', 'agradecimiento', 'ajeno'}:
             return None
         if borrador.campo == 'nombre_completo' and (dni := RE_DNI_SUELTO.search(texto)):

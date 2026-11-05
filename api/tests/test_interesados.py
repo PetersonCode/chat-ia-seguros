@@ -21,6 +21,7 @@ CLAVES_ITEM = {
     "id", "nombre", "apellido", "origen", "estado", "responsable", "proximo_contacto",
     "seguimiento_vencido", "motivo_perdida", "datos", "cliente_id", "contacto",
     "creado_en", "actualizado_en",
+    "vehiculo_id", "poliza_registrada_id",
 }
 CLAVES_DETALLE = CLAVES_ITEM | {"cliente", "historial", "cotizaciones", "conversacion_id"}
 CLAVES_COTIZACION = {

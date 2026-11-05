@@ -37,27 +37,36 @@ export function configurarApi(opciones = {}) {
     configuracion = { ...configuracion, ...opciones };
 }
 
-async function solicitar(metodo, url, cuerpo) {
+async function solicitar(metodo, url, cuerpo, multipart = false) {
     const csrf = configuracion.leerCookie("csrftoken");
     const encabezados = {
         Accept: "application/json",
-        "Content-Type": "application/json",
     };
+    if (!multipart) encabezados["Content-Type"] = "application/json";
     if (csrf) {
         encabezados["X-CSRFToken"] = csrf;
     }
 
     const opciones = { method: metodo, headers: encabezados };
     if (cuerpo !== undefined) {
-        opciones.body = JSON.stringify(cuerpo);
+        opciones.body = multipart ? cuerpo : JSON.stringify(cuerpo);
     }
 
-    const respuesta = await configuracion.fetch(url, opciones);
+    let respuesta;
+    try {
+        respuesta = await configuracion.fetch(url, opciones);
+    } catch {
+        throw new ApiError(0, 'sin_conexion', 'No se pudo conectar con el servidor. Revisá la conexión e intentá nuevamente.');
+    }
     if (respuesta.status === 204) {
         return null;
     }
 
-    const datos = await respuesta.json();
+    let datos;
+    try { datos = await respuesta.json(); }
+    catch {
+        throw new ApiError(respuesta.status, 'respuesta_invalida', 'El servidor no pudo completar la solicitud. Intentá nuevamente.');
+    }
     if (!respuesta.ok) {
         const detalle = datos?.error;
         const error = new ApiError(
@@ -65,7 +74,7 @@ async function solicitar(metodo, url, cuerpo) {
             detalle?.codigo ?? "error_http",
             detalle?.mensaje ?? "La solicitud no pudo completarse.",
         );
-        if (respuesta.status === 401) {
+        if (respuesta.status === 401 && url.split('?')[0] !== '/api/auth/login/') {
             configuracion.redirigir("/");
         }
         throw error;
@@ -82,5 +91,9 @@ export const api = {
     },
     patch(url, cuerpo) {
         return solicitar("PATCH", url, cuerpo);
+    },
+    upload(url, formulario) {
+        // El navegador agrega el boundary; se conserva el mismo control CSRF.
+        return solicitar("POST", url, formulario, true);
     },
 };

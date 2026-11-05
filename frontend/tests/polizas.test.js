@@ -73,7 +73,11 @@ test("validarPoliza exige que el vencimiento sea posterior al inicio", () => {
 test("mesesDeCobertura espeja la regla del servidor: un año son 12 cuotas, no 13", () => {
     assert.equal(mesesDeCobertura("2026-01-10", "2027-01-10"), 12);
     assert.equal(mesesDeCobertura("2026-01-10", "2026-07-10"), 6);
-    assert.equal(mesesDeCobertura("2026-01-20", "2026-03-10"), 1);
+    assert.equal(mesesDeCobertura("2026-01-20", "2026-03-10"), 2);
+    assert.equal(mesesDeCobertura("2026-11-05", "2027-05-04"), 6);
+    assert.equal(mesesDeCobertura("2026-01-31", "2026-02-28"), 1);
+    assert.equal(mesesDeCobertura("2026-01-31", "2026-03-31"), 2);
+    assert.equal(mesesDeCobertura("2026-01-31", "2026-04-01"), 3);
     assert.equal(mesesDeCobertura("2026-01-10", "2026-01-25"), 1);
     assert.equal(mesesDeCobertura("", "2026-01-25"), 0);
 });

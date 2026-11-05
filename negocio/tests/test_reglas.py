@@ -29,6 +29,11 @@ from negocio.sesion import funcionario_de
 
 
 class ErroresTests(SimpleTestCase):
+    def test_saldo_con_variantes_de_dinero_y_abonar(self):
+        for texto in ('cuánta plata me queda pendiente?', 'cuánto dinero me queda pendiente',
+                      'cuánto tengo que abonar', 'cuánto me queda por abonar'):
+            self.assertEqual(clasificar(texto), 'saldo')
+
     # AC-T3-01
     def test_cada_error_tiene_su_codigo_y_conserva_el_mensaje(self):
         esperados = [

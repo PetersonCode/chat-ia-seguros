@@ -46,3 +46,17 @@ class BandejaContactosTests(ApiTestCase):
         fabricas.crear_derivacion(fabricas.crear_consulta(c),self.operador)
         fabricas.crear_mensaje(c,emisor='bot',direccion='saliente',estado_envio='enviado')
         self.assertEqual(self.lista()['total'],1)
+
+    def test_recordatorio_y_envio_fallido_no_ocultan_al_cliente_pendiente(self):
+        c=self.conversacion;c.modo='humano';c.funcionario=self.operador;c.save()
+        fabricas.crear_mensaje(c,emisor='cliente')
+        recordatorio=fabricas.crear_mensaje(c,emisor='funcionario',funcionario=self.operador,
+            direccion='saliente',estado_envio='enviado')
+        recordatorio.payload={'recordatorio_poliza_id':1};recordatorio.save(update_fields=['payload'])
+        self.assertEqual(self.lista()['total'],1)
+        fabricas.crear_mensaje(c,emisor='funcionario',funcionario=self.operador,
+            direccion='saliente',estado_envio='fallido')
+        self.assertEqual(self.lista()['total'],1)
+        aviso=fabricas.crear_mensaje(c,emisor='bot',direccion='saliente',estado_envio='enviado')
+        aviso.payload={'aviso_gestion_id':1};aviso.save(update_fields=['payload'])
+        self.assertEqual(self.lista()['total'],1)

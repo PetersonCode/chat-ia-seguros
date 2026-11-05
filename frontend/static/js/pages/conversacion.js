@@ -1,9 +1,10 @@
-import { api } from "../api.js?v=20261104gestion2";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261104flotante1";
-import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261104gestion2";
-import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261104gestion2";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261104gestion2";
-import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261104gestion2";
+import { api } from "../api.js?v=20261105revision9";
+import { abrirRegistroPago } from '../lib/pagos.js?v=20261105revision9';
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105revision9";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261105revision9";
+import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261105revision9";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261105revision9";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261105revision9";
 
 const idConversacion = new URLSearchParams(globalThis.location.search).get("id");
 const tituloChat = document.getElementById("titulo-chat");
@@ -179,7 +180,7 @@ function renderizarCliente(detalle) {
         const debe = Number(poliza.saldo_pendiente ?? 0) > 0;
         let pagar = null;
         if (debe) {
-            pagar = crearElemento("button", "btn btn-sm btn-outline-success", "Póliza pagada");
+            pagar = crearElemento("button", "btn btn-sm btn-outline-success", "Registrar pago de cuota");
             pagar.type = "button";
             pagar.addEventListener("click", () => confirmarPago(poliza));
         }
@@ -252,7 +253,7 @@ function renderizarConversacion(detalle) {
         : "Cerrar caso";
 
     const modoHumano = detalle.modo === "humano";
-    formularioRespuesta.hidden = !modoHumano || cerrada;
+    formularioRespuesta.hidden = !modoHumano || cerrada || !asignadaAMi;
     textoRespuesta.disabled = !detalle.ventana_24h_abierta;
     botonResponder.disabled = !detalle.ventana_24h_abierta;
     avisoVentana.hidden = detalle.ventana_24h_abierta;
@@ -290,18 +291,14 @@ function abrirConfirmacion(titulo, descripcion, alConfirmar) {
     dialogo.showModal();
 }
 
-function confirmarPago(poliza) {
-    abrirConfirmacion(
-        "Registrar pago",
-        `Se va a marcar como pagada la cuota que vence el ${formatearFecha(poliza.proximo_vencimiento_pago)}`
-        + ` de la póliza ${poliza.numero_poliza}. Es una sola cuota: el saldo baja un mes.`,
-        async () => {
-            await api.post(`/api/polizas/${poliza.id}/pagos/`);
+async function confirmarPago(poliza) {
+    try {
+        await abrirRegistroPago(poliza, async () => {
             conversacion = await api.get(`/api/conversaciones/${idConversacion}/`);
             renderizarConversacion(conversacion);
             mostrarMensajePagina(`Pago registrado en ${poliza.numero_poliza}.`);
-        },
-    );
+        });
+    } catch(e){mostrarMensajePagina(e.mensaje??e.message??'No se pudo abrir el cobro.',true);}
 }
 
 function cerrarCasos() {
@@ -519,9 +516,10 @@ async function cargarNuevosMensajes() {
     sondeoEnCurso = true;
     try {
         const ultimoId = mensajes.length > 0 ? mensajes[mensajes.length - 1].id : 0;
-        const respuesta = await api.get(
-            `/api/conversaciones/${idConversacion}/mensajes/?despues_de=${encodeURIComponent(ultimoId)}`,
-        );
+        const [respuesta, detalle] = await Promise.all([
+            api.get(`/api/conversaciones/${idConversacion}/mensajes/?despues_de=${encodeURIComponent(ultimoId)}`),
+            api.get(`/api/conversaciones/${idConversacion}/`),
+        ]);
         if (!Array.isArray(respuesta.mensajes)) {
             throw new Error("La respuesta de mensajes no tiene el formato esperado.");
         }
@@ -531,9 +529,8 @@ async function cargarNuevosMensajes() {
         renderizarMensajes();
         if (hayMensajesNuevos) {
             mensajesChat.scrollTop = mensajesChat.scrollHeight;
-            const detalle = await api.get(`/api/conversaciones/${idConversacion}/`);
-            renderizarCliente(detalle);
         }
+        if (JSON.stringify(detalle)!==JSON.stringify(conversacion)) renderizarConversacion(detalle);
     } catch (error) {
         mostrarMensajePagina(error.mensaje ?? error.message ?? "No se pudieron actualizar los mensajes.", true);
     } finally {
@@ -579,6 +576,10 @@ botonEliminacionTotal.addEventListener("click", eliminacionTotal);
 botonVaciarAlertas.addEventListener("click", vaciarAlertas);
 botonDesbloquear.addEventListener("click", desbloquearNumero);
 formularioRespuesta.addEventListener("submit", responder);
+document.addEventListener('castano:chat-actualizado', e=>{
+    if(String(e.detail?.id)!==String(idConversacion))return;
+    cargarNuevosMensajes();
+});
 dialogoCancelar.addEventListener("click", () => dialogo.close());
 dialogoConfirmar.addEventListener("click", confirmarAccion);
 

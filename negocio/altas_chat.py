@@ -1,6 +1,6 @@
 """Ejecución de una solicitud del chat, siempre dentro de la aprobación humana."""
 from datetime import date
-from datos.models import Vehiculo
+from datos.models import Vehiculo, PlanCobertura
 from negocio.clientes import alta_cliente
 from negocio.errores import DatosInvalidos
 from negocio.polizas import alta_poliza
@@ -39,7 +39,20 @@ def ejecutar_alta_poliza(accion, funcionario):
         # El plan que eligió en el chat: mismas condiciones (y documento para el
         # bot) que una póliza cargada desde el panel.
         from negocio.condiciones_poliza import guardar_condiciones, plan_para_poliza
-        plan, version, campos = plan_para_poliza(poliza, p['plan_id'], None)
-        guardar_condiciones(poliza, plan=plan, plan_version=version, campos=campos, funcionario=funcionario)
+        if p.get('plan_version') and p.get('plan_condiciones'):
+            plan = PlanCobertura.objects.select_for_update().select_related('compania').filter(pk=p['plan_id']).first()
+            if not plan or plan.compania_id != poliza.compania_id or not plan.activo or not plan.compania.activa:
+                raise DatosInvalidos('El plan solicitado ya no está disponible. Revisá la solicitud antes de aprobar.')
+            version = p['plan_version']
+            campos = p['plan_condiciones']
+            if (not isinstance(version, int) or version < 1 or version > plan.version or
+                    not isinstance(campos, dict) or not all(isinstance(campos.get(k), str) for k in ('cubre', 'no_cubre', 'limites', 'asistencia'))):
+                raise DatosInvalidos('La copia de condiciones solicitadas no es válida.')
+        else:  # solicitudes anteriores al registro de la versión
+            plan, version, campos = plan_para_poliza(poliza, p['plan_id'], None)
+        guardar_condiciones(poliza, plan=plan, plan_version=version, campos=campos,
+                            funcionario=funcionario, plan_nombre=p.get('plan_nombre'))
+    from negocio.interesados import finalizar_interesado_por_alta_chat
+    finalizar_interesado_por_alta_chat(contacto, poliza, funcionario.id)
     accion.poliza = poliza
     accion.parametros = {**p, 'cliente_id': cliente.id}
