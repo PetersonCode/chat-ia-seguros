@@ -27,6 +27,13 @@ class GestionDiariaTests(ApiTestCase):
         self.assertEqual(d['cantidades']['morosos'],1)
         self.assertEqual(d['cantidades']['interesados'],1)
 
+    def test_aviso_automatico_no_borra_cliente_que_lleva_horas_sin_respuesta(self):
+        m=fabricas.crear_mensaje(self.conversacion,emisor='cliente')
+        Mensaje.objects.filter(pk=m.pk).update(fecha_hora=timezone.now()-timedelta(hours=3))
+        aviso=fabricas.crear_mensaje(self.conversacion,emisor='bot',direccion='saliente',estado_envio='enviado')
+        aviso.payload={'aviso_gestion_id':1};aviso.save(update_fields=['payload'])
+        self.assertEqual(self.cliente_api.get('/api/gestion/inicio/').json()['cantidades']['sin_respuesta'],1)
+
     def test_asignar_completar_y_no_duplicar_resolucion(self):
         r=self.cliente_api.post('/api/gestion/tareas/',{'titulo':'Llamar por descuento','vence':str(self.hoy),'cliente':self.cliente.id,'asignada_a':self.operador.id},format='json')
         self.assertEqual(r.status_code,201,r.content)

@@ -52,7 +52,7 @@ def condiciones(request,id):
 def listar(request):
     qs=Poliza.objects.select_related('cliente','vehiculo','compania').order_by('-id')
     q=request.query_params.get('q','').strip()[:100]
-    if q:qs=filtrar_cartera(qs,q,('numero_poliza','cliente__nombre','cliente__apellido','vehiculo__patente','vehiculo__modelo','compania__nombre'))
+    if q:qs=filtrar_cartera(qs,q,('numero_poliza','cliente__nombre','cliente__apellido','vehiculo__patente','vehiculo__marca','vehiculo__modelo','vehiculo__chasis','vehiculo__clase','compania__nombre'))
     p=Paginador(); filas=p.paginate_queryset(qs,request)
     return p.get_paginated_response([{'id':x.id,'numero':x.numero_poliza,'cliente_id':x.cliente_id,
         'cliente':f'{x.cliente.nombre} {x.cliente.apellido}','patente':x.vehiculo.patente if x.vehiculo else '',

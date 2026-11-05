@@ -1,6 +1,6 @@
-import { api } from "../api.js?v=20261104gestion2";
-import { inicializarNav } from "../nav.js?v=20261104flotante1";
-import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261104gestion2";
+import { api } from "../api.js?v=20261105revision9";
+import { inicializarNav } from "../nav.js?v=20261105revision9";
+import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105revision9";
 
 const formularioDenuncia = document.getElementById("formulario-denuncia");
 const buscarCliente = document.getElementById("buscar-cliente-siniestro");
@@ -247,6 +247,7 @@ async function cargarSiniestros(pagina = paginaActual) {
 
 function renderizarDetalle(siniestro) {
     panelDetalle.hidden = false;
+    formularioAdjunto.hidden = false;
     formularioAdjunto.reset();
     datosDetalle.dataset.id = String(siniestro.id);
     document.getElementById("titulo-detalle-siniestro").textContent =
@@ -312,7 +313,7 @@ function renderizarDetalle(siniestro) {
     formularioTransicion.hidden = !funcionario.puede_aprobar || siguientes.length === 0;
     mensajeSinTransicion.hidden = funcionario.puede_aprobar && siguientes.length !== 0;
     mensajeSinTransicion.textContent = funcionario.puede_aprobar
-        ? "El expediente está cerrado; no admite más cambios."
+        ? "El expediente está cerrado; no admite más cambios de estado. Se conserva la documentación."
         : "Tu usuario puede consultar el expediente, pero no registrar decisiones.";
     estadoSiguiente.replaceChildren(opcion("Seleccioná el estado siguiente"));
     for (const proximo of siguientes) {

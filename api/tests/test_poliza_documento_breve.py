@@ -28,6 +28,19 @@ class DocumentoBreveTests(ApiTestCase):
         texto,fuente=responder_cobertura('¿Mi póliza cubre daños por inundación?',self.conversacion)
         self.assertIsNone(fuente)
 
+    def test_astillado_del_vidrio_consulta_cristales_en_descripcion_breve(self):
+        from datos.models import FragmentoDocumento
+        self.poliza.vehiculo=fabricas.crear_vehiculo(self.cliente,clase='moto')
+        self.poliza.save()
+        FragmentoDocumento.objects.filter(documento=self.doc).update(texto='Responsabilidad civil y cristales. No cubre granizo.')
+        for pregunta in ('¿Qué protección tengo si se astilla el vidrio delantero de mi moto?',
+                         '¿Mi póliza ampara la rotura del parabrisas?'):
+            texto,fuente=responder_cobertura(pregunta,self.conversacion)
+            self.assertIsNotNone(fuente,pregunta)
+            self.assertIn('No cubre granizo',texto)
+        texto,fuente=responder_cobertura('¿Mi póliza cubre rotura de cristales e inundación?',self.conversacion)
+        self.assertIsNone(fuente)
+
     def test_otro_cliente_no_usa_la_descripcion(self):
         self.contacto.cliente=fabricas.crear_cliente()
         self.contacto.save()

@@ -81,7 +81,8 @@ input[type=checkbox] { accent-color: #237564; }
 
 /* Chat persistente entre módulos: se conserva solo en la pestaña actual. */
 .chat-flotante { position: fixed; z-index: 1040; right: max(1rem, env(safe-area-inset-right)); bottom: max(1rem, env(safe-area-inset-bottom)); width: min(410px, calc(100vw - 2rem)); height: min(650px, calc(100dvh - 2rem)); display: flex; flex-direction: column; background: #fff; color: #203047; border: 1px solid #bdcada; border-radius: 1rem; overflow: hidden; box-shadow: 0 12px 48px #0a234240; }
-.chat-flotante[hidden], .chat-flotante [hidden] { display: none !important; }
+/* Bootstrap puede imponer display:flex a un control oculto por estado o rol. */
+[hidden] { display: none !important; }
 .chat-flotante-cabecera { display: flex; align-items: center; gap: .25rem; background: #0a2342; color: #fff; padding: .65rem; flex-shrink: 0; }
 .chat-flotante-cabecera button { border: 0; color: #fff; background: transparent; border-radius: .5rem; }
 .chat-flotante-cabecera button:hover { background: #ffffff20; }

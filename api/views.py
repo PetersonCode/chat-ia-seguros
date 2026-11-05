@@ -393,7 +393,7 @@ def _conversacion_detalle(conversacion_id: int) -> dict:
     from negocio.interesados import interesado_abierto_de
     interesado_chat = interesado_abierto_de(contacto_id)
     payload['interesado'] = ({'id':interesado_chat.id,'nombre':interesado_chat.nombre,
-        'apellido':interesado_chat.apellido,'datos':interesado_chat.datos or {}} if interesado_chat else None)
+        'apellido':interesado_chat.apellido,'datos':selectors.datos_actuales_interesado(interesado_chat)} if interesado_chat else None)
     payload["nombre_perfil"] = (
         conversacion.contacto.nombre_perfil if conversacion.contacto else None
     )
@@ -595,7 +595,7 @@ def _poliza_detalle(poliza: Poliza, ver_comision: bool = False) -> dict:
             "plan": (
                 {
                     "id": condiciones.plan_id,
-                    "nombre": condiciones.plan.nombre,
+                    "nombre": condiciones.nombre_plan_confirmado,
                     "version": condiciones.plan_version,
                 }
                 if condiciones and condiciones.plan_id
@@ -1635,17 +1635,20 @@ def _interesado_item(interesado: Interesado) -> dict:
         and interesado.proximo_contacto < timezone.localdate()
         and interesado.estado not in (EstadoInteresado.EMITIDA, EstadoInteresado.PERDIDA)
     )
+    datos_actuales = selectors.datos_actuales_interesado(interesado)
     return {
         "id": interesado.id,
-        "nombre": interesado.nombre,
-        "apellido": interesado.apellido,
+        "nombre": interesado.cliente.nombre if interesado.cliente_id else interesado.nombre,
+        "apellido": interesado.cliente.apellido if interesado.cliente_id else interesado.apellido,
         "origen": interesado.origen,
         "estado": interesado.estado,
         "responsable": _funcionario_breve(interesado.responsable),
         "proximo_contacto": _iso(interesado.proximo_contacto),
         "seguimiento_vencido": vencido,
         "motivo_perdida": interesado.motivo_perdida,
-        "datos": interesado.datos or {},
+        "datos": datos_actuales,
+        "vehiculo_id": interesado.vehiculo_id,
+        "poliza_registrada_id": interesado.poliza_registrada_id,
         "cliente_id": interesado.cliente_id,
         "contacto": _contacto_breve(interesado.contacto),
         "creado_en": _iso(interesado.creado_en),
@@ -1898,5 +1901,18 @@ def interesado_registrar_poliza(request,id):
     if not Interesado.objects.filter(pk=id).exists():raise NoEncontrado('El interesado no existe.')
     inicio=serializers.DateField().run_validation(request.data.get('fecha_inicio'))
     fin=serializers.DateField().run_validation(request.data.get('fecha_vencimiento'))
-    registrar_poliza_elegida(id,request.funcionario.id,inicio,fin)
+    plan_id = serializers.IntegerField(min_value=1, allow_null=True).run_validation(request.data.get('plan_id'))
+    version = serializers.IntegerField(min_value=1, allow_null=True).run_validation(request.data.get('plan_version'))
+    registrar_poliza_elegida(id,request.funcionario.id,inicio,fin,plan_id=plan_id,plan_version=version)
     return Response(_interesado_detalle(selectors.detalle_interesado(id),_ve_comision(request)),status=201)
+
+
+@api_view(['POST'])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsAprobador])
+def interesado_vincular_poliza(request,id):
+    from rest_framework import serializers
+    from negocio.interesados import vincular_poliza_registrada
+    poliza_id=serializers.IntegerField(min_value=1).run_validation(request.data.get('poliza_id'))
+    vincular_poliza_registrada(id,poliza_id,request.funcionario.id)
+    return Response(_interesado_detalle(selectors.detalle_interesado(id),_ve_comision(request)))

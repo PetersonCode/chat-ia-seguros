@@ -347,9 +347,11 @@ class MoverInteresadoTests(BaseInteresadosTests):
         interesado.refresh_from_db()
         self.assertEqual(interesado.estado, "documentacion")
 
-        # Con una póliza nueva, sí.
-        fabricas.crear_poliza(cliente)
-        interesados.mover_interesado(interesado.pk, "emitida", self.diego.id)
+        # No basta otra póliza nueva del cliente: se confirma el vínculo exacto.
+        poliza = fabricas.crear_poliza(cliente, vehiculo=fabricas.crear_vehiculo(cliente), compania=fabricas.crear_compania())
+        with self.assertRaises(EstadoInvalido):
+            interesados.mover_interesado(interesado.pk, "emitida", self.diego.id)
+        interesados.vincular_poliza_registrada(interesado.pk,poliza.id,self.graciela.id)
         interesado.refresh_from_db()
         self.assertEqual(interesado.estado, "emitida")
 
@@ -359,8 +361,8 @@ class MoverInteresadoTests(BaseInteresadosTests):
         cliente = fabricas.crear_cliente()
         self._en(interesado, "cotizando", "documentacion")
         Interesado.objects.filter(pk=interesado.pk).update(cliente=cliente)
-        fabricas.crear_poliza(cliente)
-        interesados.mover_interesado(interesado.pk, "emitida", self.diego.id)
+        poliza = fabricas.crear_poliza(cliente, vehiculo=fabricas.crear_vehiculo(cliente), compania=fabricas.crear_compania())
+        interesados.vincular_poliza_registrada(interesado.pk,poliza.id,self.graciela.id)
 
         for destino in ("consulta", "cotizando", "documentacion", "perdida", "emitida"):
             with self.subTest(destino=destino):
@@ -500,6 +502,25 @@ class ConvertirEnClienteTests(BaseInteresadosTests):
 
 
 class GestionDelInteresadoTests(BaseInteresadosTests):
+    def test_cotizar_otro_vehiculo_no_arrastra_el_vinculo_ni_chasis_anterior(self):
+        from datos.selectors import datos_actuales_interesado
+        cliente=fabricas.crear_cliente()
+        contacto=fabricas.crear_contacto(cliente=cliente)
+        v=fabricas.crear_vehiculo(cliente,patente='AB123CD',chasis='VINANTERIOR')
+        i=fabricas.crear_interesado(contacto=contacto,cliente=cliente,vehiculo=v,
+            datos={'patente':'AB123CD','chasis':'VINANTERIOR','valor_asegurado':'123000'})
+        oferta=fabricas.crear_cotizacion(interesado=i,elegida=True)
+        interesados.registrar_cotizacion_del_bot(contacto,{'patente':'AC456EF','marca':'Honda','modelo':'Wave','anio':2024,'clase':'moto'})
+        i.refresh_from_db();v.refresh_from_db()
+        self.assertIsNone(i.vehiculo_id)
+        self.assertEqual(datos_actuales_interesado(i)['patente'],'AC456EF')
+        self.assertNotIn('chasis',i.datos)
+        self.assertEqual(v.patente,'AB123CD')
+        oferta.refresh_from_db()
+        self.assertFalse(oferta.elegida)
+        self.assertLess(oferta.vigencia_hasta,timezone.localdate())
+        self.assertIn('Vehículo anterior AB123CD',oferta.notas)
+
     # AC-T3-84
     def test_asignar_cambia_el_responsable_y_registra_quien_y_cuando(self):
         interesado = self._crear()

@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261104gestion2";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261104flotante1";
-import { armarQuery } from "../lib/consulta.js?v=20261104gestion2";
-import { describirAccion, faltantes } from "../lib/acciones.js?v=20261104gestion2";
-import { formatearFechaHora } from "../lib/formato.js?v=20261104gestion2";
-import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261104gestion2";
+import { api } from "../api.js?v=20261105revision9";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105revision9";
+import { armarQuery } from "../lib/consulta.js?v=20261105revision9";
+import { describirAccion, faltantes } from "../lib/acciones.js?v=20261105revision9";
+import { formatearFechaHora } from "../lib/formato.js?v=20261105revision9";
+import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105revision9";
 
 const estado = document.getElementById("estado-acciones");
 const carga = document.getElementById("carga-acciones");
@@ -61,6 +61,9 @@ const etiquetasParametros = {
     compania_nombre: "Compañía solicitada", cobertura: "Cobertura solicitada",
     fecha_inicio: "Inicio solicitado", fecha_vencimiento: "Vencimiento solicitado",
     prima_mensual: "Prima mensual acordada (ARS)",
+    plan_nombre: "Plan elegido",
+    plan_version: "Versión del plan",
+    plan_condiciones: "Condiciones ofrecidas",
     importe: "Importe del reembolso",
     detalle: "Detalle de la modificación",
     fecha_ocurrencia: "Fecha de ocurrencia",
@@ -73,6 +76,11 @@ function mostrarEstado(mensaje, error = false) {
     estado.classList.toggle("d-none", !mensaje);
     estado.classList.toggle("alert-danger", error);
     estado.classList.toggle("alert-success", Boolean(mensaje) && !error);
+}
+
+function nombreSolicitante(accion) {
+    return accion.cliente ? `${accion.cliente.nombre} ${accion.cliente.apellido}` :
+        [accion.parametros?.nombre, accion.parametros?.apellido].filter(Boolean).join(' ') || 'Contacto sin alta en cartera';
 }
 
 function antiguedad(fecha) {
@@ -111,9 +119,7 @@ function crearTarjetaAccion(accion) {
 
     const tarjeta = crearTarjeta({
         titulo: describirAccion(accion),
-        subtitulo: accion.cliente
-            ? [accion.cliente.nombre, accion.cliente.apellido].filter(Boolean).join(" ")
-            : "Contacto desconocido",
+        subtitulo: nombreSolicitante(accion),
         clase: "tarjeta-azul",
         datos: [["Solicitada", antiguedad(accion.solicitada_en)]],
         acciones: [boton],
@@ -125,7 +131,7 @@ function crearTarjetaAccion(accion) {
 function actualizarPaginacion(datos) {
     paginaSeleccionada = datos.pagina;
     paginasTotales = Math.max(1, Math.ceil(datos.total / datos.por_pagina));
-    total.textContent = `${datos.total} acción${datos.total === 1 ? "" : "es"}`;
+    total.textContent = `${datos.total} ${datos.total === 1 ? "acción" : "acciones"}`;
     paginaTexto.textContent = `Página ${paginaSeleccionada} de ${paginasTotales}`;
     botonAnterior.disabled = paginaSeleccionada <= 1;
     botonSiguiente.disabled = paginaSeleccionada >= paginasTotales;
@@ -214,19 +220,18 @@ function renderizarDetalle(accion) {
     accionSeleccionada = accion;
     panelDetalle.hidden = false;
     descripcionDetalle.textContent = describirAccion(accion);
-    clienteDetalle.textContent = accion.cliente
-        ? `Cliente: ${[accion.cliente.nombre, accion.cliente.apellido].filter(Boolean).join(" ")}`
-        : "Cliente: Contacto desconocido";
+    clienteDetalle.textContent = `Solicitante: ${nombreSolicitante(accion)}`;
 
     listaParametros.replaceChildren();
     for (const [clave, valor] of Object.entries(accion.parametros ?? {})) {
-        if (['borrador_alta_id', 'cliente_id', 'compania_id'].includes(clave)) continue;
+        if (['borrador_alta_id', 'cliente_id', 'compania_id', 'plan_id'].includes(clave)) continue;
         const termino = document.createElement("dt");
         termino.className = "col-sm-5";
         termino.textContent = etiquetasParametros[clave] ?? clave;
         const definicion = document.createElement("dd");
         definicion.className = "col-sm-7";
-        definicion.textContent = valorLegible(valor);
+        definicion.textContent = clave === 'plan_condiciones' ? Object.entries(valor || {}).map(([k,v]) => `${({cubre:'Cubre',no_cubre:'No cubre',limites:'Límites',asistencia:'Asistencia'})[k] || k}: ${v || 'No informado.'}`).join('\n') : valorLegible(valor);
+        if (clave === 'plan_condiciones') definicion.style.whiteSpace = 'pre-line';
         listaParametros.append(termino, definicion);
     }
     if (accion.poliza) {

@@ -54,6 +54,14 @@ class PlanEnLaPolizaTests(ApiTestCase):
             f"/api/clientes/{self.cliente.id}/polizas/", datos, format="json"
         )
 
+    def test_busqueda_de_polizas_por_chasis_marca_y_clase(self):
+        v=fabricas.crear_vehiculo(self.cliente,patente='AB123CD',marca='Honda',modelo='Wave',clase='moto',chasis='VIN-UNICO-5508')
+        p=fabricas.crear_poliza(self.cliente,vehiculo=v,compania=self.compania)
+        for q in ('VINUNICO5508','Honda','moto'):
+            r=self.cliente_api.get('/api/polizas/',{'q':q})
+            self.assertEqual(r.status_code,200,r.content)
+            self.assertEqual([x['id'] for x in r.json()['resultados']],[p.id])
+
     def test_el_plan_define_el_nivel_y_copia_sus_condiciones_en_el_alta(self):
         plan = self.plan(nivel="intermedia")
 
@@ -106,6 +114,23 @@ class PlanEnLaPolizaTests(ApiTestCase):
         self.assertEqual(respuesta.status_code, 200, respuesta.content)
         poliza.refresh_from_db()
         self.assertEqual(poliza.cobertura, "total")
+
+    def test_ajustar_copia_anterior_no_aplica_silenciosamente_el_nivel_actual_del_catalogo(self):
+        plan=self.plan(nivel='intermedia')
+        poliza_id=self.alta(plan_id=plan['id']).json()['id']
+        r=self.cliente_api.patch(f'/api/planes-cobertura/{plan["id"]}/',{
+            'nombre':'Plan total nuevo','nivel':'total','cubre':'Granizo sin tope según plan nuevo.'},format='json')
+        self.assertEqual(r.status_code,200,r.content)
+        r=self.cliente_api.patch(f'/api/polizas/{poliza_id}/condiciones/',{
+            'plan_id':plan['id'],'plan_version':plan['version'],'limites':'Cristales hasta $300.000.'},format='json')
+        self.assertEqual(r.status_code,200,r.content)
+        self.assertEqual(Poliza.objects.get(pk=poliza_id).cobertura,'intermedia')
+        copia=CondicionesPoliza.objects.get(poliza_id=poliza_id)
+        self.assertEqual(copia.plan_version,plan['version'])
+        self.assertEqual(copia.cubre,plan['cubre'])
+        self.assertEqual(copia.nombre_plan_confirmado,'Terceros completo')
+        ficha=self.cliente_api.get(f'/api/polizas/{poliza_id}/').json()
+        self.assertEqual(ficha['plan']['nombre'],'Terceros completo')
 
     def test_no_se_cambia_de_compania_dejando_un_plan_ajeno(self):
         plan = self.plan()

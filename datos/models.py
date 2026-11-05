@@ -841,8 +841,17 @@ class CondicionesPoliza(models.Model):
     documento = models.ForeignKey(DocumentoGeneral, null=True, on_delete=models.DO_NOTHING)
     plan = models.ForeignKey(PlanCobertura, null=True, on_delete=models.DO_NOTHING)
     plan_version = models.IntegerField(null=True)
+    plan_nombre = models.TextField(default='')
     actualizado_por = models.ForeignKey(Funcionario, on_delete=models.DO_NOTHING)
     actualizado_en = models.DateTimeField(default=timezone.now)
+    @property
+    def nombre_plan_confirmado(self):
+        if self.plan_nombre:
+            return self.plan_nombre
+        if not self.plan_id:
+            return ''
+        # No se puede reconstruir un nombre que el catálogo ya reemplazó.
+        return self.plan.nombre if self.plan_version == self.plan.version else f'Plan histórico #{self.plan_id}'
     class Meta:
         managed = False
         db_table = 'condiciones_poliza'
@@ -902,6 +911,8 @@ class Interesado(models.Model):
     """
 
     id = models.BigAutoField(primary_key=True)
+    vehiculo = models.ForeignKey(Vehiculo, on_delete=models.SET_NULL, null=True, related_name='interesados')
+    poliza_registrada = models.ForeignKey(Poliza, on_delete=models.SET_NULL, null=True, related_name='interesados_emitidos')
     nombre = models.TextField()
     apellido = models.TextField(null=True)
     contacto = models.ForeignKey(

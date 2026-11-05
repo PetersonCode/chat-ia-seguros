@@ -4,6 +4,11 @@ from negocio.documentos import _partir_contenido, puntuar_fragmento
 
 
 class RecuperacionLexicaTests(SimpleTestCase):
+    def test_horario_de_atencion_encuentra_una_oficina_que_atiende(self):
+        coincidencias, total = puntuar_fragmento('horarios de atención de la oficina',
+            'La oficina atiende de lunes a viernes de 9 a 18 horas.')
+        self.assertEqual((coincidencias,total),(3,3))
+
     def test_compara_palabras_normalizadas_sin_depender_de_un_modelo_semantico(self):
         coincidencias, terminos = puntuar_fragmento(
             "¿Qué cubre el vehículo?",

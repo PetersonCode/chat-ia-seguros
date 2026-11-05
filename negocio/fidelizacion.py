@@ -27,7 +27,7 @@ def renovar(id,f,prima,fin,conservar=True):
         contenido=' '.join(condiciones.documento.fragmentos.order_by('orden').values_list('texto',flat=True))
         doc=crear_documento(titulo=f'Condiciones cargadas en póliza {nueva.numero_poliza}',version=uuid4().hex,referencia='Condiciones revisadas al registrar la renovación.',contenido=contenido,funcionario_id=f.id)
         aprobar_documento(doc.id,f.id);vincular_documento(nueva.numero_poliza,doc.id,f.id)
-        CondicionesPoliza.objects.create(poliza=nueva,documento=doc,actualizado_por=f,plan_id=condiciones.plan_id,plan_version=condiciones.plan_version,**{k:getattr(condiciones,k) for k in ('cubre','no_cubre','limites','asistencia')})
+        CondicionesPoliza.objects.create(poliza=nueva,documento=doc,actualizado_por=f,plan_id=condiciones.plan_id,plan_version=condiciones.plan_version,plan_nombre=condiciones.nombre_plan_confirmado,**{k:getattr(condiciones,k) for k in ('cubre','no_cubre','limites','asistencia')})
     for c in p.cliente.contactos.filter(acepta_avisos=True):
         AvisoGestion.objects.get_or_create(clave=f'renovada/{nueva.id}/{c.id}',defaults={'tipo':'renovacion_confirmada','contacto':c,'poliza':nueva})
     from django.contrib.auth import get_user_model

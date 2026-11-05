@@ -1,6 +1,6 @@
-import { api } from '../api.js?v=20261104gestion2';
-import { fusionarMensajes } from './mensajes.js?v=20261104gestion2';
-import { formatearFechaHora } from './formato.js?v=20261104gestion2';
+import { api } from '../api.js?v=20261105revision9';
+import { fusionarMensajes } from './mensajes.js?v=20261105revision9';
+import { formatearFechaHora } from './formato.js?v=20261105revision9';
 
 // Solo referencias y borradores por usuario; nunca se almacena el historial.
 const PREFIJO = 'castano.chat.';
@@ -94,11 +94,15 @@ export async function iniciarChatFlotante() {
     minimizar.onclick=()=>modo('minimizado'); ampliar.onclick=()=>modo(estado?.modo==='ampliado'?'normal':'ampliado');
     cerrar.onclick=()=>{version++;estado=null;detalle=null;mensajes=[];guardar(clave,null);pintarModo();};
     texto.oninput=()=>{if(estado)guardar(borrador(),texto.value);};
-    tomar.onclick=async()=>{const id=estado.id,accion=detalle?.modo==='humano'&&detalle.atendida_por?.id===usuario.id?'devolver':'tomar';tomar.disabled=true;try{await api.post(`/api/conversaciones/${id}/${accion}/`,{});await actualizar();}catch(e){aviso.textContent=e.mensaje??e.message;}finally{tomar.disabled=false;}};
+    function notificarCambio(id) {
+        document.dispatchEvent(new CustomEvent('castano:chat-actualizado',{detail:{id}}));
+        document.dispatchEvent(new Event('pendientes:actualizar'));
+    }
+    tomar.onclick=async()=>{const id=estado.id,accion=detalle?.modo==='humano'&&detalle.atendida_por?.id===usuario.id?'devolver':'tomar';tomar.disabled=true;try{await api.post(`/api/conversaciones/${id}/${accion}/`,{});await actualizar();notificarCambio(id);}catch(e){aviso.textContent=e.mensaje??e.message;}finally{tomar.disabled=false;}};
     form.onsubmit=async e=>{
         e.preventDefault();if(!estado||!puedeResponderChat(detalle,usuario)||!texto.value.trim())return;
         const id=estado.id, draft=borrador(), contenido=texto.value; enviar.disabled=true;
-        try{await api.post(`/api/conversaciones/${id}/responder/`,{texto:contenido.trim()});guardar(draft,null);if(estado?.id===id){texto.value='';await actualizar();}}
+        try{await api.post(`/api/conversaciones/${id}/responder/`,{texto:contenido.trim()});guardar(draft,null);if(estado?.id===id){texto.value='';await actualizar();}notificarCambio(id);}
         catch(e){aviso.textContent=e.mensaje??e.message;}finally{enviar.disabled=false;}
     };
     document.addEventListener('click',e=>{

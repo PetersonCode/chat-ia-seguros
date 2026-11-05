@@ -55,6 +55,21 @@ test("AC-T1-02: post y patch serializan sus cuerpos", async () => {
     assert.equal(llamadas[1][1].body, JSON.stringify({ parametros: { detalle: "Dato" } }));
 });
 
+test("adjuntos: upload conserva FormData y CSRF sin fijar el boundary", async () => {
+    let opciones;
+    configurarApi({
+        fetch: async (url, datos) => { opciones = datos; return respuesta(201, { id: 2 }); },
+        leerCookie: () => 'csrf-adjunto',
+    });
+    const formulario = new FormData();
+    formulario.append('archivo', new Blob(['imagen ficticia'], { type: 'image/png' }), 'demo.png');
+    assert.deepEqual(await api.upload('/api/siniestros/1/adjuntos/', formulario), { id: 2 });
+    assert.equal(opciones.method, 'POST');
+    assert.equal(opciones.body, formulario);
+    assert.equal(opciones.headers['X-CSRFToken'], 'csrf-adjunto');
+    assert.equal(opciones.headers['Content-Type'], undefined);
+});
+
 test("AC-T1-02: errores de API conservan status, codigo y mensaje", async () => {
     configurarApi({
         fetch: async () => respuesta(409, {
@@ -84,4 +99,19 @@ test("AC-T1-02: una respuesta 401 redirige al login y lanza ApiError", async () 
 
     await assert.rejects(api.get("/api/auth/me/"), ApiError);
     assert.equal(destino, "/");
+});
+
+test('login incorrecto conserva el error sin recargar el formulario', async () => {
+    let redirigio=false;
+    configurarApi({fetch:async()=>respuesta(401,{error:{codigo:'credenciales_invalidas',mensaje:'Credenciales inválidas.'}}),
+        redirigir:()=>{redirigio=true;}});
+    await assert.rejects(api.post('/api/auth/login/',{}),e=>e.status===401 && e.mensaje==='Credenciales inválidas.');
+    assert.equal(redirigio,false);
+});
+
+test('errores de red y páginas HTML de error dan un mensaje recuperable', async () => {
+    configurarApi({fetch:async()=>{throw new TypeError('Failed to fetch');}});
+    await assert.rejects(api.get('/api/clientes/'),e=>e.codigo==='sin_conexion' && e.status===0);
+    configurarApi({fetch:async()=>({status:503,ok:false,json:async()=>{throw new SyntaxError('HTML');}})});
+    await assert.rejects(api.get('/api/clientes/'),e=>e.codigo==='respuesta_invalida' && e.status===503);
 });

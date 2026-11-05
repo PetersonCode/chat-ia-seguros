@@ -1,5 +1,5 @@
-import { api } from "../api.js?v=20261104gestion2";
-import { inicializarNav } from "../nav.js?v=20261104flotante1";
+import { api } from "../api.js?v=20261105revision9";
+import { inicializarNav } from "../nav.js?v=20261105revision9";
 import {
     COBERTURAS,
     datosDelInteresado,
@@ -14,11 +14,11 @@ import {
     siguienteEtapa,
     validarCotizacion,
     validarMotivoPerdida,
-} from "../lib/embudo.js?v=20261104gestion2";
-import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261104gestion2";
-import { patenteValida } from "../lib/patente.js?v=20261104gestion2";
-import { ANIO_MINIMO, USOS } from "../lib/vehiculos.js?v=20261104gestion2";
-import { formatearPorcentaje } from "../lib/companias.js?v=20261104gestion2";
+} from "../lib/embudo.js?v=20261105revision9";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261105revision9";
+import { patenteValida } from "../lib/patente.js?v=20261105revision9";
+import { ANIO_MINIMO, USOS, CLASES } from "../lib/vehiculos.js?v=20261105revision9";
+import { formatearPorcentaje } from "../lib/companias.js?v=20261105revision9";
 
 const $ = (id) => document.getElementById(id);
 const mensajePagina = $("mensaje-pagina");
@@ -108,6 +108,11 @@ function pintarCabecera() {
         insignias.push(enlace);
     }
     $("insignias").replaceChildren(...insignias);
+    if (interesado.poliza_registrada_id) {
+        const contrato = crearElemento('a', 'btn btn-outline-primary mt-2', 'Ver contrato registrado en el cliente');
+        contrato.href = `/panel/cliente/?id=${interesado.cliente.id}`;
+        $("insignias").append(contrato);
+    }
 
     $("contacto").textContent = interesado.contacto
         ? `WhatsApp: ${interesado.contacto.whatsapp}${interesado.contacto.nombre_perfil ? ` (perfil: ${interesado.contacto.nombre_perfil})` : ""}`
@@ -142,9 +147,11 @@ function pintarSeguimiento() {
         registrar.type='button';registrar.disabled=!elegida;
         registrar.onclick=()=>abrirRegistroPoliza(elegida);
         acciones.append(registrar);
+        const existente = crearElemento('button','btn btn-outline-primary','Usar póliza ya registrada');
+        existente.type='button';existente.onclick=()=>abrirVinculoPoliza(existente);acciones.append(existente);
     }
     const siguiente = siguienteEtapa(interesado.estado);
-    if (siguiente && !(siguiente === 'emitida' && esAprobador && interesado.cliente && interesado.cotizaciones?.some(c=>c.elegida))) {
+    if (siguiente && siguiente !== 'emitida') {
         const avanzar = crearElemento(
             "button",
             "btn btn-primary",
@@ -153,6 +160,12 @@ function pintarSeguimiento() {
         avanzar.type = "button";
         avanzar.addEventListener("click", () => mover(avanzar, siguiente));
         acciones.append(avanzar);
+    }
+    if (siguiente === 'emitida') {
+        acciones.append(crearElemento('p', 'small text-muted mb-0 w-100',
+            !esAprobador ? 'Un aprobador debe confirmar el cliente y registrar el contrato para completar esta venta.' :
+            !interesado.cliente ? 'Primero confirmá «Convertir en cliente». Después registrá el contrato con la cotización elegida.' :
+            'Elegir una cotización no crea una póliza. Confirmá su registro para guardar el contrato y las cuotas y cerrar la venta.'));
     }
     const anterior = etapaAnterior(interesado.estado);
     if (anterior) {
@@ -173,7 +186,7 @@ function pintarSeguimiento() {
         perder.addEventListener("click", abrirPerdida);
         acciones.append(perder);
     }
-    if (esAprobador && interesado.estado === "documentacion") {
+    if (esAprobador && interesado.estado === "documentacion" && !interesado.cliente) {
         const convertir = crearElemento("button", "btn btn-outline-success", "Convertir en cliente");
         convertir.type = "button";
         convertir.addEventListener("click", abrirConvertir);
@@ -192,7 +205,7 @@ function mover(boton, estado, extra = {}) {
 
 // --- Datos -------------------------------------------------------------------
 
-const CAMPOS_DATOS = ["patente", "marca", "modelo", "anio", "uso", "localidad", "dni"];
+const CAMPOS_DATOS = ["patente", "marca", "modelo", "anio", "uso", "clase", "chasis", "valor_asegurado", "localidad", "dni"];
 
 function pintarDatos() {
     const filas = datosDelInteresado(interesado.datos);
@@ -205,8 +218,12 @@ function pintarDatos() {
     }
     $("sin-datos").hidden = filas.length > 0;
     const formulario = $("formulario-datos");
+    $("editar-datos").hidden = interesado.estado === 'emitida';
+    $("aviso-datos-vinculados").hidden = !interesado.vehiculo_id;
     for (const campo of CAMPOS_DATOS) {
         formulario.elements[campo].value = interesado.datos?.[campo] ?? "";
+        formulario.elements[campo].disabled = Boolean(interesado.cliente && campo === 'dni') ||
+            Boolean(interesado.vehiculo_id && !esAprobador && campo !== 'localidad');
     }
     pintarErroresDatos({});
 }
@@ -261,6 +278,8 @@ async function guardarDatos(evento) {
 
 function pintarCotizaciones() {
     const cotizaciones = interesado.cotizaciones ?? [];
+    const cerrada = ['emitida','perdida'].includes(interesado.estado);
+    $("cargar-cotizacion").hidden = cerrada;
     const masBarata = idMasBarata(cotizaciones);
     $("columna-comision").hidden = !esAprobador;
     const tabla = $("tabla-cotizaciones");
@@ -274,6 +293,7 @@ function pintarCotizaciones() {
         return;
     }
     for (const cotizacion of cotizaciones) {
+        const vencida = cotizacion.vigencia_hasta && cotizacion.vigencia_hasta < hoyIso();
         const fila = document.createElement("tr");
         if (cotizacion.elegida) {
             fila.classList.add("fila-elegida");
@@ -291,14 +311,17 @@ function pintarCotizaciones() {
             fila.append(crearElemento("td", "", formatearPorcentaje(cotizacion.compania?.comision_pct)));
         }
         const estado = crearElemento("td", "text-end text-nowrap");
-        if (cotizacion.elegida) {
+        if (vencida) {
+            estado.append(crearElemento('span','sev sev-media me-2','Vencida · requiere nueva propuesta'));
+        } else if (cotizacion.elegida) {
             estado.append(crearElemento("span", "sev sev-baja me-2", "Elegida"));
         } else if (cotizacion.id === masBarata && cotizaciones.length > 1) {
             estado.append(crearElemento("span", "pildora me-2", "Más barata"));
         }
-        if (!cotizacion.elegida) {
+        if (!cotizacion.elegida && !cerrada) {
             const elegir = crearElemento("button", "btn btn-sm btn-outline-primary me-2", "Elegir");
             elegir.type = "button";
+            elegir.disabled = Boolean(vencida);
             elegir.setAttribute("aria-label", `Elegir la cotización de ${cotizacion.compania?.nombre ?? "la compañía"}`);
             elegir.addEventListener("click", () => elegirCotizacion(elegir, cotizacion.id));
             const quitar = crearElemento("button", "btn btn-sm btn-outline-danger", "Quitar");
@@ -469,7 +492,7 @@ async function confirmarConversion(evento) {
     );
     if (hecho) {
         dialogoConvertir.close();
-        mostrarAviso(mensajePagina, "El interesado ya es cliente. Cuando cargues su póliza, marcalo como emitido.");
+        mostrarAviso(mensajePagina, "Cliente y vehículo guardados. El siguiente paso es registrar la póliza con la cotización elegida; se generarán sus cuotas y la venta quedará Emitida.");
     } else {
         $("convertir-error").textContent = mensajePagina.textContent;
         mostrarAviso(mensajePagina, "");
@@ -494,6 +517,7 @@ async function iniciar() {
         return;
     }
     llenarSelector($("dato-uso"), USOS, { vacio: "Sin dato" });
+    llenarSelector($("dato-clase"), CLASES, { vacio: "Sin dato" });
     llenarSelector($("cot-cobertura"), COBERTURAS, { vacio: "Elegí…" });
     try {
         const [me, funcionarios, companias, ficha] = await Promise.all([
@@ -548,16 +572,59 @@ $("convertir-cancelar").addEventListener("click", () => dialogoConvertir.close()
 
 iniciar();
 
-function abrirRegistroPoliza(c) {
+async function abrirRegistroPoliza(c) {
     const d=document.createElement('dialog');d.className='dialog-accion';
     d.append(document.getElementById('plantilla-registrar-poliza').content.cloneNode(true));
     d.querySelector('[data-resumen]').textContent=`${c.compania.nombre} · ${etiquetaCobertura(c.cobertura)} · ${formatearMonto(c.prima_mensual)} mensuales · ${interesado.datos.patente}. Revisá las fechas del contrato antes de confirmar.`;
     d.querySelector('[data-cancelar]').onclick=()=>d.close();d.onclose=()=>d.remove();
-    const f=d.querySelector('form');f.onsubmit=async e=>{
+    const f=d.querySelector('form');
+    const label=document.createElement('label');label.className='form-label';label.htmlFor='emitir-plan';label.textContent='Plan de cobertura de la compañía';
+    const select=document.createElement('select');select.id='emitir-plan';select.name='plan_id';select.className='form-select mb-3';select.disabled=true;
+    const ayuda=document.createElement('p');ayuda.className='small text-muted';ayuda.textContent='Las condiciones del plan se copian al contrato y quedan disponibles para el bot.';
+    const inicio=f.querySelector('label');inicio.before(label,select,ayuda);
+    const confirmar=f.querySelector('[type=submit]');confirmar.disabled=true;
+    let planes=[];
+    f.onsubmit=async e=>{
         e.preventDefault();const b=f.querySelector('[type=submit]');b.disabled=true;
-        try{interesado=await api.post(`/api/interesados/${idInteresado}/registrar-poliza/`,Object.fromEntries(new FormData(f)));pintar();d.close();mostrarAviso(mensajePagina,'Póliza registrada. El interesado quedó como Emitido.');}
+        const cuerpo=Object.fromEntries(new FormData(f));
+        const plan=planes.find(p=>String(p.id)===select.value);
+        cuerpo.plan_id=plan?.id??null;cuerpo.plan_version=plan?.version??null;
+        try{interesado=await api.post(`/api/interesados/${idInteresado}/registrar-poliza/`,cuerpo);pintar();d.close();mostrarAviso(mensajePagina,'Póliza y cuotas registradas. El interesado quedó como Emitido.');}
         catch(e){d.querySelector('[role=alert]').textContent=textoError(e,'No se pudo registrar la póliza.');}
         finally{b.disabled=false;}
     };
     document.body.append(d);d.showModal();
+      try {
+          let pagina=1,hayMas=true;
+          while(hayMas){const r=await api.get(`/api/planes-cobertura/?compania_id=${c.compania.id}&pagina=${pagina}`);planes.push(...(r.resultados??[]).filter(p=>p.activo));hayMas=pagina*r.por_pagina<r.total;pagina++;}
+          const compatibles=planes.filter(p=>!p.nivel||p.nivel===c.cobertura);
+          select.add(new Option(planes.length?'Elegí el plan acordado':'Sin plan cargado: completar condiciones desde Pólizas',''));
+          for(const p of compatibles)select.add(new Option(`${p.nombre} · v${p.version}`,String(p.id)));
+          select.disabled=!planes.length;select.required=Boolean(planes.length);
+          if(planes.length&&!compatibles.length){ayuda.textContent='No hay planes compatibles con la cobertura elegida. Revisá la cotización o cargá el plan correcto en Compañías.';return;}
+          confirmar.disabled=false;
+      } catch(e) {d.querySelector('[role=alert]').textContent=textoError(e,'No se pudieron cargar los planes. Cerrá y reintentá.');}
+}
+
+async function abrirVinculoPoliza(boton) {
+    boton.disabled=true;
+    try {
+        const cliente=await api.get(`/api/clientes/${interesado.cliente.id}/`);
+        const opciones=(cliente.polizas??[]).filter(p=>p.estado!=='dada_de_baja' &&
+            (!interesado.vehiculo_id || p.vehiculo?.id===interesado.vehiculo_id));
+        if(!opciones.length) { mostrarAviso(mensajePagina,'No hay un contrato de este vehículo para vincular. Usá «Registrar póliza con la cotización elegida».',true);return; }
+        const d=crearElemento('dialog','dialog-accion'),f=crearElemento('form','p-4');
+        f.append(crearElemento('h2','h5','Usar póliza ya registrada'),crearElemento('p','','Seleccioná el contrato confirmado de esta venta. Se vincula el mismo registro; no se crean otra póliza ni cuotas nuevas.'));
+        const label=crearElemento('label','form-label','Contrato registrado');label.htmlFor='vincular-contrato';
+        const select=crearElemento('select','form-select mb-3');select.id='vincular-contrato';select.required=true;
+        llenarSelector(select,opciones.map(p=>[p.id,`${p.numero_poliza} · ${p.compania?.nombre??'Sin compañía'} · vence ${formatearFecha(p.fecha_vencimiento)}`]),{vacio:'Elegí el contrato de esta venta'});
+        const error=crearElemento('p','small text-danger');error.setAttribute('role','alert');
+        const cancelar=crearElemento('button','btn btn-outline-secondary me-2','Cancelar');cancelar.type='button';cancelar.onclick=()=>d.close();
+        const guardar=crearElemento('button','btn btn-success','Confirmar vínculo y completar venta');guardar.type='submit';
+        f.append(label,select,error,cancelar,guardar);d.append(f);document.body.append(d);d.onclose=()=>d.remove();d.showModal();
+        f.onsubmit=async e=>{e.preventDefault();if(guardar.disabled)return;guardar.disabled=true;
+            try{interesado=await api.post(`/api/interesados/${idInteresado}/vincular-poliza/`,{poliza_id:Number(select.value)});d.close();pintar();mostrarAviso(mensajePagina,'Contrato vinculado. La venta quedó Emitida sin duplicar datos.');}
+            catch(e){error.textContent=textoError(e,'No se pudo vincular el contrato.');}finally{guardar.disabled=false;}};
+    } catch(e) { mostrarAviso(mensajePagina,textoError(e,'No se pudieron cargar las pólizas.'),true); }
+    finally {boton.disabled=false;}
 }

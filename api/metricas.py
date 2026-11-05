@@ -77,7 +77,7 @@ def metricas_panel(request):
         escritor.writerow(("Tiempo de respuesta", "Promedio (min)",
                            _numero(datos["tiempo_respuesta_min"]), ""))
         for ramo in datos["ramos"]:
-            escritor.writerow(("Ramo", _celda_csv_segura(ramo["nombre"]),
+            escritor.writerow(("Categoría de atención", _celda_csv_segura(ramo["nombre"]),
                                ramo["cantidad"], ramo["porcentaje"]))
         for motivo in datos["motivos_derivacion"]:
             escritor.writerow(("Motivo de derivación", _celda_csv_segura(motivo["motivo"]),

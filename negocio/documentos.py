@@ -41,6 +41,8 @@ def _normalizar(texto: str) -> str:
 
 # Conceptos acotados del dominio: mismo significado, sin afirmar cobertura.
 SINONIMOS = {
+    'atencion': ('atiende', 'atienden', 'atender'),
+    'horario': ('horarios', 'hora', 'horas'),
     'cristales': ('cristal', 'vidrio', 'vidrios', 'parabrisas', 'ventanilla', 'ventanillas', 'luneta'),
     'automotor': ('auto', 'autos', 'coche', 'vehiculo', 'vehiculos'),
     'rotura': ('romper', 'rompe', 'rompen', 'roto', 'rompio', 'rompieron', 'roturas', 'quebrado', 'quebraron', 'quiebra', 'astillo', 'astilla'),

@@ -1,6 +1,6 @@
-import { api } from "../api.js?v=20261104gestion2";
-import { inicializarNav } from "../nav.js?v=20261104flotante1";
-import { abrirRenovacion } from "../lib/renovacion.js?v=20261104gestion2";
+import { api } from "../api.js?v=20261105revision9";
+import { inicializarNav } from "../nav.js?v=20261105revision9";
+import { abrirRenovacion } from "../lib/renovacion.js?v=20261105revision9";
 let puedeAprobar=false,personaActual=null,equipo=[];
 const $=id=>document.getElementById(id);
 const el=(tag,texto,clase='')=>{const n=document.createElement(tag);n.textContent=texto;n.className=clase;return n;};
@@ -18,7 +18,12 @@ async function cargar(){
     bloque('Siniestros sin movimiento',d.siniestros,s=>link(`${s.numero} · último movimiento ${s.desde.slice(0,10)}`,'/panel/siniestros/'));
     bloque('Clientes sin respuesta',d.sin_respuesta,c=>link(c.numero,`/panel/conversacion/?id=${c.id}`));
     $('automaticos').checked=d.automaticos;
-    await Promise.all([tareas(),avisos()]);
+    await Promise.all([tareas(),avisos(),cargarEncuestas()]);
+}
+async function cargarEncuestas(){
+    const d=await api.get('/api/gestion/encuestas/');$('encuestas').replaceChildren();
+    for(const r of d.resultados)$('encuestas').append(el('p',`${r.cliente} · ${r.numero} · ${r.puntaje}/5 · ${r.fecha.slice(0,10)}`));
+    if(!d.total)$('encuestas').textContent='Todavía no hay respuestas.';
 }
 async function tareas(){
     const d=await api.get('/api/gestion/tareas/?mias='+($('mis-tareas').checked?'1':'0'));$('tareas').replaceChildren();
@@ -36,7 +41,7 @@ async function tareas(){
     if(d.total>d.resultados.length)$('tareas').append(el('p',`Mostrando las primeras ${d.resultados.length} de ${d.total}. Usá «Solo mis tareas» para acotar.`,'small text-muted'));
 }
 async function avisos(){const d=await api.get('/api/gestion/avisos/');$('avisos').replaceChildren();for(const a of d.resultados){const c=el('article','','border-bottom py-3');c.append(el('strong',`${a.tipo} · ${a.numero} · ${a.estado}`),el('p',a.texto));if(a.estado==='para_contactar'){const w=link('Abrir WhatsApp','https://wa.me/'+a.numero.replace(/\D/g,'')+'?text='+encodeURIComponent(a.texto));w.target='_blank';w.rel='noopener noreferrer';w.className='btn btn-whatsapp btn-sm me-2';c.append(w,boton('Marcar como enviado',async()=>{await api.post(`/api/gestion/avisos/${a.id}/resolver/`,{estado:'manual'});await avisos();}),boton('Cancelar',async()=>{await api.post(`/api/gestion/avisos/${a.id}/resolver/`,{estado:'cancelado'});await avisos();}));}$('avisos').append(c);}if(!d.resultados.length)$('avisos').append(el('p','No hay avisos pendientes.','text-muted'));}
-$('nueva-tarea').onsubmit=async e=>{e.preventDefault();try{const d=Object.fromEntries(new FormData(e.target));d.cliente=d.cliente?Number(d.cliente):null;d.asignada_a=Number(d.asignada_a);await api.post('/api/gestion/tareas/',d);e.target.reset();await tareas();$('estado').textContent='Tarea asignada.';}catch(e){$('estado').textContent=e.mensaje??e.message;}};
+$('nueva-tarea').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('button[type=submit]')??e.target.querySelector('button');if(b.disabled)return;b.disabled=true;try{const d=Object.fromEntries(new FormData(e.target));d.cliente=d.cliente?Number(d.cliente):null;d.asignada_a=Number(d.asignada_a);await api.post('/api/gestion/tareas/',d);e.target.reset();await tareas();$('estado').textContent='Tarea asignada.';}catch(e){$('estado').textContent=e.mensaje??e.message;}finally{b.disabled=false;}};
 $('buscar-cliente').onchange=async()=>{try{const d=await api.get('/api/clientes/?q='+encodeURIComponent($('buscar-cliente').value));$('cliente').replaceChildren(new Option('Tarea general',''));for(const c of d.resultados)$('cliente').add(new Option(`${c.nombre} ${c.apellido}`,c.id));}catch(e){$('estado').textContent=e.mensaje??e.message;}};
 $('mis-tareas').onchange=tareas;
 $('automaticos').onchange=async()=>{try{await api.patch('/api/gestion/config/',{automaticos:$('automaticos').checked});}catch(e){$('estado').textContent=e.mensaje??e.message;await cargar();}};
@@ -44,4 +49,8 @@ $('actualizar').onclick=async()=>{const b=$('actualizar');b.disabled=true;try{aw
 inicializarNav();
 async function mensual(){try{const d=await api.get('/api/gestion/reporte/?'+new URLSearchParams($('mes-reporte').value?{mes:$('mes-reporte').value}:{}));$('mes-reporte').value=d.mes;$('reporte').replaceChildren();for(const [k,t] of Object.entries({nuevas:'Pólizas nuevas',bajas:'Bajas registradas',renovadas:'Renovadas',cobrado:'Cobrado',comision:'Comisión sobre cobros'})){const c=el('div','','col-sm-6 col-xl');c.append(el('p',t,'small text-muted'),el('strong',d[k]===null?'Acceso restringido':(['cobrado','comision'].includes(k)?dinero(d[k]):String(d[k])),'h4'));$('reporte').append(c);}const aviso=el('p',`${d.sin_porcentaje} pólizas sin porcentaje de comisión informado.`,'small text-muted');$('reporte').append(aviso);}catch(e){$('estado').textContent=e.mensaje??e.message;}}
 $('mes-reporte').onchange=mensual;
-Promise.all([api.get('/api/auth/me/'),api.get('/api/funcionarios/')]).then(async([u,f])=>{puedeAprobar=u.puede_aprobar;personaActual=u.id;equipo=f.resultados;for(const p of f.resultados)$('asignada').add(new Option(p.nombre,p.id));$('configuracion').hidden=!u.puede_aprobar;await cargar();await mensual();const e=await api.get('/api/gestion/encuestas/');for(const r of e.resultados){$('encuestas').append(el('p',`${r.cliente} · ${r.numero} · ${r.puntaje}/5 · ${r.fecha.slice(0,10)}`));}if(!e.total)$('encuestas').textContent='Todavía no hay respuestas.';}).catch(e=>{$('estado').textContent=e.mensaje??e.message;});
+Promise.all([api.get('/api/auth/me/'),api.get('/api/funcionarios/')]).then(async([u,f])=>{
+    puedeAprobar=u.puede_aprobar;personaActual=u.id;equipo=f.resultados;
+    for(const p of f.resultados)$('asignada').add(new Option(p.nombre,p.id,p.id===personaActual,p.id===personaActual));
+    $('configuracion').hidden=!u.puede_aprobar;await cargar();await mensual();
+}).catch(e=>{$('estado').textContent=e.mensaje??e.message;});

@@ -39,7 +39,13 @@ def _tema_consultado(texto, excluir=frozenset()):
     """
     from negocio.bot.clasificador import normalizar_mensaje
 
-    return _terminos(normalizar_mensaje(texto)) - FORMULACION - set(excluir)
+    temas = _terminos(normalizar_mensaje(texto)) - FORMULACION - set(excluir)
+    if 'cristales' in temas and temas <= {'cristales', 'rotura'}:
+        # «Se astilla el parabrisas» consulta el rubro cristales aunque una
+        # descripción breve solo lo nombre. Se cita lo cargado, sin prometer
+        # reparación ni eliminar otros riesgos específicos de la pregunta.
+        temas.discard('rotura')
+    return temas
 
 
 @transaction.atomic
@@ -188,6 +194,8 @@ def responder_cobertura(texto, conversacion):
     for p in polizas:
         if p.vehiculo:
             identificadores |= _terminos(f"{p.vehiculo.marca} {p.vehiculo.modelo} {p.vehiculo.patente}")
+            if p.vehiculo.clase != 'sin_especificar':
+                identificadores |= _terminos(p.vehiculo.clase)
     temas = _tema_consultado(consulta, identificadores)
     resumen = not temas
     consulta = ' '.join(sorted(temas)) if temas else 'cobertura'
