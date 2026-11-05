@@ -147,6 +147,34 @@ class _Respuesta:
     mantener_bot: bool = False
 
 
+# Flujos de varios pasos: los turnos seguidos del mismo flujo son un solo caso.
+FLUJOS_UN_CASO = frozenset({"alta_poliza", "cotizacion"})
+
+
+def _consulta_del_flujo(conversacion, tipo_obj):
+    """El caso del turno anterior si este turno sigue el mismo flujo, o `None`.
+
+    No se reutiliza si una persona lo cerró (`fecha_resolucion`), si ya generó una
+    acción o si después hubo un caso de otro tipo.
+    """
+    if tipo_obj.codigo not in FLUJOS_UN_CASO:
+        return None
+    ultimo = (
+        ConsultaBot.objects.select_for_update()
+        .filter(conversacion=conversacion)
+        .order_by("-id")
+        .first()
+    )
+    if (
+        ultimo is None
+        or ultimo.tipo_consulta_id != tipo_obj.id
+        or ultimo.fecha_resolucion is not None
+        or ultimo.acciones.exists()
+    ):
+        return None
+    return ultimo
+
+
 def _proximo_codigo_caso() -> str:
     """`CASO-###` = el mayor existente + 1, serializado por advisory lock."""
     with connection.cursor() as cursor:
@@ -1099,10 +1127,21 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
     ][-MAX_HISTORIAL:]
 
     tipo_por_reglas = clasificar_por_reglas(texto)
+    # «¿Qué seguros/compañías tienen?», «¿qué planes tiene Litoral?»: la lista,
+    # sin el detalle. Un siniestro o un pedido de asesor nunca se quedan acá.
+    respuesta_catalogo = None
+    if (
+        not alertas_entrada
+        and tipo_por_reglas not in {"siniestro_urgente", "siniestro", "baja", "reclamo"}
+        and not pide_un_humano(texto)
+    ):
+        from negocio.bot import catalogo
+
+        respuesta_catalogo = catalogo.responder(texto)
     alta_preparada = None
     from negocio.bot.alta_poliza import preparar_turno, quiere_alta
     cotizacion_en_curso = cotizacion.datos_de_la_cotizacion(conversacion.id).intentos > 0
-    if not cotizacion_en_curso and not alertas_entrada and tipo_por_reglas not in {'baja_avisos','encuesta_respuesta','credencial','siniestro_urgente','siniestro','baja','reclamo'} and (tipo_por_reglas != 'modificacion' or quiere_alta(texto)) and not pide_un_humano(texto):
+    if respuesta_catalogo is None and not cotizacion_en_curso and not alertas_entrada and tipo_por_reglas not in {'baja_avisos','encuesta_respuesta','credencial','siniestro_urgente','siniestro','baja','reclamo'} and (tipo_por_reglas != 'modificacion' or quiere_alta(texto)) and not pide_un_humano(texto):
         alta_preparada = preparar_turno(texto, conversacion, max(previo.id for previo in agrupados))
         if alta_preparada:
             tipo_por_reglas = 'alta_poliza'
@@ -1112,6 +1151,8 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
     if alertas_entrada:
         # AC-T3-32: con inyección no se llama al LLM y se responde el rechazo.
         tipo = "prompt_injection"
+    elif respuesta_catalogo is not None:
+        tipo = "consulta_cobertura"
     elif tipo_por_reglas in PRIORIDAD_REGLAS:
         # Un modelo generativo no puede ocultar un incidente ni cambiar un cierre cordial.
         tipo = tipo_por_reglas
@@ -1131,6 +1172,8 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
         # Nunca se deriva: a la tercera, el número queda ignorado (ver
         # `ignorar_si_bloqueado`), pero no pasa a una persona.
         respuesta = _Respuesta(plantillas.RECHAZO_SEGURIDAD)
+    elif respuesta_catalogo is not None:
+        respuesta = _Respuesta(respuesta_catalogo)
     elif alta_preparada:
         respuesta = _Respuesta(alta_preparada['texto'], accion=alta_preparada.get('accion'),
             datos_verificados=frozenset(alta_preparada.get('datos_verificados', [])),
@@ -1218,16 +1261,25 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
         if len(libres) != len(ids):
             return ResultadoBot(True, None, None, False, [])
 
-        consulta = ConsultaBot.objects.create(
-            codigo_caso=_proximo_codigo_caso(),
-            fecha_hora=timezone.now(),
-            contacto=contacto,
-            conversacion=conversacion,
-            mensaje_usuario=texto,
-            respuesta_bot=respuesta.texto,
-            tipo_consulta=tipo_obj,
-            estado=EstadoConsulta.ABIERTO,
-        )
+        consulta = _consulta_del_flujo(conversacion, tipo_obj)
+        if consulta is not None:
+            consulta.mensaje_usuario = "\n".join(
+                filter(None, [consulta.mensaje_usuario, texto])
+            )
+            consulta.respuesta_bot = respuesta.texto
+            consulta.estado = EstadoConsulta.ABIERTO
+            consulta.save(update_fields=["mensaje_usuario", "respuesta_bot", "estado"])
+        else:
+            consulta = ConsultaBot.objects.create(
+                codigo_caso=_proximo_codigo_caso(),
+                fecha_hora=timezone.now(),
+                contacto=contacto,
+                conversacion=conversacion,
+                mensaje_usuario=texto,
+                respuesta_bot=respuesta.texto,
+                tipo_consulta=tipo_obj,
+                estado=EstadoConsulta.ABIERTO,
+            )
         # Todos los entrantes de la ráfaga cuelgan de la misma consulta: el
         # panel los muestra juntos y la idempotencia vale para todos.
         Mensaje.objects.filter(id__in=ids).update(consulta=consulta)

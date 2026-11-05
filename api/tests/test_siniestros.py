@@ -372,7 +372,10 @@ class AdjuntoSiniestroApiTests(ApiTestCase):
             ][0]["id"]
         )
         self.assertEqual(tarea.estado, EstadoTrabajoWhatsApp.PENDIENTE)
-        call_command("reprocesar_pendientes")
+        # Acá se prueba solo el flujo de expedientes; la copia para el chat
+        # (que baja el archivo por su cuenta) tiene sus propios tests.
+        with patch("negocio.whatsapp._guardar_media_para_el_chat"):
+            call_command("reprocesar_pendientes")
         tarea.refresh_from_db()
         self.assertEqual(tarea.estado, EstadoTrabajoWhatsApp.COMPLETADO)
 

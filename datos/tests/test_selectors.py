@@ -415,6 +415,15 @@ class SelectorsTests(TestCase):
                 AccionPendiente.objects.order_by("solicitada_en", "id")
             ),
         )
+        self.assertEqual(
+            list(selectors.listar_acciones(orden="reciente")),
+            [segunda_accion, primera_accion],
+        )
+        self.assertEqual(
+            list(selectors.listar_acciones(q=primera_accion.consulta.codigo_caso)),
+            [primera_accion, segunda_accion],
+        )
+        self.assertEqual(list(selectors.listar_acciones(q="zzz-no-existe")), [])
 
         urgente = fabricas.crear_derivacion(
             consulta,

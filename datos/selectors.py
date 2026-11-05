@@ -167,7 +167,7 @@ def mensajes_de(
     mensajes = Mensaje.objects.filter(conversacion_id=conversacion_id)
     if despues_de is not None:
         mensajes = mensajes.filter(id__gt=despues_de)
-    return mensajes.prefetch_related("alertas").order_by("fecha_hora", "id")
+    return mensajes.select_related("adjunto_chat").prefetch_related("alertas").order_by("fecha_hora", "id")
 
 
 def historial_reciente(
@@ -409,6 +409,13 @@ def listar_alertas(
     return alertas.order_by("-creada_en", "-id")
 
 
+def consultas_cerradas(*, con_alertas: bool = False) -> QuerySet[ConsultaBot]:
+    """Casos cerrados; con `con_alertas`, solo los que aún tienen alertas abiertas."""
+    if not con_alertas:
+        return ConsultaBot.objects.filter(estado=EstadoConsulta.CERRADO).order_by('-fecha_hora', '-id')
+    return consultas_cerradas_con_alertas()
+
+
 def consultas_cerradas_con_alertas() -> QuerySet[ConsultaBot]:
     return ConsultaBot.objects.filter(
         estado=EstadoConsulta.CERRADO,
@@ -417,8 +424,15 @@ def consultas_cerradas_con_alertas() -> QuerySet[ConsultaBot]:
 
 
 def listar_acciones(
-    *, estado: str | None = EstadoAccion.PENDIENTE
+    *,
+    estado: str | None = EstadoAccion.PENDIENTE,
+    q: str | None = None,
+    orden: str = "antiguo",
 ) -> QuerySet[AccionPendiente]:
+    """Acciones por estado; `q` busca (todas las palabras) y `orden` es «antiguo» o «reciente»."""
+    from django.db.models import TextField
+    from django.db.models.functions import Cast
+
     acciones = AccionPendiente.objects.select_related(
         "poliza",
         "consulta__conversacion__contacto__cliente",
@@ -426,13 +440,36 @@ def listar_acciones(
     )
     if estado is not None:
         acciones = acciones.filter(estado=estado)
+    palabras = (q or "").split()
+    if palabras:
+        acciones = acciones.annotate(_parametros_texto=Cast("parametros", TextField()))
+        for palabra in palabras:
+            acciones = acciones.filter(
+                Q(tipo_accion__icontains=palabra)
+                | Q(consulta__codigo_caso__icontains=palabra)
+                | Q(poliza__numero_poliza__icontains=palabra)
+                | Q(_parametros_texto__icontains=palabra)
+                | Q(consulta__contacto__cliente__nombre__icontains=palabra)
+                | Q(consulta__contacto__cliente__apellido__icontains=palabra)
+                | Q(consulta__contacto__cliente__dni__icontains=palabra)
+                | Q(consulta__conversacion__contacto__cliente__nombre__icontains=palabra)
+                | Q(consulta__conversacion__contacto__cliente__apellido__icontains=palabra)
+                | Q(consulta__conversacion__contacto__cliente__dni__icontains=palabra)
+                | Q(consulta__contacto__numero__icontains=palabra)
+                | Q(consulta__conversacion__contacto__numero__icontains=palabra)
+            )
+    if orden == "reciente":
+        return acciones.order_by("-solicitada_en", "-id")
     return acciones.order_by("solicitada_en", "id")
 
 
 def derivaciones_de(
-    funcionario_id: int, *, incluir_atendidas: bool = False
+    funcionario_id: int | None, *, incluir_atendidas: bool = False
 ) -> QuerySet[Derivacion]:
-    derivaciones = Derivacion.objects.filter(derivado_a_id=funcionario_id)
+    """Derivaciones de un funcionario; con `None`, las de todos."""
+    derivaciones = Derivacion.objects.all()
+    if funcionario_id is not None:
+        derivaciones = derivaciones.filter(derivado_a_id=funcionario_id)
     if not incluir_atendidas:
         derivaciones = derivaciones.filter(atendida_en__isnull=True)
     return derivaciones.annotate(
@@ -455,7 +492,16 @@ def buscar_clientes(q: str | None = None) -> QuerySet[Cliente]:
                 polizas__fecha_vencimiento__gte=hoy,
             ),
             distinct=True,
-        )
+        ),
+        # Contratadas y cargadas, pero con la cobertura todavía sin empezar.
+        polizas_por_iniciar=Count(
+            "polizas",
+            filter=Q(
+                polizas__estado=EstadoPoliza.VIGENTE,
+                polizas__fecha_inicio__gt=hoy,
+            ),
+            distinct=True,
+        ),
     )
     if q and q.strip():
         try:

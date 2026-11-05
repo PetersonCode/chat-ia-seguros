@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261105revision9";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105revision9";
-import { armarQuery } from "../lib/consulta.js?v=20261105revision9";
-import { describirAccion, faltantes } from "../lib/acciones.js?v=20261105revision9";
-import { formatearFechaHora } from "../lib/formato.js?v=20261105revision9";
-import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105revision9";
+import { api } from "../api.js?v=20261105revision10";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105revision10";
+import { armarQuery } from "../lib/consulta.js?v=20261105revision10";
+import { describirAccion, faltantes } from "../lib/acciones.js?v=20261105revision10";
+import { formatearFechaHora } from "../lib/formato.js?v=20261105revision10";
+import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105revision10";
 
 const estado = document.getElementById("estado-acciones");
 const carga = document.getElementById("carga-acciones");
@@ -45,6 +45,9 @@ let paginasTotales = 1;
 let solicitudActual = 0;
 // "pendiente" (por aprobar o rechazar) o "aprobada" (aprobadas; algunas requieren gestión externa).
 let vista = "pendiente";
+let busqueda = "";
+let ordenSeleccionado = "antiguo";
+let temporizadorBusqueda = null;
 
 // Solo estas acciones se gestionan por fuera del sistema y se pueden finalizar.
 const tiposGestionExterna = new Set(["reembolso", "modificar_poliza"]);
@@ -147,6 +150,8 @@ async function cargarAcciones(pagina = paginaSeleccionada) {
     try {
         const datos = await api.get(`/api/acciones/${armarQuery({
             estado: vista,
+            q: busqueda,
+            orden: ordenSeleccionado,
             pagina: paginaSeleccionada,
         })}`);
         if (idSolicitud !== solicitudActual) {
@@ -163,7 +168,9 @@ async function cargarAcciones(pagina = paginaSeleccionada) {
         }
         if (datos.resultados.length === 0) {
             filas.append(crearTarjetaVacia(
-                vista === "pendiente" ? "No hay acciones pendientes." : "No hay acciones aprobadas.",
+                busqueda
+                    ? "Ninguna acción coincide con la búsqueda."
+                    : (vista === "pendiente" ? "No hay acciones pendientes." : "No hay acciones aprobadas."),
             ));
         } else {
             filas.append(...datos.resultados.map(crearTarjetaAccion));
@@ -427,6 +434,18 @@ function cambiarVista(nuevaVista) {
 }
 
 formularioParametros.addEventListener("submit", guardarParametros);
+document.getElementById("filtros-acciones").addEventListener("submit", (evento) => evento.preventDefault());
+document.getElementById("buscar-acciones").addEventListener("input", (evento) => {
+    clearTimeout(temporizadorBusqueda);
+    temporizadorBusqueda = setTimeout(() => {
+        busqueda = evento.target.value.trim();
+        cargarAcciones(1);
+    }, 300);
+});
+document.getElementById("orden-acciones").addEventListener("change", (evento) => {
+    ordenSeleccionado = evento.target.value === "reciente" ? "reciente" : "antiguo";
+    cargarAcciones(1);
+});
 botonVistaPendiente.addEventListener("click", () => cambiarVista("pendiente"));
 botonVistaAprobada.addEventListener("click", () => cambiarVista("aprobada"));
 document.getElementById("finalizar-accion").addEventListener("click", abrirDialogoFinalizar);

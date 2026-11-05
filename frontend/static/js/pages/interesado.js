@@ -1,5 +1,5 @@
-import { api } from "../api.js?v=20261105revision9";
-import { inicializarNav } from "../nav.js?v=20261105revision9";
+import { api } from "../api.js?v=20261105revision10";
+import { inicializarNav } from "../nav.js?v=20261105revision10";
 import {
     COBERTURAS,
     datosDelInteresado,
@@ -14,11 +14,11 @@ import {
     siguienteEtapa,
     validarCotizacion,
     validarMotivoPerdida,
-} from "../lib/embudo.js?v=20261105revision9";
-import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261105revision9";
-import { patenteValida } from "../lib/patente.js?v=20261105revision9";
-import { ANIO_MINIMO, USOS, CLASES } from "../lib/vehiculos.js?v=20261105revision9";
-import { formatearPorcentaje } from "../lib/companias.js?v=20261105revision9";
+} from "../lib/embudo.js?v=20261105revision10";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261105revision10";
+import { patenteValida } from "../lib/patente.js?v=20261105revision10";
+import { ANIO_MINIMO, USOS, CLASES } from "../lib/vehiculos.js?v=20261105revision10";
+import { formatearPorcentaje } from "../lib/companias.js?v=20261105revision10";
 
 const $ = (id) => document.getElementById(id);
 const mensajePagina = $("mensaje-pagina");

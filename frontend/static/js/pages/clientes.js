@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261105revision9";
-import { inicializarNav } from "../nav.js?v=20261105revision9";
-import { armarQuery } from "../lib/consulta.js?v=20261105revision9";
-import { debounce } from "../lib/debounce.js?v=20261105revision9";
-import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105revision9";
-import { limpiarDni, prellenadoDesdeUrl, validarCliente } from "../lib/clientes.js?v=20261105revision9";
+import { api } from "../api.js?v=20261105revision10";
+import { inicializarNav } from "../nav.js?v=20261105revision10";
+import { armarQuery } from "../lib/consulta.js?v=20261105revision10";
+import { debounce } from "../lib/debounce.js?v=20261105revision10";
+import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105revision10";
+import { limpiarDni, prellenadoDesdeUrl, validarCliente } from "../lib/clientes.js?v=20261105revision10";
 
 const formulario = document.getElementById("formulario-busqueda-clientes");
 const campoBusqueda = document.getElementById("busqueda-clientes");
@@ -43,11 +43,12 @@ function crearTarjetaCliente(cliente) {
 
     const dadoDeBaja = cliente.activo === false;
     const vigentes = Number(cliente.polizas_vigentes ?? 0);
+    const porIniciar = Number(cliente.polizas_por_iniciar ?? 0);
     return crearTarjeta({
         titulo: [cliente.nombre, cliente.apellido].filter(Boolean).join(" ") || "Cliente",
         enlace,
         subtitulo: `DNI ${dniLegible(cliente.dni)}`,
-        clase: dadoDeBaja ? "tarjeta-apagada" : vigentes > 0 ? "tarjeta-verde" : "tarjeta-amarillo",
+        clase: dadoDeBaja ? "tarjeta-apagada" : vigentes + porIniciar > 0 ? "tarjeta-verde" : "tarjeta-amarillo",
         insignias: [crearInsignia(
             dadoDeBaja ? "Dado de baja" : "Activo",
             dadoDeBaja ? "pildora" : "pildora pildora-activa",
@@ -55,6 +56,7 @@ function crearTarjetaCliente(cliente) {
         datos: [
             ["Correo", cliente.email ?? "—"],
             ["Pólizas vigentes", String(vigentes)],
+            ...(porIniciar > 0 ? [["Por iniciar", String(porIniciar)]] : []),
         ],
         acciones: [ficha],
     });

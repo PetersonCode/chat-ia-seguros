@@ -41,6 +41,35 @@ class DocumentoBreveTests(ApiTestCase):
         texto,fuente=responder_cobertura('¿Mi póliza cubre rotura de cristales e inundación?',self.conversacion)
         self.assertIsNone(fuente)
 
+    def test_que_cubre_sin_decir_mi_responde_con_la_poliza_del_cliente(self):
+        for pregunta in ('y que cubre?', 'Qué cubre?', 'qué incluye', 'Cubre granizo?'.replace('granizo','responsabilidad civil')):
+            with self.subTest(pregunta=pregunta):
+                texto,fuente=responder_cobertura(pregunta,self.conversacion)
+                self.assertIsNotNone(fuente,pregunta)
+                self.assertIn(self.poliza.numero_poliza,texto)
+                self.assertIn('Responsabilidad civil',texto)
+
+    def test_una_poliza_que_empieza_manana_tambien_se_responde_y_avisa_desde_cuando(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        manana=timezone.localdate()+timedelta(days=1)
+        self.poliza.fecha_inicio=manana
+        self.poliza.save()
+        texto,fuente=responder_cobertura('y que cubre?',self.conversacion)
+        self.assertIsNotNone(fuente)
+        self.assertIn('Responsabilidad civil',texto)
+        self.assertIn(f'La cobertura empieza el {manana:%d/%m/%Y}',texto)
+
+    def test_preguntar_por_un_plan_con_nombre_no_asume_la_poliza_propia(self):
+        self.assertIsNone(responder_cobertura('que cubre el plan todo riesgo?',self.conversacion))
+
+    def test_un_desconocido_que_pregunta_que_cubre_no_recibe_una_poliza(self):
+        self.contacto.cliente=None
+        self.contacto.save()
+        self.conversacion.refresh_from_db()
+        resultado=responder_cobertura('y que cubre?',self.conversacion)
+        self.assertTrue(resultado is None or self.poliza.numero_poliza not in resultado[0])
+
     def test_otro_cliente_no_usa_la_descripcion(self):
         self.contacto.cliente=fabricas.crear_cliente()
         self.contacto.save()

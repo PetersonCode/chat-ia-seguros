@@ -1,4 +1,4 @@
-import { api } from "../api.js?v=20261105revision9";
+import { api } from "../api.js?v=20261105revision10";
 const $=id=>document.getElementById(id);
 const campos=['cubre','no_cubre','limites','asistencia'];
 let planes=[],companias=[];

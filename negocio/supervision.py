@@ -633,6 +633,9 @@ def borrar_rastro_del_numero(
     RecordatorioPoliza.objects.filter(
         Q(contacto_id=contacto_id) | Q(mensaje_id__in=mensajes)
     ).delete()
+    from negocio.adjuntos_chat import borrar_archivos_de_mensajes
+
+    borrar_archivos_de_mensajes(mensajes)
     Mensaje.objects.filter(pk__in=mensajes).update(respuesta_a=None)
     Mensaje.objects.filter(pk__in=mensajes).delete()
     ConsultaBot.objects.filter(pk__in=casos).delete()

@@ -1302,3 +1302,45 @@ button.caja-nueva-poliza {
         animation-duration: 0.01ms !important;
     }
 }
+
+/* Archivo adjunto del chat: parece un adjunto, sin vista previa. */
+.adjunto-chat {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--sc-borde);
+    border-radius: 0.625rem;
+    background-color: rgb(255 255 255 / 6%);
+}
+
+.adjunto-chat-icono {
+    flex: none;
+    min-width: 2.75rem;
+    padding: 0.375rem 0.25rem;
+    border-radius: 0.375rem;
+    background-color: rgb(255 255 255 / 12%);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-align: center;
+}
+
+.adjunto-chat-datos {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.adjunto-chat-nombre {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.adjunto-chat-detalle {
+    font-size: 0.8125rem;
+    opacity: 0.75;
+}
+

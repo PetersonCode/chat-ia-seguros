@@ -360,7 +360,7 @@ class ListadosTests(ApiTestCase):
             self.conversacion, estado=EstadoConsulta.CERRADO
         )
 
-        payload = self.cliente_api.get("/api/consultas/cerradas-con-alertas/").json()
+        payload = self.cliente_api.get("/api/consultas/cerradas-con-alertas/?con_alertas=1").json()
         ids = [c["id"] for c in payload["resultados"]]
         self.assertIn(self.consulta.id, ids)
         self.assertNotIn(sin_alertas.id, ids)
@@ -369,6 +369,13 @@ class ListadosTests(ApiTestCase):
         self.assertEqual(fila["alertas_abiertas"], 1)
         self.assertEqual(fila["severidad_maxima"], "alta")
         self.assertEqual(fila["cliente"]["apellido"], "Fernández")
+
+    def test_casos_cerrados_sin_filtro_trae_tambien_los_que_no_tienen_alertas(self):
+        sin_alertas = fabricas.crear_consulta(
+            self.conversacion, estado=EstadoConsulta.CERRADO
+        )
+        payload = self.cliente_api.get("/api/consultas/cerradas-con-alertas/").json()
+        self.assertIn(sin_alertas.id, [c["id"] for c in payload["resultados"]])
 
 
 class CerrarCasosTests(ApiTestCase):

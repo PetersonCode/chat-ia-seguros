@@ -1,8 +1,8 @@
-import { api } from "../api.js?v=20261105revision9";
-import { inicializarNav } from "../nav.js?v=20261105revision9";
-import { formatearPorcentaje, validarCompania } from "../lib/companias.js?v=20261105revision9";
-import { inicializarPlanes } from "../lib/planes.js?v=20261105revision9";
-import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105revision9";
+import { api } from "../api.js?v=20261105revision10";
+import { inicializarNav } from "../nav.js?v=20261105revision10";
+import { formatearPorcentaje, validarCompania } from "../lib/companias.js?v=20261105revision10";
+import { inicializarPlanes } from "../lib/planes.js?v=20261105revision10";
+import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105revision10";
 
 const mensajePagina = document.getElementById("mensaje-pagina");
 const contenido = document.getElementById("contenido-companias");

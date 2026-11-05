@@ -1,6 +1,6 @@
-import { api } from "../api.js?v=20261105revision9";
-import { inicializarNav } from "../nav.js?v=20261105revision9";
-import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105revision9";
+import { api } from "../api.js?v=20261105revision10";
+import { inicializarNav } from "../nav.js?v=20261105revision10";
+import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105revision10";
 const $=id=>document.getElementById(id);
 $('busqueda').value = new URLSearchParams(location.search).get('q') || '';
 let pagina=1,total=0,elegida=null,puedeEditar=false,esAdministrador=false,turno=0;

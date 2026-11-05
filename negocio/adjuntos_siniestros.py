@@ -195,11 +195,17 @@ def _abrir_media(opener, solicitud):
     try:
         return opener.open(solicitud, timeout=10)
     except (URLError, TimeoutError, OSError) as error:
-        raise DescargaMediaInvalida("No se pudo descargar la imagen desde Meta.") from error
+        raise DescargaMediaInvalida("No se pudo descargar el archivo desde Meta.") from error
 
 
 def descargar_media_whatsapp(
-    media_id: str, *, mime_esperado: str | None, sha256_esperado: str | None
+    media_id: str,
+    *,
+    mime_esperado: str | None,
+    sha256_esperado: str | None,
+    mimes_permitidos: frozenset[str] = frozenset({"image/jpeg", "image/png"}),
+    tamano_maximo: int = TAMANO_MAXIMO_WHATSAPP,
+    accept: str = "image/*",
 ) -> bytes:
     token = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
     version = os.getenv("WHATSAPP_API_VERSION", "")
@@ -210,11 +216,8 @@ def descargar_media_whatsapp(
         raise DescargaMediaInvalida("El ID del número de WhatsApp no es válido.")
     if not PATRON_MEDIA_ID.fullmatch(media_id or ""):
         raise DescargaMediaInvalida("El ID de media no es válido.")
-    if not isinstance(mime_esperado, str) or mime_esperado.lower() not in {
-        "image/jpeg",
-        "image/png",
-    }:
-        raise DescargaMediaInvalida("WhatsApp no indicó una imagen JPEG o PNG.")
+    if not isinstance(mime_esperado, str) or mime_esperado.lower() not in mimes_permitidos:
+        raise DescargaMediaInvalida("WhatsApp no indicó un formato de archivo admitido.")
     if not isinstance(sha256_esperado, str) or not PATRON_SHA256.fullmatch(
         sha256_esperado
     ):
@@ -251,19 +254,19 @@ def descargar_media_whatsapp(
     if hash_meta != sha256_esperado:
         raise DescargaMediaInvalida("El hash de Meta no coincide con el webhook.")
     _validar_url_meta(url)
-    if not 1 <= tamano_meta <= TAMANO_MAXIMO_WHATSAPP:
-        raise DescargaMediaInvalida("La imagen supera el límite de 5 MB de WhatsApp.")
+    if not 1 <= tamano_meta <= tamano_maximo:
+        raise DescargaMediaInvalida("El archivo supera el límite de tamaño de WhatsApp.")
     if mime_esperado and mime_meta.lower() != mime_esperado.lower():
         raise DescargaMediaInvalida("El tipo de imagen no coincide con el webhook.")
 
     request_archivo = Request(
         url,
-        headers={"Authorization": f"Bearer {token}", "Accept": "image/*"},
+        headers={"Authorization": f"Bearer {token}", "Accept": accept},
     )
     with _abrir_media(opener, request_archivo) as respuesta:
-        contenido = respuesta.read(TAMANO_MAXIMO_WHATSAPP + 1)
+        contenido = respuesta.read(tamano_maximo + 1)
     if (
-        len(contenido) > TAMANO_MAXIMO_WHATSAPP
+        len(contenido) > tamano_maximo
         or len(contenido) != tamano_meta
     ):
         raise DescargaMediaInvalida("El tamaño descargado no coincide con Meta.")

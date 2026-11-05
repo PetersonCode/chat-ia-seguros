@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20261105revision9";
+import { api } from "./api.js?v=20261105revision10";
 
 const contadores = [
     { clave: "acciones", etiqueta: "Acciones", destino: "/panel/acciones/" },

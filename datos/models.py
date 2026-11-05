@@ -138,6 +138,7 @@ class EstadoTrabajoWhatsApp(models.TextChoices):
 class TipoTrabajoWhatsApp(models.TextChoices):
     TEXTO = "texto", "Procesar texto"
     IMAGEN = "imagen", "Procesar imagen"
+    VIDEO = "video", "Guardar video para el chat"
     AVISO_FORMATO = "aviso_formato", "Avisar formato no soportado"
 
 
@@ -451,6 +452,25 @@ class AdjuntoSiniestro(models.Model):
     class Meta:
         managed = False
         db_table = "siniestro_adjuntos"
+
+
+class MensajeAdjunto(models.Model):
+    """Imagen o video que mandó el cliente, descargable desde el chat."""
+
+    id = models.BigAutoField(primary_key=True)
+    mensaje = models.OneToOneField(
+        "Mensaje", on_delete=models.DO_NOTHING, related_name="adjunto_chat"
+    )
+    clave_almacenamiento = models.TextField(unique=True)
+    nombre_archivo = models.TextField()
+    content_type = models.TextField()
+    tamano = models.PositiveIntegerField()
+    sha256 = models.TextField()
+    creado_en = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "mensaje_adjuntos"
 
 
 class DocumentoGeneral(models.Model):

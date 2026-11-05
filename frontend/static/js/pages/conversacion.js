@@ -1,10 +1,11 @@
-import { api } from "../api.js?v=20261105revision9";
-import { abrirRegistroPago } from '../lib/pagos.js?v=20261105revision9';
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105revision9";
-import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261105revision9";
-import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261105revision9";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261105revision9";
-import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261105revision9";
+import { api } from "../api.js?v=20261105revision10";
+import { abrirRegistroPago } from '../lib/pagos.js?v=20261105revision10';
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105revision10";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261105revision10";
+import { crearTarjetaAdjunto, esMarcadorDeArchivo } from "../lib/adjuntos.js?v=20261105revision10";
+import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261105revision10";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261105revision10";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261105revision10";
 
 const idConversacion = new URLSearchParams(globalThis.location.search).get("id");
 const tituloChat = document.getElementById("titulo-chat");
@@ -98,8 +99,13 @@ function actualizarNodoMensaje(nodo, mensaje) {
         "small text-muted mb-2",
         `${nombreRemitente(mensaje)} · ${formatearFechaHora(mensaje.fecha_hora)} · ${mensaje.estado_envio}`,
     );
-    const texto = crearElemento("p", "mb-2", mensaje.texto ?? "");
-    const contenido = [encabezado, texto];
+    const contenido = [encabezado];
+    if (mensaje.adjunto) {
+        contenido.push(crearTarjetaAdjunto(mensaje.adjunto));
+    }
+    if (!esMarcadorDeArchivo(mensaje)) {
+        contenido.push(crearElemento("p", "mb-2", mensaje.texto ?? ""));
+    }
 
     const acciones = accionesPermitidas(mensaje, funcionario);
     if (acciones.length > 0) {

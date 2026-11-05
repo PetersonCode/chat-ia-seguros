@@ -186,6 +186,23 @@ def _avisar_solo_texto(mensaje: Mensaje) -> None:
     enviar_pendientes(conversacion_id)
 
 
+def _guardar_media_para_el_chat(mensaje_id: int, *, reintentar: bool) -> None:
+    """Deja la imagen o el video descargable desde el chat.
+
+    Con `reintentar`, un fallo hace fallar el trabajo y se vuelve a intentar; en
+    las imágenes es secundario (el flujo de siniestros baja la suya) y solo se registra.
+    """
+    from negocio.adjuntos_chat import guardar_media_de_chat
+    from negocio.adjuntos_siniestros import AdjuntoInvalido, DescargaMediaInvalida
+
+    try:
+        guardar_media_de_chat(mensaje_id)
+    except (AdjuntoInvalido, DescargaMediaInvalida) as error:
+        logger.warning("No se pudo guardar el archivo del mensaje %s: %s", mensaje_id, error)
+        if reintentar and isinstance(error, DescargaMediaInvalida):
+            raise
+
+
 def _procesar_imagen_siniestro(mensaje_id: int) -> None:
     from negocio.adjuntos_siniestros import procesar_media_entrante
     from negocio.bot.orquestador import ignorar_si_bloqueado
@@ -308,6 +325,9 @@ def procesar_webhook(payload: dict) -> None:
                     es_imagen = tipo == "image" and isinstance(
                         entrante.get("image"), dict
                     )
+                    es_video = tipo == "video" and isinstance(
+                        entrante.get("video"), dict
+                    )
                     cuerpo_texto = entrante.get("text") or {}
                     if not isinstance(cuerpo_texto, dict):
                         cuerpo_texto = {}
@@ -317,11 +337,12 @@ def procesar_webhook(payload: dict) -> None:
                         else f"{PREFIJO_NO_SOPORTADO}{tipo or 'desconocido'} no soportado]"
                     )
                     payload_entrante = entrante
-                    if es_imagen:
+                    if es_imagen or es_video:
+                        campo = "image" if es_imagen else "video"
                         payload_entrante = dict(entrante)
-                        payload_entrante["image"] = {
+                        payload_entrante[campo] = {
                             clave: dato
-                            for clave, dato in entrante["image"].items()
+                            for clave, dato in entrante[campo].items()
                             if clave != "url"
                         }
                     tipo_trabajo = (
@@ -330,7 +351,11 @@ def procesar_webhook(payload: dict) -> None:
                         else (
                             TipoTrabajoWhatsApp.IMAGEN
                             if es_imagen
-                            else TipoTrabajoWhatsApp.AVISO_FORMATO
+                            else (
+                                TipoTrabajoWhatsApp.VIDEO
+                                if es_video
+                                else TipoTrabajoWhatsApp.AVISO_FORMATO
+                            )
                         )
                     )
                     with transaction.atomic():
@@ -377,7 +402,11 @@ def ejecutar_trabajo_whatsapp(trabajo_id: int) -> None:
     if trabajo.tipo == TipoTrabajoWhatsApp.TEXTO:
         procesar_tras_ventana(mensaje.id)
     elif trabajo.tipo == TipoTrabajoWhatsApp.IMAGEN:
+        _guardar_media_para_el_chat(mensaje.id, reintentar=False)
         _procesar_imagen_siniestro(mensaje.id)
+    elif trabajo.tipo == TipoTrabajoWhatsApp.VIDEO:
+        _guardar_media_para_el_chat(mensaje.id, reintentar=True)
+        _avisar_solo_texto(mensaje)
     elif trabajo.tipo == TipoTrabajoWhatsApp.AVISO_FORMATO:
         _avisar_solo_texto(mensaje)
     else:

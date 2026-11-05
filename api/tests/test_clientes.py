@@ -151,6 +151,19 @@ class ModificacionYBajaPorApiTests(ApiTestCase):
         self.cliente.refresh_from_db()
         self.assertTrue(self.cliente.activo)
 
+    def test_una_poliza_que_empieza_manana_cuenta_como_por_iniciar(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        self.entrar()
+        fabricas.crear_poliza(
+            self.cliente, estado=EstadoPoliza.VIGENTE,
+            fecha_inicio=timezone.localdate() + timedelta(days=1),
+        )
+
+        fila = self.cliente_api.get("/api/clientes/?q=27345678").json()["resultados"][0]
+        self.assertEqual(fila["polizas_vigentes"], 0)
+        self.assertEqual(fila["polizas_por_iniciar"], 1)
+
     # AC-T2-23
     def test_reactivar_vuelve_a_dejarlo_activo_y_repetirlo_es_409(self):
         self.entrar()

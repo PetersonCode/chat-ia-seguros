@@ -68,6 +68,7 @@ from datos.models import (
     AccionPendiente,
     Alerta,
     Cliente,
+    Rol,
     Compania,
     ConsultaBot,
     Conversacion,
@@ -287,8 +288,22 @@ def _poliza_resumen(fila) -> dict:
     }
 
 
+def _adjunto_de_mensaje(mensaje: Mensaje) -> dict | None:
+    adjunto = getattr(mensaje, "adjunto_chat", None)
+    if adjunto is None:
+        return None
+    return {
+        "nombre": adjunto.nombre_archivo,
+        "content_type": adjunto.content_type,
+        "tipo": "video" if adjunto.content_type.startswith("video/") else "imagen",
+        "tamano": adjunto.tamano,
+        "descarga_url": f"/api/mensajes/{mensaje.id}/adjunto/",
+    }
+
+
 def _mensaje(mensaje: Mensaje) -> dict:
     return {
+        "adjunto": _adjunto_de_mensaje(mensaje),
         "id": mensaje.id,
         "direccion": mensaje.direccion,
         "emisor": mensaje.emisor,
@@ -558,6 +573,7 @@ def _cliente_resumen(cliente: Cliente) -> dict:
         "email": cliente.email,
         "activo": cliente.activo,
         "polizas_vigentes": getattr(cliente, "polizas_vigentes", 0) or 0,
+        "polizas_por_iniciar": getattr(cliente, "polizas_por_iniciar", 0) or 0,
     }
 
 
@@ -867,7 +883,9 @@ def alertas_listar(request):
 @authentication_classes([SessionAuthentication])
 @permission_classes([EsFuncionario])
 def consultas_cerradas_con_alertas(request):
-    queryset = selectors.consultas_cerradas_con_alertas().select_related(
+    queryset = selectors.consultas_cerradas(
+        con_alertas=request.query_params.get("con_alertas") == "1"
+    ).select_related(
         "contacto__cliente", "tipo_consulta"
     ).prefetch_related("alertas")
     return _pagina(queryset, request, _consulta_resumen)
@@ -997,7 +1015,9 @@ def consulta_reabrir(request, id):
 def acciones_listar(request):
     estado = request.query_params.get("estado")
     queryset = selectors.listar_acciones(
-        estado="pendiente" if estado is None else (estado or None)
+        estado="pendiente" if estado is None else (estado or None),
+        q=request.query_params.get("q"),
+        orden="reciente" if request.query_params.get("orden") == "reciente" else "antiguo",
     )
     return _pagina(queryset, request, _accion)
 
@@ -1083,8 +1103,9 @@ def accion_rechazar(request, id):
 @authentication_classes([SessionAuthentication])
 @permission_classes([EsFuncionario])
 def derivaciones_listar(request):
+    ve_todas = request.funcionario.rol in (Rol.ADMINISTRADOR, Rol.PROPIETARIO)
     queryset = selectors.derivaciones_de(
-        request.funcionario.id,
+        None if ve_todas else request.funcionario.id,
         incluir_atendidas=request.query_params.get("atendidas") == "1",
     ).select_related("consulta")
     return _pagina(queryset, request, _derivacion)
@@ -1396,6 +1417,25 @@ def siniestro_adjunto_subir(request, id):
         _siniestro_expediente(selectors.detalle_siniestro(id)),
         status=status.HTTP_201_CREATED,
     )
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsFuncionario])
+def mensaje_adjunto_descargar(request, id):
+    """Descarga la imagen o el video que mandó el cliente, siempre como archivo adjunto."""
+    from negocio.adjuntos_chat import abrir_adjunto_de_mensaje
+
+    adjunto, archivo = abrir_adjunto_de_mensaje(id)
+    respuesta = FileResponse(
+        archivo,
+        as_attachment=True,
+        filename=adjunto.nombre_archivo,
+        content_type=adjunto.content_type,
+    )
+    respuesta["Cache-Control"] = "private, no-store"
+    respuesta["X-Content-Type-Options"] = "nosniff"
+    return respuesta
 
 
 @api_view(["GET"])

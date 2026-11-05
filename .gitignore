@@ -11,3 +11,5 @@ private_media/
 .modelos/
 staticfiles/
 docker-compose.override.yml
+
+back/
