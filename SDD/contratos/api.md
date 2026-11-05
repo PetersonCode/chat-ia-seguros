@@ -38,6 +38,7 @@ Cambiar un endpoint o una forma de respuesta requiere acuerdo de las 4 personas.
 | `POST /api/conversaciones/{id}/desbloquear/` | aprobador | Levanta el bloqueo de 48 h por insistencia del número; resuelve su alerta → `200 conversacion_detalle`. `409` si no está bloqueado |
 | `POST /api/conversaciones/{id}/vaciar-alertas/` | aprobador | Descarta las alertas abiertas de la conversación (`descartada`, firmadas; no se borran) → `200 conversacion_detalle`. `409` si hay una respuesta retenida sin resolver |
 | `POST /api/conversaciones/{id}/borrar/` | aprobador | Borra la conversación con sus mensajes, casos y alertas, sin vuelta atrás → `200 {id, borrados: {mensajes, casos, alertas}}`. `409` si tiene acciones administrativas **pendientes**, siniestros o fotos de siniestro asociados. Las acciones ya resueltas no bloquean: su caso se conserva sin chat como auditoría |
+| `POST /api/conversaciones/{id}/eliminacion-total/` | **administrador** (rol `administrador`; ni el propietario) | DELETE físico de todo el rastro del número: todas sus conversaciones, mensajes, casos, alertas, derivaciones, acciones (cualquier estado), borradores, avisos/encuestas/tareas de gestión, recordatorios, interesados (con historial y cotizaciones) y el contacto de WhatsApp. No toca al cliente ni a sus pólizas → `200 {id, borrados: {conversaciones, mensajes, casos, alertas, acciones, interesados, contacto}}`. `403` si no es administrador; `409` (sin borrar nada) si hay siniestros, fotos de siniestro o acciones finalizadas, que la base declara inmutables |
 | `POST /api/conversaciones/{id}/responder/` | sesión | `{texto}` → `201 mensaje` |
 | `POST /api/mensajes/{id}/liberar/` | aprobador | `{texto_corregido?}` → `200 mensaje` (el que sale al cliente) |
 | `POST /api/mensajes/{id}/descartar/` | aprobador | `{motivo}` → `200 mensaje` |
@@ -56,6 +57,7 @@ Cambiar un endpoint o una forma de respuesta requiere acuerdo de las 4 personas.
 | `GET /api/clientes/{id}/` | sesión | → `cliente_detalle` |
 | `PATCH /api/clientes/{id}/` | aprobador | `{dni?, nombre?, apellido?, telefono?, email?}` → `200 cliente_detalle` |
 | `POST /api/clientes/{id}/baja/` | aprobador | → `200 cliente_detalle` (baja lógica) |
+| `POST /api/clientes/{id}/eliminar-definitivo/` | **administrador** (rol `administrador`) | DELETE físico del cliente con sus vehículos, pólizas (cuotas, pagos, condiciones, documentos vinculados, acciones, renovaciones, recordatorios, avisos), notas, tareas, perfil, referidos, encuestas, interesados y el rastro de cada número de WhatsApp vinculado → `200 {id, borrados: {polizas, vehiculos, cuotas, interesados, numeros}}`. `403` si no es administrador; `409` (sin borrar nada) si hay siniestros, fotos de siniestro o acciones finalizadas |
 | `POST /api/clientes/{id}/reactivar/` | aprobador | → `200 cliente_detalle` |
 | `GET /api/polizas/{id}/` | sesión | → `poliza_detalle` |
 | `POST /api/clientes/{id}/polizas/` | aprobador | `{tipo_seguro, cobertura, fecha_inicio, fecha_vencimiento, prima_mensual, bien_asegurado?, numero_poliza?, vehiculo_id?, compania_id?, comision_pct?}` → `201 poliza_detalle` (P1 agregó los tres últimos) |

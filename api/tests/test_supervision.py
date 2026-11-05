@@ -664,3 +664,46 @@ class BorrarConversacionApiTests(ApiTestCase):
         respuesta = self.cliente_api.post("/api/conversaciones/999999/borrar/", {}, format="json")
 
         self.assertEqual(respuesta.status_code, 404, respuesta.content)
+
+
+class EliminacionTotalApiTests(ApiTestCase):
+    """`POST /api/conversaciones/<id>/eliminacion-total/`: solo el administrador."""
+
+    def setUp(self):
+        super().setUp()
+        self.admin = fabricas.crear_funcionario("Admin", puede_aprobar=True, rol="administrador")
+        consulta = fabricas.crear_consulta(self.conversacion)
+        fabricas.crear_mensaje(self.conversacion, consulta=consulta)
+        fabricas.crear_alerta(consulta)
+
+    @property
+    def ruta(self) -> str:
+        return f"/api/conversaciones/{self.conversacion.id}/eliminacion-total/"
+
+    def test_el_administrador_borra_el_numero_entero(self):
+        self.entrar(self.admin)
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 200, respuesta.content)
+        self.assertEqual(respuesta.json()["borrados"]["contacto"], 1)
+        detalle = self.cliente_api.get(f"/api/conversaciones/{self.conversacion.id}/")
+        self.assertEqual(detalle.status_code, 404)
+
+    def test_un_aprobador_comun_es_403_y_no_borra(self):
+        self.entrar()
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 403, respuesta.content)
+        self.assertEqual(self.cliente_api.get(f"/api/conversaciones/{self.conversacion.id}/").status_code, 200)
+
+    def test_sin_sesion_no_se_puede(self):
+        self.assertIn(self.cliente_api.post(self.ruta, {}, format="json").status_code, (401, 403))
+
+    def test_conversacion_inexistente_es_404(self):
+        self.entrar(self.admin)
+
+        respuesta = self.cliente_api.post("/api/conversaciones/999999/eliminacion-total/", {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 404, respuesta.content)

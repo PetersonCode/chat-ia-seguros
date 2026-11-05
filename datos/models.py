@@ -8,6 +8,7 @@ class Rol(models.TextChoices):
     PROPIETARIO = "propietario", "Propietario"
     ADMINISTRACION = "administracion", "Administración"
     OPERADOR = "operador", "Operador"
+    ADMINISTRADOR = "administrador", "Administrador"
 
 
 class Politica(models.TextChoices):

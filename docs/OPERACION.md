@@ -67,3 +67,12 @@ LIMIT 100;
 ```
 
 `usuario_id` corresponde al usuario Django; el funcionario se identifica por su email en el modelo existente. Se guardan fechas, recursos y resultados, no el contenido del mensaje ni la contraseña. Conservar evidencias de acceso y cambios conforme a la política acordada.
+
+
+## Usuario administrador y ELIMINACION TOTAL (pruebas)
+
+El rol `administrador` (SQL 29) existe solo para probar flujos con pocos números reales. Se crea con `python manage.py crear_administrador` (sin `--clave` genera una y la muestra una vez). Es el único rol que ve el botón **ELIMINACION TOTAL**, en la bandeja y en el detalle del chat; la API (`POST /api/conversaciones/{id}/eliminacion-total/`) lo exige igual. No se asigna ni se edita desde la sección Usuarios.
+
+La eliminación es un DELETE físico, sin marcas: borra todas las conversaciones del número, mensajes, casos, alertas, acciones, avisos, interesados y el contacto, de modo que el siguiente mensaje arranca desde cero. El cliente y sus pólizas se conservan. Se niega, sin borrar nada, si hay siniestros, fotos de siniestro o acciones finalizadas (inmutables por trigger). La auditoría de seguridad no se borra: guarda la ruta y el usuario, sin teléfonos ni textos. En producción real no debería existir ningún usuario con este rol.
+
+**Eliminar un cliente de cero.** El administrador ve además **ELIMINAR CLIENTE (TOTAL)** en la ficha del cliente (`POST /api/clientes/{id}/eliminar-definitivo/`). Borra físicamente el cliente con sus vehículos, pólizas (cuotas, pagos, condiciones, documentos vinculados, acciones), notas, tareas, interesados y el rastro de cada número de WhatsApp vinculado. Misma regla: con siniestros, fotos de siniestro o acciones finalizadas se niega sin borrar nada. La baja lógica de siempre sigue disponible para los demás roles.

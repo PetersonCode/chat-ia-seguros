@@ -58,3 +58,15 @@ class EsPropietario(EsFuncionario):
         if request.funcionario.rol != Rol.PROPIETARIO:
             raise PermissionDenied(self.message)
         return True
+
+
+class EsAdministrador(EsFuncionario):
+    """Solo el rol administrador (usuario de pruebas): eliminación total de chats."""
+
+    message = "Solo el administrador puede hacer la eliminación total."
+
+    def has_permission(self, request, view):
+        super().has_permission(request, view)
+        if request.funcionario.rol != Rol.ADMINISTRADOR:
+            raise PermissionDenied(self.message)
+        return True

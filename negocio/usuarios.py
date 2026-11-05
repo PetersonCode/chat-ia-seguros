@@ -69,8 +69,8 @@ def _clave_valida(clave: str, user=None) -> str:
 
 
 def _no_es_propietario(funcionario: Funcionario) -> None:
-    if funcionario.rol == Rol.PROPIETARIO:
-        raise EstadoInvalido("El propietario no se puede modificar desde esta sección.")
+    if funcionario.rol in (Rol.PROPIETARIO, Rol.ADMINISTRADOR):
+        raise EstadoInvalido("El propietario y el administrador no se modifican desde esta sección.")
 
 
 def crear_usuario(

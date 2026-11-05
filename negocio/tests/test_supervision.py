@@ -28,6 +28,7 @@ from negocio.errores import (
 )
 from negocio.supervision import (
     borrar_conversacion,
+    eliminacion_total,
     cerrar_casos,
     descartar_respuesta,
     devolver_al_bot,
@@ -663,3 +664,71 @@ class BorrarConversacionTests(BaseSupervisionTests):
     def test_una_conversacion_inexistente_es_no_encontrado(self):
         with self.assertRaises(NoEncontrado):
             borrar_conversacion(999999, self.aprobador.id)
+
+
+class EliminacionTotalTests(BaseSupervisionTests):
+    """ELIMINACION TOTAL: DELETE físico de todo el rastro del número."""
+
+    def setUp(self):
+        super().setUp()
+        self.admin = fabricas.crear_funcionario(
+            "Admin", puede_aprobar=True, rol="administrador"
+        )
+        self.msg = fabricas.crear_mensaje(self.conversacion, consulta=self.consulta)
+        fabricas.crear_alerta(self.consulta)
+        fabricas.crear_derivacion(self.consulta, self.aprobador)
+
+    def test_borra_todo_el_rastro_del_numero_incluidas_acciones_resueltas(self):
+        from datos.models import ContactoWhatsapp, Cotizacion, Interesado
+
+        fabricas.crear_accion(self.consulta)  # pendiente
+        interesado = fabricas.crear_interesado(contacto=self.contacto)
+        fabricas.crear_cotizacion(interesado=interesado)
+        otra_conv = fabricas.crear_conversacion(self.contacto, estado="cerrada", cerrada_en=timezone.now())
+        fabricas.crear_mensaje(otra_conv)
+
+        borrados = eliminacion_total(self.conversacion.id, self.admin.id)
+
+        self.assertEqual(borrados["conversaciones"], 2)
+        self.assertEqual(borrados["interesados"], 1)
+        self.assertEqual(borrados["contacto"], 1)
+        for modelo in (Conversacion, ConsultaBot, Mensaje, Alerta, Derivacion,
+                       AccionPendiente, Interesado, Cotizacion):
+            self.assertFalse(modelo.objects.exists(), modelo.__name__)
+        self.assertFalse(ContactoWhatsapp.objects.filter(pk=self.contacto.pk).exists())
+
+    def test_no_toca_al_cliente_ni_a_otros_numeros(self):
+        from datos.models import Cliente, ContactoWhatsapp
+
+        otro = fabricas.crear_contacto(fabricas.crear_cliente())
+        otra = fabricas.crear_conversacion(otro)
+        fabricas.crear_mensaje(otra)
+
+        eliminacion_total(self.conversacion.id, self.admin.id)
+
+        self.assertTrue(Cliente.objects.filter(pk=self.cliente.pk).exists())
+        self.assertTrue(ContactoWhatsapp.objects.filter(pk=otro.pk).exists())
+        self.assertEqual(Mensaje.objects.filter(conversacion=otra).count(), 1)
+
+    def test_solo_el_rol_administrador_puede(self):
+        for quien in (self.aprobador, self.operador):
+            with self.assertRaises(PermisoDenegado):
+                eliminacion_total(self.conversacion.id, quien.id)
+        self.assertTrue(Conversacion.objects.filter(pk=self.conversacion.id).exists())
+
+    def test_conversacion_inexistente(self):
+        with self.assertRaises(NoEncontrado):
+            eliminacion_total(999999, self.admin.id)
+
+    def test_se_niega_sin_borrar_nada_si_hay_siniestros(self):
+        poliza = fabricas.crear_poliza(self.cliente)
+        from datos.models import Siniestro
+
+        Siniestro.objects.create(
+            numero_siniestro="SIN-2026-00001", poliza=poliza, consulta=self.consulta,
+            fecha_ocurrencia=timezone.localdate(), descripcion="Choque",
+        )
+        with self.assertRaises(EstadoInvalido):
+            eliminacion_total(self.conversacion.id, self.admin.id)
+        self.assertTrue(Mensaje.objects.filter(pk=self.msg.pk).exists())
+        self.assertTrue(Conversacion.objects.filter(pk=self.conversacion.id).exists())

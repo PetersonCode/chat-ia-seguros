@@ -32,7 +32,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from api.paginacion import Paginador
-from api.permisos import EsAprobador, EsAprobadorParaEscribir, EsFuncionario, EsPropietario
+from api.permisos import EsAdministrador, EsAprobador, EsAprobadorParaEscribir, EsFuncionario, EsPropietario
 from api.serializers import (
     ClaveSerializer,
     ClienteAltaSerializer,
@@ -113,6 +113,7 @@ from negocio.clientes import (
     SIN_CAMBIO,
     alta_cliente,
     dar_de_baja_cliente,
+    eliminar_cliente_definitivo,
     modificar_cliente,
     reactivar_cliente,
 )
@@ -148,6 +149,7 @@ from negocio.supervision import (
     vaciar_chat,
     vaciar_alertas,
     borrar_conversacion,
+    eliminacion_total,
     desbloquear_numero,
 )
 
@@ -786,6 +788,15 @@ def conversacion_borrar(request, id):
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
+@permission_classes([EsAdministrador])
+def conversacion_eliminacion_total(request, id):
+    """Borra físicamente todo rastro del número. Solo el rol administrador."""
+    borrados = eliminacion_total(id, request.funcionario.id)
+    return Response({"id": id, "borrados": borrados})
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
 @permission_classes([EsFuncionario])
 def conversacion_responder(request, id):
     datos = ResponderSerializer(data=request.data)
@@ -1114,6 +1125,15 @@ def cliente_baja(request, id):
     return Response(
         _cliente_detalle(selectors.detalle_cliente(id), _ve_comision(request))
     )
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsAdministrador])
+def cliente_eliminar_definitivo(request, id):
+    """DELETE físico del cliente con vehículos y pólizas. Solo el administrador."""
+    borrados = eliminar_cliente_definitivo(id, request.funcionario.id)
+    return Response({"id": id, "borrados": borrados})
 
 
 @api_view(["POST"])

@@ -92,6 +92,11 @@ const siniestrosCliente = document.getElementById("siniestros-cliente");
 
 const insigniaActivo = document.getElementById("estado-activo-cliente");
 const botonBaja = document.getElementById("boton-baja-cliente");
+const botonEliminar = document.getElementById("boton-eliminar-cliente");
+const dialogoEliminar = document.getElementById("dialog-eliminar-cliente");
+const errorEliminar = document.getElementById("eliminar-cliente-error");
+const botonEliminarCancelar = document.getElementById("eliminar-cliente-cancelar");
+const botonEliminarConfirmar = document.getElementById("eliminar-cliente-confirmar");
 const botonReactivar = document.getElementById("boton-reactivar-cliente");
 const formularioEdicion = document.getElementById("formulario-edicion-cliente");
 const estadoEdicion = document.getElementById("estado-edicion-cliente");
@@ -133,6 +138,7 @@ const CAMPOS_POLIZA = [
 
 /** Solo comodidad: la API es la que niega escribir y la que oculta la comisión (R17). */
 let esAprobador = false;
+let esAdministrador = false;
 let vehiculosDelCliente = [];
 let clienteActivo = true;
 let funcionarioConsultado = false;
@@ -144,8 +150,10 @@ async function saberSiAprueba() {
     try {
         const me = await api.get("/api/auth/me/");
         esAprobador = Boolean(me?.puede_aprobar);
+        esAdministrador = me?.rol === "administrador";
     } catch {
         esAprobador = false;
+        esAdministrador = false;
     }
     funcionarioConsultado = true;
 }
@@ -536,6 +544,8 @@ function prepararAbm(cliente) {
         ? "badge text-bg-secondary mt-2"
         : "badge text-bg-success mt-2";
     botonBaja.classList.toggle("d-none", dadoDeBaja);
+    // Solo el rol administrador; la API lo exige igual.
+    botonEliminar.classList.toggle("d-none", !esAdministrador);
     botonReactivar.classList.toggle("d-none", !dadoDeBaja);
 
     formularioEdicion.elements.dni.value = cliente.dni ?? "";
@@ -598,6 +608,24 @@ async function cambiarEstado(ruta, boton) {
 
 botonBaja.addEventListener("click", () => cambiarEstado("baja", botonBaja));
 botonReactivar.addEventListener("click", () => cambiarEstado("reactivar", botonReactivar));
+
+botonEliminar.addEventListener("click", () => {
+    errorEliminar.textContent = "";
+    dialogoEliminar.showModal();
+});
+botonEliminarCancelar.addEventListener("click", () => dialogoEliminar.close());
+botonEliminarConfirmar.addEventListener("click", async () => {
+    botonEliminarConfirmar.disabled = true;
+    errorEliminar.textContent = "";
+    try {
+        await api.post(`/api/clientes/${idCliente}/eliminar-definitivo/`, {});
+        globalThis.location.assign("/panel/clientes/");
+    } catch (error) {
+        errorEliminar.textContent = error.mensaje ?? error.message ?? "No se pudo eliminar el cliente.";
+    } finally {
+        botonEliminarConfirmar.disabled = false;
+    }
+});
 
 async function cargarFicha() {
     inicializarNav();

@@ -188,3 +188,43 @@ class ModificacionYBajaPorApiTests(ApiTestCase):
                     f"/api/clientes/999999/{ruta}/", {}, format="json"
                 )
                 self.assertError(respuesta, 404, "no_encontrado")
+
+
+class EliminarClienteDefinitivoApiTests(ApiTestCase):
+    """`POST /api/clientes/<id>/eliminar-definitivo/`: solo el administrador."""
+
+    def setUp(self):
+        super().setUp()
+        self.admin = fabricas.crear_funcionario("Admin", puede_aprobar=True, rol="administrador")
+        vehiculo = fabricas.crear_vehiculo(self.cliente)
+        fabricas.crear_poliza(self.cliente, vehiculo=vehiculo)
+
+    @property
+    def ruta(self) -> str:
+        return f"/api/clientes/{self.cliente.id}/eliminar-definitivo/"
+
+    def test_el_administrador_borra_cliente_vehiculos_y_polizas(self):
+        self.entrar(self.admin)
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 200, respuesta.content)
+        borrados = respuesta.json()["borrados"]
+        self.assertEqual((borrados["polizas"], borrados["vehiculos"]), (1, 1))
+        self.assertFalse(Cliente.objects.filter(pk=self.cliente.id).exists())
+        self.assertEqual(self.cliente_api.get(f"/api/clientes/{self.cliente.id}/").status_code, 404)
+
+    def test_un_aprobador_comun_es_403_y_no_borra(self):
+        self.entrar()
+
+        respuesta = self.cliente_api.post(self.ruta, {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 403, respuesta.content)
+        self.assertTrue(Cliente.objects.filter(pk=self.cliente.id).exists())
+
+    def test_cliente_inexistente_es_404(self):
+        self.entrar(self.admin)
+
+        respuesta = self.cliente_api.post("/api/clientes/999999/eliminar-definitivo/", {}, format="json")
+
+        self.assertEqual(respuesta.status_code, 404, respuesta.content)

@@ -6,6 +6,7 @@ const ROLES = {
     propietario: "Propietario",
     administracion: "Administración",
     operador: "Operador",
+    administrador: "Administrador",
 };
 
 const mensajePagina = document.getElementById("mensaje-pagina");
@@ -141,7 +142,7 @@ function iniciales(nombre) {
 }
 
 function crearTarjetaUsuario(usuario) {
-    const propietario = usuario.rol === "propietario";
+    const propietario = usuario.rol === "propietario" || usuario.rol === "administrador";
     const acciones = propietario
         ? [crearElemento("span", "small text-muted", "No se modifica desde acá")]
         : [
