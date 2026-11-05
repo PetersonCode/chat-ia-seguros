@@ -1,26 +1,29 @@
-import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105burbujas1";
-import { api } from "../api.js?v=20261105burbujas1";
-import { abrirRegistroPago } from '../lib/pagos.js?v=20261105burbujas1';
-import { inicializarNav } from "../nav.js?v=20261105burbujas1";
-import { iniciarNotas } from "../lib/notas.js?v=20261105burbujas1";
-import { iniciarFidelizacion } from "../lib/fidelizacion.js?v=20261105burbujas1";
-import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261105burbujas1";
+import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105fechas1";
+import { api } from "../api.js?v=20261105fechas1";
+import { abrirRegistroPago } from '../lib/pagos.js?v=20261105fechas1';
+import { inicializarNav } from "../nav.js?v=20261105fechas1";
+import { iniciarNotas } from "../lib/notas.js?v=20261105fechas1";
+import { iniciarFidelizacion } from "../lib/fidelizacion.js?v=20261105fechas1";
+import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261105fechas1";
 import {
+    avisoInicioLejano,
     etiquetaEstadoPoliza,
+    fechaEnPalabras,
+    hoyIso,
     mesesDeCobertura,
     ordenarPolizas,
     validarPoliza,
-} from "../lib/polizas.js?v=20261105burbujas1";
-import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261105burbujas1";
-import { normalizarPatente } from "../lib/patente.js?v=20261105burbujas1";
+} from "../lib/polizas.js?v=20261105fechas1";
+import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261105fechas1";
+import { normalizarPatente } from "../lib/patente.js?v=20261105fechas1";
 import {
     USOS,
     CLASES,
     descripcionVehiculo,
     etiquetaUso,
     validarVehiculo,
-} from "../lib/vehiculos.js?v=20261105burbujas1";
-import { formatearPorcentaje } from "../lib/companias.js?v=20261105burbujas1";
+} from "../lib/vehiculos.js?v=20261105fechas1";
+import { formatearPorcentaje } from "../lib/companias.js?v=20261105fechas1";
 
 const dialogoCartera = document.getElementById("dialog-cartera");
 const formularioCartera = document.getElementById("formulario-cartera");
@@ -189,16 +192,36 @@ function agregarDato(contenedor, etiqueta, valor) {
     contenedor.append(fila);
 }
 
+function enlaceConversacion(conversacionId, texto, clase) {
+    const enlace = crearElemento("a", clase, texto);
+    enlace.href = `/panel/conversacion/?id=${encodeURIComponent(conversacionId)}`;
+    return enlace;
+}
+
 function renderizarContactos(cliente) {
     contactos.replaceChildren();
     const lista = Array.isArray(cliente.contactos) ? cliente.contactos : [];
+    // `chats` trae, por número, la conversación abierta o la última que tuvo.
+    const chats = new Map((cliente.chats ?? []).map((chat) => [chat.numero, chat.conversacion_id]));
+
+    const botonCabecera = document.getElementById("boton-ver-conversacion");
+    const primera = lista.map((numero) => chats.get(numero)).find(Boolean);
+    botonCabecera.classList.toggle("d-none", !primera);
+    if (primera) botonCabecera.href = `/panel/conversacion/?id=${encodeURIComponent(primera)}`;
+
     if (lista.length === 0) {
         contactos.append(crearElemento("p", "text-muted mb-0", "No hay contactos registrados."));
         return;
     }
     const ul = crearElemento("ul", "list-unstyled mb-0");
     for (const numero of lista) {
-        ul.append(crearElemento("li", "mb-1", numero));
+        const item = crearElemento("li", "mb-2 d-flex flex-wrap align-items-center gap-2");
+        item.append(crearElemento("span", "", numero));
+        const conversacionId = chats.get(numero);
+        item.append(conversacionId
+            ? enlaceConversacion(conversacionId, "Ver conversación", "btn btn-sm btn-outline-primary")
+            : crearElemento("span", "small text-muted", "Sin conversaciones todavía"));
+        ul.append(item);
     }
     contactos.append(ul);
 }
@@ -256,7 +279,11 @@ function renderizarPoliza(poliza) {
         agregarDato(cuerpo, "Comisión", formatearPorcentaje(poliza.comision_pct));
         agregarDato(cuerpo, "Comisión mensual estimada", formatearMonto(poliza.comision_mensual_estimada));
     }
-    agregarDato(cuerpo, "Saldo pendiente", formatearMonto(poliza.saldo_pendiente));
+    // A pagar ahora = cuotas vencidas + la próxima; el total incluye los meses siguientes.
+    agregarDato(cuerpo, "A pagar ahora", formatearMonto(poliza.saldo_pendiente));
+    if (poliza.saldo_total !== undefined && poliza.saldo_total !== poliza.saldo_pendiente) {
+        agregarDato(cuerpo, "Total impago del contrato", formatearMonto(poliza.saldo_total));
+    }
     agregarDato(cuerpo, "Próximo vencimiento de pago", formatearFecha(poliza.proximo_vencimiento_pago));
     renderizarCuotas(cuerpo, poliza.cuotas);
     if (esAprobador && Number(poliza.saldo_pendiente) > 0) {
@@ -298,7 +325,7 @@ function renderizarPoliza(poliza) {
         cuerpo.append(botonDeVehiculo("Eliminar póliza (total)", "btn-danger fw-bold mt-3", () => confirmarEliminacion(
             `Eliminar ${poliza.numero_poliza}`,
             "Se borra de la base la póliza con sus cuotas, pagos, condiciones, acciones y avisos. "
-            + "El cliente y su vehículo quedan. " + "No se puede deshacer. Si hay siniestros o acciones finalizadas, no se borra nada.",
+            + "El cliente y su vehículo quedan. " + "No se puede deshacer. Incluye siniestros (con historial y fotos) y acciones finalizadas.",
             async () => {
                 await api.post(`/api/polizas/${poliza.id}/eliminar-definitivo/`, {});
                 await cargarFicha();
@@ -881,7 +908,26 @@ function actualizarPrevioCuotas() {
         + "con vencimiento al inicio de cada ciclo mensual desde la fecha de inicio.";
 }
 
+// La fecha escrita con palabras debajo de cada campo: el navegador puede
+// mostrarlo como mes/día y «05/11» terminar siendo 11 de mayo.
+const ETIQUETAS_FECHA = { fecha_inicio: "Inicio", fecha_vencimiento: "Vencimiento" };
+// El inicio lejano ya confirmado con «Crear igual» (se vuelve a pedir si cambia).
+let inicioConfirmado = null;
+
+function actualizarFechasEnPalabras() {
+    for (const [campo, etiqueta] of Object.entries(ETIQUETAS_FECHA)) {
+        const texto = fechaEnPalabras(formularioPoliza.elements[campo].value);
+        formularioPoliza.querySelector(`[data-fecha="${campo}"]`).textContent = texto ? `${etiqueta}: ${texto}` : "";
+    }
+    if (formularioPoliza.elements.fecha_inicio.value !== inicioConfirmado) {
+        inicioConfirmado = null;
+        botonCrearPoliza.textContent = "Crear póliza";
+    }
+}
+
 formularioPoliza.addEventListener("input", actualizarPrevioCuotas);
+formularioPoliza.addEventListener("input", actualizarFechasEnPalabras);
+formularioPoliza.addEventListener("change", actualizarFechasEnPalabras);
 
 function pintarErroresPoliza(errores) {
     for (const campo of CAMPOS_POLIZA) {
@@ -923,6 +969,16 @@ formularioPoliza.addEventListener("submit", async (evento) => {
         mostrarEstadoNuevaPoliza("Revisá los campos marcados.", true);
         return;
     }
+    // Un inicio a más de 30 días de hoy suele ser día y mes invertidos: se
+    // confirma una vez antes de crear (y de generar las cuotas).
+    const aviso = avisoInicioLejano(cuerpo.fecha_inicio, hoyIso());
+    if (aviso && inicioConfirmado !== cuerpo.fecha_inicio) {
+        inicioConfirmado = cuerpo.fecha_inicio;
+        botonCrearPoliza.textContent = "Crear igual";
+        mostrarEstadoNuevaPoliza(aviso, true);
+        formularioPoliza.elements.fecha_inicio.focus();
+        return;
+    }
 
     botonCrearPoliza.disabled = true;
     mostrarEstadoNuevaPoliza("Creando la póliza…");
@@ -933,6 +989,7 @@ formularioPoliza.addEventListener("submit", async (evento) => {
         actualizarCampoBien();
         pintarErroresPoliza({});
         previoCuotas.textContent = "";
+        actualizarFechasEnPalabras();
         // El próximo número libre ya cambió: que se vuelva a pedir al abrir.
         opcionesPoliza = null;
         panelNuevaPoliza.close();

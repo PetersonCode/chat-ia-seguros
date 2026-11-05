@@ -44,6 +44,22 @@ MIMES = {
 PATRON_EXPEDIENTE = re.compile(r"(?<![A-Z0-9])SIN-\d{4}-\d{5}(?![A-Z0-9])")
 PATRON_MEDIA_ID = re.compile(r"^[A-Za-z0-9_-]{1,256}$")
 PATRON_SHA256 = re.compile(r"^[A-Za-z0-9+/]{43}=$")
+PATRON_SHA256_HEX = re.compile(r"^[0-9a-fA-F]{64}$")
+
+
+def _digest(valor) -> bytes | None:
+    """El hash como bytes, venga en base64 (webhook) o en hexadecimal; `None` si no es un SHA-256."""
+    if not isinstance(valor, str):
+        return None
+    if PATRON_SHA256_HEX.fullmatch(valor):
+        return bytes.fromhex(valor)
+    if PATRON_SHA256.fullmatch(valor):
+        try:
+            crudo = base64.b64decode(valor, validate=True)
+        except ValueError:
+            return None
+        return crudo if len(crudo) == 32 else None
+    return None
 Image.MAX_IMAGE_PIXELS = PIXELES_MAXIMOS
 
 
@@ -218,9 +234,7 @@ def descargar_media_whatsapp(
         raise DescargaMediaInvalida("El ID de media no es válido.")
     if not isinstance(mime_esperado, str) or mime_esperado.lower() not in mimes_permitidos:
         raise DescargaMediaInvalida("WhatsApp no indicó un formato de archivo admitido.")
-    if not isinstance(sha256_esperado, str) or not PATRON_SHA256.fullmatch(
-        sha256_esperado
-    ):
+    if _digest(sha256_esperado) is None:
         raise DescargaMediaInvalida("El hash recibido no es válido.")
 
     base = f"https://graph.facebook.com/{version}/{quote(media_id, safe='')}"
@@ -245,13 +259,12 @@ def descargar_media_whatsapp(
     if (
         not isinstance(url, str)
         or not isinstance(mime_meta, str)
-        or not isinstance(hash_meta, str)
-        or not PATRON_SHA256.fullmatch(hash_meta)
+        or _digest(hash_meta) is None
     ):
         raise DescargaMediaInvalida("Meta devolvió metadatos incompletos.")
     if metadata.get("id") != media_id:
         raise DescargaMediaInvalida("El ID de media devuelto no coincide.")
-    if hash_meta != sha256_esperado:
+    if _digest(hash_meta) != _digest(sha256_esperado):
         raise DescargaMediaInvalida("El hash de Meta no coincide con el webhook.")
     _validar_url_meta(url)
     if not 1 <= tamano_meta <= tamano_maximo:
@@ -270,9 +283,7 @@ def descargar_media_whatsapp(
         or len(contenido) != tamano_meta
     ):
         raise DescargaMediaInvalida("El tamaño descargado no coincide con Meta.")
-    hash_real = hashlib.sha256(contenido).hexdigest()
-    hash_base64 = base64.b64encode(bytes.fromhex(hash_real)).decode("ascii")
-    if sha256_esperado and hash_base64 != sha256_esperado:
+    if hashlib.sha256(contenido).digest() != _digest(sha256_esperado):
         raise DescargaMediaInvalida("El hash descargado no coincide con Meta.")
     return contenido
 

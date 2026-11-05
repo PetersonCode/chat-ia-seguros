@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261105burbujas1";
-import { inicializarNav } from "../nav.js?v=20261105burbujas1";
-import { armarQuery } from "../lib/consulta.js?v=20261105burbujas1";
-import { debounce } from "../lib/debounce.js?v=20261105burbujas1";
-import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105burbujas1";
-import { limpiarDni, prellenadoDesdeUrl, validarCliente } from "../lib/clientes.js?v=20261105burbujas1";
+import { api } from "../api.js?v=20261105fechas1";
+import { inicializarNav } from "../nav.js?v=20261105fechas1";
+import { armarQuery } from "../lib/consulta.js?v=20261105fechas1";
+import { debounce } from "../lib/debounce.js?v=20261105fechas1";
+import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105fechas1";
+import { limpiarDni, prellenadoDesdeUrl, validarCliente } from "../lib/clientes.js?v=20261105fechas1";
 
 const formulario = document.getElementById("formulario-busqueda-clientes");
 const campoBusqueda = document.getElementById("busqueda-clientes");

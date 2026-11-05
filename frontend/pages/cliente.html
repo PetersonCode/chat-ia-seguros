@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ficha de cliente | Seguros Castaño</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/app.css?v=20261105burbujas1">
-    <link rel="stylesheet" href="/static/css/tema.css?v=20261105burbujas1">
+    <link rel="stylesheet" href="/static/css/app.css?v=20261105menu1">
+    <link rel="stylesheet" href="/static/css/tema.css?v=20261105fechas1">
 </head>
 <body>
     <nav id="nav" aria-label="Navegación principal"></nav>
@@ -21,6 +21,7 @@
                 <button id="boton-baja-cliente" class="btn btn-outline-danger btn-sm d-none" type="button">Dar de baja</button>
                 <button id="boton-eliminar-cliente" class="btn btn-danger btn-sm fw-bold d-none" type="button">ELIMINAR CLIENTE (TOTAL)</button>
                 <button id="boton-reactivar-cliente" class="btn btn-outline-success btn-sm d-none" type="button">Reactivar</button>
+                <a id="boton-ver-conversacion" href="#" class="btn btn-outline-primary btn-sm d-none">Ver conversación</a>
                 <a href="/panel/clientes/" class="btn btn-outline-secondary btn-sm">Volver a clientes</a>
             </div>
         </header>
@@ -124,11 +125,13 @@
                             <div class="col-sm-6">
                                 <label class="form-label" for="poliza-inicio">Inicio</label>
                                 <input id="poliza-inicio" name="fecha_inicio" class="form-control" type="date">
+                                <p class="form-text mb-0 fw-semibold" data-fecha="fecha_inicio" aria-live="polite"></p>
                                 <p class="invalid-feedback mb-0" data-error="fecha_inicio"></p>
                             </div>
                             <div class="col-sm-6">
                                 <label class="form-label" for="poliza-vencimiento">Vencimiento</label>
                                 <input id="poliza-vencimiento" name="fecha_vencimiento" class="form-control" type="date">
+                                <p class="form-text mb-0 fw-semibold" data-fecha="fecha_vencimiento" aria-live="polite"></p>
                                 <p class="invalid-feedback mb-0" data-error="fecha_vencimiento"></p>
                             </div>
                             <div class="col-sm-6">
@@ -251,7 +254,7 @@
     <dialog id="dialog-eliminar-cliente" class="dialog-accion">
         <div class="p-4">
             <h2 class="h5">ELIMINAR CLIENTE (TOTAL)</h2>
-            <p>Se borra de la base, sin dejar rastro, este cliente con todos sus vehículos y pólizas (cuotas, pagos, condiciones, documentos vinculados), sus notas, tareas, interesados y el rastro de sus números de WhatsApp (conversaciones, mensajes, contacto). No se puede deshacer. Con siniestros, fotos de siniestro o acciones finalizadas no se borra nada.</p>
+            <p>Se borra de la base, sin dejar rastro, este cliente con todos sus vehículos y pólizas (cuotas, pagos, condiciones, documentos vinculados), sus notas, tareas, interesados y el rastro de sus números de WhatsApp (conversaciones, mensajes, contacto). No se puede deshacer. Se borran también sus siniestros (con historial y fotos) y las acciones finalizadas.</p>
             <p id="eliminar-cliente-error" class="small text-danger mb-2" role="alert"></p>
             <div class="d-flex justify-content-end gap-2">
                 <button id="eliminar-cliente-cancelar" class="btn btn-outline-secondary" type="button">Cancelar</button>
@@ -271,8 +274,8 @@
         </form>
     </dialog>
 
-    <script type="module" src="/static/js/pages/cliente.js?v=20261105burbujas1"></script>
+    <script type="module" src="/static/js/pages/cliente.js?v=20261105fechas1"></script>
 <template id="plantilla-fidelizacion"><h2 class="card-header h5">Cumpleaños y referidos</h2><div class="card-body"><form data-perfil><label class="form-label" for="fecha-cumple">Fecha de nacimiento (opcional)</label><input id="fecha-cumple" name="nacimiento" class="form-control mb-2" type="date"><label class="d-flex gap-2 mb-2"><input name="comerciales" type="checkbox"> El cliente acepta recibir el saludo de cumpleaños</label><button class="btn btn-outline-primary">Guardar preferencias</button></form><hr><form data-referido><label class="form-label" for="buscar-referido">Cliente que vino recomendado por esta persona</label><input id="buscar-referido" class="form-control mb-2" type="search" placeholder="Buscá por nombre, DNI o patente"><select name="referido" aria-label="Cliente referido" class="form-select mb-2" required><option value="">Elegí un cliente</option></select><button class="btn btn-outline-primary">Registrar referido</button></form><p role="status" data-estado></p><div data-lista></div></div></template>
-<script type="module" src="/static/js/lib/chat-flotante.js?v=20261105burbujas1"></script>
+<script type="module" src="/static/js/lib/chat-flotante.js?v=20261105fechas1"></script>
 </body>
 </html>

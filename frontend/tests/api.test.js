@@ -109,6 +109,48 @@ test('login incorrecto conserva el error sin recargar el formulario', async () =
     assert.equal(redirigio,false);
 });
 
+test("adjuntos: descargar devuelve el archivo y acepta cualquier tipo", async () => {
+    let llamada;
+    const archivo = new Blob(["foto ficticia"], { type: "image/jpeg" });
+    configurarApi({
+        fetch: async (...argumentos) => {
+            llamada = argumentos;
+            return { ok: true, status: 200, blob: async () => archivo };
+        },
+    });
+
+    assert.equal(await api.descargar("/api/mensajes/7/adjunto/"), archivo);
+    assert.equal(llamada[0], "/api/mensajes/7/adjunto/");
+    assert.equal(llamada[1].method, "GET");
+    assert.equal(llamada[1].headers.Accept, "*/*");
+});
+
+test("adjuntos: descargar conserva el error de la API, la sesión vencida y la falta de red", async () => {
+    let destino = null;
+    configurarApi({
+        fetch: async () => respuesta(502, { error: { codigo: "descarga_fallida", mensaje: "WhatsApp no entregó el archivo." } }),
+        redirigir: (ruta) => { destino = ruta; },
+    });
+    await assert.rejects(
+        api.descargar("/api/mensajes/7/adjunto/"),
+        (e) => e instanceof ApiError && e.status === 502 && e.message === "WhatsApp no entregó el archivo.",
+    );
+    assert.equal(destino, null);
+
+    configurarApi({ fetch: async () => respuesta(401, { error: { codigo: "no_autenticado", mensaje: "Iniciá sesión." } }) });
+    await assert.rejects(api.descargar("/api/mensajes/7/adjunto/"), (e) => e.status === 401);
+    assert.equal(destino, "/");
+
+    configurarApi({ fetch: async () => ({ ok: false, status: 404, json: async () => { throw new SyntaxError("HTML"); } }) });
+    await assert.rejects(
+        api.descargar("/api/mensajes/7/adjunto/"),
+        (e) => e.status === 404 && e.message === "No se pudo descargar el archivo.",
+    );
+
+    configurarApi({ fetch: async () => { throw new TypeError("Failed to fetch"); } });
+    await assert.rejects(api.descargar("/api/mensajes/7/adjunto/"), (e) => e.codigo === "sin_conexion");
+});
+
 test('errores de red y páginas HTML de error dan un mensaje recuperable', async () => {
     configurarApi({fetch:async()=>{throw new TypeError('Failed to fetch');}});
     await assert.rejects(api.get('/api/clientes/'),e=>e.codigo==='sin_conexion' && e.status===0);

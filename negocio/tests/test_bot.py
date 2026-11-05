@@ -675,14 +675,53 @@ class RespuestasConDatosTests(BaseBotTests):
         self.assertFalse(Derivacion.objects.exists())
 
     # AC-T3-36
-    def test_siniestro_responde_las_instrucciones_sin_urls_ni_numeros(self):
+    def test_siniestro_avisa_la_derivacion_con_la_grua_y_la_ambulancia(self):
+        """Laura tiene dos pólizas: el aviso lista la grúa de cada una."""
         _, _, resultado = self._procesar("1001", "mi auto chocó, cómo hago el siniestro")
 
         texto = self._respuesta(resultado).texto
-        self.assertEqual(texto, plantillas.SINIESTRO_INSTRUCCIONES)
+        self.assertTrue(texto.startswith(plantillas.SINIESTRO_AVISO))
+        self.assertIn("POL-00101", texto)
+        self.assertIn("POL-00102", texto)
+        self.assertIn(plantillas.SINIESTRO_AMBULANCIA, texto)
+        self.assertIn(plantillas.SINIESTRO_EXPEDIENTE, texto)
         self.assertNotIn("http", texto)
-        self.assertNotIn("POL-", texto)
         self.assertEqual(resultado.alertas, [])
+        self.assertTrue(Derivacion.objects.exists())
+
+    def test_siniestro_con_una_poliza_da_su_numero_de_grua(self):
+        _, _, resultado = self._procesar("1009", "tuve un choque con el auto")
+
+        texto = self._respuesta(resultado).texto
+        self.assertIn(
+            plantillas.SINIESTRO_GRUA.format(
+                numero_poliza="POL-00123",
+                telefono=plantillas.TELEFONOS_ASISTENCIA["intermedia"],
+            ),
+            texto,
+        )
+        self.assertIn(plantillas.SINIESTRO_AMBULANCIA, texto)
+        self.assertIn("deriv", texto)
+        self.assertFalse(resultado.retenido)
+        self.assertEqual(resultado.alertas, [])
+        # La charla pasa a una persona, pero el aviso (que no es un texto fijo)
+        # igual le llega al cliente.
+        self.assertEqual(self._respuesta(resultado).estado_envio, EstadoEnvio.ENVIADO)
+
+    def test_toda_derivacion_avisa_que_derivo_aunque_el_texto_no_lo_diga(self):
+        """«Un asesor debe revisar la consulta» no dice que se derivó: se suma el aviso."""
+        from negocio.coberturas import SIN_POLIZA
+
+        with patch(
+            "negocio.coberturas.responder_cobertura", return_value=(SIN_POLIZA, None)
+        ):
+            _, _, resultado = self._procesar("1001", "¿mi póliza cubre granizo?")
+
+        respuesta = self._respuesta(resultado)
+        self.assertTrue(Derivacion.objects.exists())
+        self.assertEqual(respuesta.texto, plantillas.con_aviso_de_derivacion(SIN_POLIZA))
+        self.assertIn(plantillas.AVISO_DERIVADO, respuesta.texto)
+        self.assertEqual(respuesta.estado_envio, EstadoEnvio.ENVIADO)
 
     # AC-T3-36
     def test_saludo_usa_la_plantilla_si_no_hay_llm(self):
@@ -755,10 +794,23 @@ class PoliticasTests(BaseBotTests):
         )
 
         self.assertEqual(resultado.tipo_consulta, "siniestro_urgente")
-        self.assertEqual(self._respuesta(resultado).texto, plantillas.DERIVACION_URGENTE)
+        texto = self._respuesta(resultado).texto
+        self.assertTrue(texto.startswith(plantillas.DERIVACION_URGENTE))
+        self.assertIn("POL-00101", texto)
+        self.assertIn(plantillas.SINIESTRO_AMBULANCIA, texto)
         derivacion = Derivacion.objects.get()
         self.assertEqual(derivacion.derivado_a_id, self.escenario.roberto.id)
         self.assertEqual(derivacion.prioridad, "urgente")
+
+    def test_un_siniestro_grave_derivado_crea_una_alerta_critica(self):
+        _, _, resultado = self._procesar(
+            "1001", "NECESITO HABLAR CON ALGUIEN URGENTE mi casa se inundó"
+        )
+
+        alerta = Alerta.objects.get(tipo="siniestro_grave")
+        self.assertEqual(alerta.severidad, "critica")
+        self.assertEqual(alerta.estado, "abierta")
+        self.assertEqual(alerta.consulta_id, Derivacion.objects.get().consulta_id)
 
     # AC-T3-37
     def test_el_resto_de_las_derivaciones_va_a_graciela_en_normal(self):
@@ -1143,16 +1195,28 @@ class RegistroAntesDeDerivarTests(BaseBotTests):
         )
         self.assertIn("Ana Gómez", Derivacion.objects.get().motivo)
 
-    def test_una_urgencia_se_deriva_sin_pedirle_nada(self):
+    def test_a_un_desconocido_no_se_lo_deriva_por_un_choque_urgente(self):
+        """Quien no es cliente no tiene póliza nuestra: no se deriva ni se le
+        piden datos, y tampoco nace la alerta de siniestro grave."""
         _, _, resultado = self._procesar("1007", "se incendio mi casa, es urgente")
 
         self.assertEqual(resultado.tipo_consulta, "siniestro_urgente")
         self.assertEqual(
-            self._respuesta(resultado).texto, plantillas.DERIVACION_URGENTE
+            self._respuesta(resultado).texto, plantillas.SINIESTRO_SIN_CLIENTE
         )
-        derivacion = Derivacion.objects.get()
-        self.assertEqual(derivacion.derivado_a_id, self.escenario.roberto.id)
-        self.assertEqual(derivacion.prioridad, "urgente")
+        self.assertFalse(Derivacion.objects.exists())
+        self.assertFalse(Alerta.objects.filter(tipo="siniestro_grave").exists())
+        self.assertFalse(AccionPendiente.objects.exists())
+
+    def test_a_un_desconocido_no_se_lo_deriva_por_un_choque(self):
+        _, _, resultado = self._procesar("1007", "mi auto chocó, cómo hago el siniestro")
+
+        self.assertEqual(resultado.tipo_consulta, "siniestro")
+        self.assertEqual(
+            self._respuesta(resultado).texto, plantillas.SINIESTRO_SIN_CLIENTE
+        )
+        self.assertFalse(Derivacion.objects.exists())
+        self.assertFalse(AccionPendiente.objects.exists())
 
     def test_a_un_cliente_de_la_base_no_se_le_pide_nada(self):
         _, _, resultado = self._procesar("1001", "quiero adelantar las cuotas")
@@ -1212,7 +1276,7 @@ class RegistroAntesDeDerivarTests(BaseBotTests):
         )
         self.assertIn("33444555", Derivacion.objects.get().motivo)
 
-    def test_una_urgencia_en_medio_del_alta_se_deriva_en_el_acto(self):
+    def test_un_choque_en_medio_del_alta_no_deriva(self):
         conversacion = self._conversacion("1005")
         self._turno(conversacion, "necesito hablar con un asesor")
 
@@ -1220,9 +1284,9 @@ class RegistroAntesDeDerivarTests(BaseBotTests):
 
         self.assertEqual(resultado.tipo_consulta, "siniestro_urgente")
         self.assertEqual(
-            self._respuesta(resultado).texto, plantillas.DERIVACION_URGENTE
+            self._respuesta(resultado).texto, plantillas.SINIESTRO_SIN_CLIENTE
         )
-        self.assertEqual(Derivacion.objects.get().prioridad, "urgente")
+        self.assertFalse(Derivacion.objects.exists())
 
     def test_una_inyeccion_en_medio_del_alta_recibe_el_rechazo(self):
         conversacion = self._conversacion("1006")
@@ -1397,9 +1461,14 @@ class NoEntendiTests(BaseBotTests):
 
                     with self.subTest(texto=texto):
                         self.assertEqual(resultado.tipo_consulta, "siniestro_urgente")
+                        # Juan no tiene pólizas: no hay grúa que darle.
                         self.assertEqual(
                             self._respuesta(resultado).texto,
-                            plantillas.DERIVACION_URGENTE,
+                            "\n\n".join((
+                                plantillas.DERIVACION_URGENTE,
+                                plantillas.SINIESTRO_SIN_GRUA,
+                                plantillas.SINIESTRO_AMBULANCIA,
+                            )),
                         )
                         mensaje.refresh_from_db()
                         derivacion = Derivacion.objects.get(
@@ -1411,7 +1480,8 @@ class NoEntendiTests(BaseBotTests):
                         self.assertEqual(derivacion.prioridad, "urgente")
 
         clasificar_llm.assert_not_called()
-        self.assertFalse(Alerta.objects.exists())
+        # Solo queda la alerta de siniestro grave; ninguna de seguridad.
+        self.assertFalse(Alerta.objects.exclude(tipo="siniestro_grave").exists())
 
     def test_consulta_general_sobre_robo_no_depende_de_un_llm_que_diga_urgente(self):
         conversacion = self._conversacion("1001")

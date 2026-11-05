@@ -1,4 +1,6 @@
 """Borrado físico de póliza, plan y compañía por el rol administrador."""
+import tempfile
+
 from django.test import override_settings
 from django.utils import timezone
 
@@ -11,7 +13,8 @@ from datos.models import (
 from negocio.documentos import aprobar_documento, crear_documento
 from negocio.coberturas import vincular_documento
 from negocio.eliminaciones import eliminar_compania, eliminar_plan, eliminar_poliza
-from negocio.errores import EstadoInvalido, PermisoDenegado
+from negocio.errores import PermisoDenegado
+
 
 
 @override_settings(BUSQUEDA_SEMANTICA=False)
@@ -63,12 +66,20 @@ class EliminacionesTests(ApiTestCase):
         self.assertTrue(Cliente.objects.filter(pk=self.cliente.id).exists())
         self.assertTrue(Vehiculo.objects.filter(pk=self.vehiculo.id).exists())
 
-    def test_una_poliza_con_siniestro_no_se_borra(self):
-        Siniestro.objects.create(numero_siniestro="SIN-2026-00009", poliza=self.poliza,
-                                 fecha_ocurrencia=timezone.localdate(), descripcion="Choque")
-        with self.assertRaises(EstadoInvalido):
-            eliminar_poliza(self.poliza.id, self.admin.id)
-        self.assertTrue(Poliza.objects.filter(pk=self.poliza.id).exists())
+    def test_una_poliza_con_siniestro_se_borra_con_su_expediente(self):
+        from datos.models import AdjuntoSiniestro, HistorialSiniestro, Mensaje
+
+        consulta = fabricas.crear_consulta(self.conversacion)
+        mensaje = fabricas.crear_mensaje(self.conversacion, consulta=consulta)
+        with tempfile.TemporaryDirectory() as carpeta:
+            fabricas.crear_expediente_completo(self.poliza, consulta, mensaje, self.admin, carpeta)
+            with override_settings(PRIVATE_MEDIA_ROOT=carpeta), self.captureOnCommitCallbacks(execute=True):
+                r = self.cliente_api.post(f"/api/polizas/{self.poliza.id}/eliminar-definitivo/", {}, format="json")
+            self.assertEqual(r.status_code, 200, r.content)
+            self.assertEqual(r.json()["borrados"]["siniestros"], 1)
+        self.assertFalse(Poliza.objects.filter(pk=self.poliza.id).exists())
+        for modelo in (Siniestro, HistorialSiniestro, AdjuntoSiniestro):
+            self.assertFalse(modelo.objects.exists(), modelo.__name__)
 
     # --- plan ----------------------------------------------------------------
 
@@ -104,12 +115,12 @@ class EliminacionesTests(ApiTestCase):
         self.assertTrue(Cliente.objects.filter(pk__in=[self.cliente.id, otro_cliente.id]).count() == 2)
         self.assertTrue(Poliza.objects.filter(pk=ajena.id).exists())
 
-    def test_compania_con_siniestro_no_borra_nada(self):
+    def test_compania_con_siniestro_se_borra_igual(self):
         Siniestro.objects.create(numero_siniestro="SIN-2026-00010", poliza=self.poliza,
                                  fecha_ocurrencia=timezone.localdate(), descripcion="Choque")
-        with self.assertRaises(EstadoInvalido):
-            eliminar_compania(self.compania.id, self.admin.id)
-        self.assertTrue(Compania.objects.filter(pk=self.compania.id).exists())
+        eliminar_compania(self.compania.id, self.admin.id)
+        self.assertFalse(Compania.objects.filter(pk=self.compania.id).exists())
+        self.assertFalse(Siniestro.objects.exists())
 
     # --- permisos ----------------------------------------------------------------
 

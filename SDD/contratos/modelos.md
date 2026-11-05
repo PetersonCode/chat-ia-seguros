@@ -59,7 +59,7 @@ Mismos valores que las restricciones `CHECK` de la base (T4 lo verifica con un t
 | `Emisor` | cliente, bot, funcionario |
 | `EstadoEnvio` | recibido, pendiente_envio, retenido, descartado, enviado, entregado, leido, fallido |
 | `EstadoConsulta` | abierto, pendiente_revision, derivado, cerrado |
-| `TipoAlerta` | prompt_injection, fuga_datos, accion_sin_aprobacion, dato_inventado, dato_inconsistente, dato_no_verificado |
+| `TipoAlerta` | prompt_injection, fuga_datos, accion_sin_aprobacion, dato_inventado, dato_inconsistente, dato_no_verificado, siniestro_grave |
 | `Severidad` | baja, media, alta, critica |
 | `OrigenAlerta` | automatica, manual |
 | `EstadoAlerta` | abierta, en_revision, resuelta, descartada |

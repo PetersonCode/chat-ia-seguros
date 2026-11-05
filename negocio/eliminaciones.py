@@ -14,15 +14,23 @@ Qué se lleva cada uno:
 - Compañía: todas sus pólizas (como arriba; los clientes quedan sin esa
   póliza), sus planes y sus cotizaciones.
 
-Se niega, sin borrar nada, si hay siniestros, fotos de siniestro o acciones
-finalizadas: la base los declara inmutables por trigger.
+Sin límites: también se llevan los siniestros (con su historial y sus fotos,
+incluidos los archivos del disco) y las acciones finalizadas. Esos registros son
+inmutables para el uso normal; el borrado total lo habilita dentro de su
+transacción con `habilitar_borrado_total` (SQL 35).
 """
 from __future__ import annotations
 
+import logging
+
+from django.conf import settings
+from django.core.files.storage import FileSystemStorage
 from django.db import connection, transaction
 
 from datos.models import Funcionario, Rol
 from negocio.errores import EstadoInvalido, NoEncontrado, PermisoDenegado
+
+logger = logging.getLogger(__name__)
 
 PREFIJO_DOCUMENTO_CONDICIONES = "Condiciones cargadas en póliza "
 
@@ -44,43 +52,56 @@ def _contar(cursor, sql, params) -> int:
     return cursor.fetchone()[0]
 
 
-def verificar_polizas_borrables(poliza_ids: list[int], que: str = "las pólizas") -> None:
-    """Niega el borrado si algo inmutable cuelga de estas pólizas."""
-    if not poliza_ids:
-        return
-    with connection.cursor() as c:
-        bloqueos = []
-        n = _contar(c, "SELECT count(*) FROM siniestros WHERE poliza_id = ANY(%s)", [poliza_ids])
-        if n:
-            bloqueos.append(f"{n} siniestro(s)")
-        n = _contar(
-            c,
-            "SELECT count(*) FROM siniestro_adjuntos a JOIN siniestros s ON s.id = a.siniestro_id "
-            "WHERE s.poliza_id = ANY(%s)",
-            [poliza_ids],
-        )
-        if n:
-            bloqueos.append(f"{n} foto(s) de siniestro")
-        n = _contar(
-            c,
-            "SELECT count(*) FROM acciones_finalizaciones f JOIN acciones_pendientes a "
-            "ON a.id = f.accion_id WHERE a.poliza_id = ANY(%s)",
-            [poliza_ids],
-        )
-        if n:
-            bloqueos.append(f"{n} acción(es) finalizada(s)")
-    if bloqueos:
-        raise EstadoInvalido(
-            f"No se puede borrar {que}: hay " + ", ".join(bloqueos)
-            + ", que la base declara inmutables. No se borró nada."
-        )
+def habilitar_borrado_total(cursor) -> None:
+    """Deja borrar, solo en esta transacción, lo que la base declara inmutable."""
+    cursor.execute("SELECT set_config('app.borrado_total', 'on', true)")
+
+
+def borrar_siniestros(cursor, *, poliza_ids=(), consulta_ids=(), mensaje_ids=()) -> int:
+    """DELETE de siniestros (por póliza o por caso) con historial y fotos, y de las
+    fotos que vinieron por esos mensajes. Los archivos se quitan del disco al confirmar."""
+    habilitar_borrado_total(cursor)
+    siniestros = _ids(
+        cursor,
+        "SELECT id FROM siniestros WHERE poliza_id = ANY(%s) OR consulta_id = ANY(%s)",
+        [list(poliza_ids), list(consulta_ids)],
+    )
+    claves = _ids(
+        cursor,
+        "SELECT clave_almacenamiento FROM siniestro_adjuntos "
+        "WHERE siniestro_id = ANY(%s) OR mensaje_origen_id = ANY(%s)",
+        [siniestros, list(mensaje_ids)],
+    )
+    cursor.execute(
+        "DELETE FROM siniestro_adjuntos WHERE siniestro_id = ANY(%s) OR mensaje_origen_id = ANY(%s)",
+        [siniestros, list(mensaje_ids)],
+    )
+    cursor.execute("DELETE FROM siniestro_historial WHERE siniestro_id = ANY(%s)", [siniestros])
+    cursor.execute("DELETE FROM siniestros WHERE id = ANY(%s)", [siniestros])
+    if claves:
+        transaction.on_commit(lambda: _borrar_archivos(claves))
+    return len(siniestros)
+
+
+def borrar_finalizaciones(cursor, accion_ids) -> None:
+    habilitar_borrado_total(cursor)
+    cursor.execute("DELETE FROM acciones_finalizaciones WHERE accion_id = ANY(%s)", [list(accion_ids)])
+
+
+def _borrar_archivos(claves) -> None:
+    storage = FileSystemStorage(location=settings.PRIVATE_MEDIA_ROOT)
+    for clave in claves:
+        try:
+            storage.delete(clave)
+        except OSError:
+            logger.warning("No se pudo borrar el archivo %s.", clave)
 
 
 def borrar_polizas(poliza_ids: list[int]) -> dict[str, int]:
-    """DELETE de las pólizas y todo lo que cuelga de ellas. Sin permisos ni chequeos:
-    quien llama ya verificó administrador e inmutables, dentro de una transacción."""
+    """DELETE de las pólizas y todo lo que cuelga de ellas, siniestros incluidos. Sin
+    permisos ni chequeos: quien llama ya verificó administrador, dentro de una transacción."""
     if not poliza_ids:
-        return {"polizas": 0, "cuotas": 0}
+        return {"polizas": 0, "cuotas": 0, "siniestros": 0}
     with connection.cursor() as c:
         numeros = _ids(c, "SELECT numero_poliza FROM polizas WHERE id = ANY(%s)", [poliza_ids])
         cuotas = _ids(c, "SELECT id FROM cuotas WHERE poliza_id = ANY(%s)", [poliza_ids])
@@ -94,6 +115,8 @@ def borrar_polizas(poliza_ids: list[int]) -> dict[str, int]:
             [[PREFIJO_DOCUMENTO_CONDICIONES + n for n in numeros]],
         )
 
+        siniestros = borrar_siniestros(c, poliza_ids=poliza_ids)
+        borrar_finalizaciones(c, acciones)
         c.execute("DELETE FROM borradores_poliza WHERE accion_id = ANY(%s)", [acciones])
         c.execute("DELETE FROM acciones_pendientes WHERE id = ANY(%s)", [acciones])
         c.execute("DELETE FROM contextos_cobertura WHERE poliza_id = ANY(%s)", [poliza_ids])
@@ -126,7 +149,7 @@ def borrar_polizas(poliza_ids: list[int]) -> dict[str, int]:
         c.execute("DELETE FROM pagos WHERE cuota_id = ANY(%s)", [cuotas])
         c.execute("DELETE FROM cuotas WHERE id = ANY(%s)", [cuotas])
         c.execute("DELETE FROM polizas WHERE id = ANY(%s)", [poliza_ids])
-    return {"polizas": len(poliza_ids), "cuotas": len(cuotas)}
+    return {"polizas": len(poliza_ids), "cuotas": len(cuotas), "siniestros": siniestros}
 
 
 @transaction.atomic
@@ -135,7 +158,6 @@ def eliminar_poliza(poliza_id: int, funcionario_id: int) -> dict[str, int]:
     with connection.cursor() as c:
         if not _ids(c, "SELECT id FROM polizas WHERE id = %s FOR UPDATE", [poliza_id]):
             raise NoEncontrado("La póliza no existe.")
-    verificar_polizas_borrables([poliza_id], "la póliza")
     return borrar_polizas([poliza_id])
 
 
@@ -162,7 +184,6 @@ def eliminar_compania(compania_id: int, funcionario_id: int) -> dict[str, int]:
         if not _ids(c, "SELECT id FROM companias WHERE id = %s FOR UPDATE", [compania_id]):
             raise NoEncontrado("La compañía no existe.")
         polizas = _ids(c, "SELECT id FROM polizas WHERE compania_id = %s", [compania_id])
-    verificar_polizas_borrables(polizas, "la compañía")
     resumen = borrar_polizas(polizas)
     with connection.cursor() as c:
         c.execute("DELETE FROM cotizaciones WHERE compania_id = %s", [compania_id])

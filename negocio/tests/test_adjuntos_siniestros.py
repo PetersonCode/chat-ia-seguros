@@ -104,6 +104,27 @@ class DescargaWhatsAppTests(SimpleTestCase):
             opener.open.call_args_list[1].args[0].get_header("Authorization")
         )
 
+    def test_acepta_el_hash_de_meta_en_hexadecimal_y_en_base64_indistintamente(self):
+        contenido = crear_imagen()
+        for hash_meta_en_hex, hash_webhook_en_hex in ((True, False), (False, True), (True, True)):
+            with self.subTest(meta_hex=hash_meta_en_hex, webhook_hex=hash_webhook_en_hex):
+                base64_hash, opener, variables, metadata = self._datos_descarga(contenido)
+                hex_hash = hashlib.sha256(contenido).hexdigest()
+                metadata["sha256"] = hex_hash if hash_meta_en_hex else base64_hash
+                opener.open.side_effect = [
+                    RespuestaMedia(json.dumps(metadata).encode()),
+                    RespuestaMedia(contenido),
+                ]
+                with patch.dict("os.environ", variables), patch(
+                    "negocio.adjuntos_siniestros.build_opener", return_value=opener
+                ):
+                    descargado = descargar_media_whatsapp(
+                        "1234567890",
+                        mime_esperado="image/png",
+                        sha256_esperado=hex_hash if hash_webhook_en_hex else base64_hash,
+                    )
+                self.assertEqual(descargado, contenido)
+
     def test_rechaza_url_no_meta_y_checksum_incorrecto(self):
         contenido = crear_imagen()
         digest, opener, variables, metadata = self._datos_descarga(contenido)

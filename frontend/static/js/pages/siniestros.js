@@ -1,6 +1,9 @@
-import { api } from "../api.js?v=20261105burbujas1";
-import { inicializarNav } from "../nav.js?v=20261105burbujas1";
-import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105burbujas1";
+import { api } from "../api.js?v=20261105fechas1";
+import { inicializarNav } from "../nav.js?v=20261105fechas1";
+import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105fechas1";
+import { debounce } from "../lib/debounce.js?v=20261105fechas1";
+
+const busqueda = document.getElementById("busqueda-siniestros");
 
 const formularioDenuncia = document.getElementById("formulario-denuncia");
 const buscarCliente = document.getElementById("buscar-cliente-siniestro");
@@ -217,6 +220,9 @@ async function cargarSiniestros(pagina = paginaActual) {
     const params = new URLSearchParams({ pagina: String(paginaActual) });
     if (filtroEstado.value) {
         params.set("estado", filtroEstado.value);
+    }
+    if (busqueda.value.trim()) {
+        params.set("q", busqueda.value.trim());
     }
     try {
         const respuesta = await api.get(`/api/siniestros/?${params}`);
@@ -439,6 +445,7 @@ formularioDenuncia.addEventListener("submit", registrarDenuncia);
 formularioAdjunto.addEventListener("submit", subirAdjunto);
 formularioTransicion.addEventListener("submit", guardarTransicion);
 filtroEstado.addEventListener("change", () => cargarSiniestros(1));
+busqueda.addEventListener("input", debounce(() => cargarSiniestros(1), 300));
 anterior.addEventListener("click", () => cargarSiniestros(paginaActual - 1));
 siguiente.addEventListener("click", () => cargarSiniestros(paginaActual + 1));
 

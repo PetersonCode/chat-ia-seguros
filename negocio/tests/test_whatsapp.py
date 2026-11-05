@@ -30,7 +30,7 @@ from datos.models import (
     TrabajoWhatsApp,
 )
 from negocio import whatsapp
-from negocio.bot.plantillas import SOLO_TEXTO
+from negocio.bot.plantillas import ARCHIVO_RECIBIDO, SOLO_TEXTO
 
 SECRETO = "secreto-de-prueba"
 TOKEN = "token-de-prueba"
@@ -71,6 +71,11 @@ def _payload_estado(wa_id: str, estado: str) -> dict:
             {"changes": [{"value": {"statuses": [{"id": wa_id, "status": estado}]}}]}
         ]
     }
+
+
+def _payload_media(wa_id: str, numero: str, tipo: str, media: dict) -> dict:
+    mensaje = {"id": wa_id, "from": numero, "type": tipo, tipo: media}
+    return {"entry": [{"changes": [{"value": {"messages": [mensaje]}}]}]}
 
 
 class VerificacionTests(TestCase):
@@ -217,28 +222,10 @@ class EntrantesTests(TestCase):
         self.assertEqual(TrabajoWhatsApp.objects.count(), 1)
 
     # AC-T3-09
-    def test_un_formato_no_soportado_se_encola_y_avisa_que_solo_hay_texto(self):
-        payload = {
-            "entry": [
-                {
-                    "changes": [
-                        {
-                            "value": {
-                                "messages": [
-                                    {
-                                        "id": "wamid.doc",
-                                        "from": "+5491155551001",
-                                        "type": "document",
-                                        "document": {"id": "media-1"},
-                                    }
-                                ]
-                            }
-                        }
-                    ]
-                }
-            ]
-        }
-        whatsapp.procesar_webhook(payload)
+    def test_un_documento_se_encola_y_solo_se_contesta_archivo_recibido(self):
+        whatsapp.procesar_webhook(
+            _payload_media("wamid.doc", "+5491155551001", "document", {"id": "media-1"})
+        )
 
         entrante = Mensaje.objects.get(wa_message_id="wamid.doc")
         self.assertEqual(entrante.texto, "[mensaje de tipo document no soportado]")
@@ -249,9 +236,58 @@ class EntrantesTests(TestCase):
         from django.core.management import call_command
 
         call_command("reprocesar_pendientes")
-        aviso = Mensaje.objects.get(direccion="saliente", texto=SOLO_TEXTO)
-        self.assertEqual(aviso.conversacion_id, entrante.conversacion_id)
-        self.assertEqual(aviso.estado_envio, EstadoEnvio.ENVIADO)
+        salientes = Mensaje.objects.filter(conversacion=entrante.conversacion, direccion="saliente")
+        self.assertEqual(list(salientes.values_list("texto", flat=True)), [ARCHIVO_RECIBIDO])
+        self.assertEqual(salientes.get().estado_envio, EstadoEnvio.ENVIADO)
+
+    # AC-T3-09
+    def test_una_foto_solo_se_contesta_archivo_recibido_aunque_falte_el_expediente(self):
+        from django.core.management import call_command
+
+        from negocio.adjuntos_siniestros import ResultadoMedia
+
+        whatsapp.procesar_webhook(
+            _payload_media("wamid.foto", "+5491155551001", "image",
+                           {"id": "media-foto", "mime_type": "image/jpeg"})
+        )
+        with patch("negocio.whatsapp._guardar_media_para_el_chat"), patch(
+            "negocio.adjuntos_siniestros.procesar_media_entrante",
+            return_value=ResultadoMedia("falta_expediente"),
+        ) as procesar:
+            call_command("reprocesar_pendientes")
+
+        entrante = Mensaje.objects.get(wa_message_id="wamid.foto")
+        procesar.assert_called_once_with(entrante.id)
+        self.assertEqual(
+            list(Mensaje.objects.filter(direccion="saliente").values_list("texto", flat=True)),
+            [ARCHIVO_RECIBIDO],
+        )
+
+    def test_varios_archivos_seguidos_repiten_archivo_recibido_tal_cual(self):
+        from django.core.management import call_command
+
+        for numero in range(3):
+            whatsapp.procesar_webhook(
+                _payload_media(f"wamid.audio{numero}", "+5491155551001", "audio", {"id": f"a{numero}"})
+            )
+        call_command("reprocesar_pendientes")
+
+        self.assertEqual(
+            list(Mensaje.objects.filter(direccion="saliente").values_list("texto", flat=True)),
+            [ARCHIVO_RECIBIDO] * 3,
+        )
+
+    # AC-T3-09
+    def test_lo_que_no_es_archivo_sigue_avisando_que_solo_hay_texto(self):
+        from django.core.management import call_command
+
+        whatsapp.procesar_webhook(
+            _payload_media("wamid.sticker", "+5491155551001", "sticker", {"id": "s1"})
+        )
+        call_command("reprocesar_pendientes")
+
+        self.assertTrue(Mensaje.objects.filter(direccion="saliente", texto=SOLO_TEXTO).exists())
+        self.assertFalse(Mensaje.objects.filter(texto=ARCHIVO_RECIBIDO).exists())
 
     def test_un_adjunto_durante_atencion_humana_no_genera_respuesta_del_bot(self):
         funcionario = fabricas.crear_funcionario("Graciela")

@@ -20,6 +20,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone
 from django.db import transaction
+from django.db.models import Case, Value, When
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
@@ -281,7 +282,9 @@ def _poliza_resumen(fila) -> dict:
         "cobertura": fila.cobertura,
         "estado": fila.estado,
         "fecha_vencimiento": _iso(fila.fecha_vencimiento),
+        # A pagar ahora (vencidas + próxima cuota) y el total impago del contrato.
         "saldo_pendiente": _dinero(getattr(fila, "saldo_pendiente", None)),
+        "saldo_total": _dinero(getattr(fila, "saldo_total", None)),
         "proximo_vencimiento_pago": _iso(
             getattr(fila, "proximo_vencimiento_pago", None)
         ),
@@ -289,16 +292,12 @@ def _poliza_resumen(fila) -> dict:
 
 
 def _adjunto_de_mensaje(mensaje: Mensaje) -> dict | None:
-    adjunto = getattr(mensaje, "adjunto_chat", None)
-    if adjunto is None:
+    from negocio.adjuntos_chat import descripcion_del_archivo
+
+    datos = descripcion_del_archivo(mensaje)
+    if datos is None:
         return None
-    return {
-        "nombre": adjunto.nombre_archivo,
-        "content_type": adjunto.content_type,
-        "tipo": "video" if adjunto.content_type.startswith("video/") else "imagen",
-        "tamano": adjunto.tamano,
-        "descarga_url": f"/api/mensajes/{mensaje.id}/adjunto/",
-    }
+    return {**datos, "descarga_url": f"/api/mensajes/{mensaje.id}/adjunto/"}
 
 
 def _mensaje(mensaje: Mensaje) -> dict:
@@ -577,6 +576,20 @@ def _cliente_resumen(cliente: Cliente) -> dict:
     }
 
 
+def _conversacion_de_contacto(contacto) -> int | None:
+    """La conversación que se abre desde la ficha: la abierta o, si no hay, la última."""
+    return (
+        Conversacion.objects.filter(contacto=contacto)
+        .order_by(
+            Case(When(estado="abierta", then=Value(0)), default=Value(1)),
+            "-creada_en",
+            "-id",
+        )
+        .values_list("id", flat=True)
+        .first()
+    )
+
+
 def _cliente_detalle(cliente: Cliente, ver_comision: bool = False) -> dict:
     polizas = list(cliente.polizas.all())
     return {
@@ -587,6 +600,11 @@ def _cliente_detalle(cliente: Cliente, ver_comision: bool = False) -> dict:
         "email": cliente.email,
         "activo": cliente.activo,
         "contactos": [contacto.numero for contacto in cliente.contactos.all()],
+        # Para el botón «Ver conversación» de la ficha: un chat por número.
+        "chats": [
+            {"numero": contacto.numero, "conversacion_id": _conversacion_de_contacto(contacto)}
+            for contacto in cliente.contactos.all()
+        ],
         "polizas": [_poliza_con_bien(poliza, ver_comision) for poliza in polizas],
         "vehiculos": [
             _vehiculo(vehiculo) for vehiculo in cliente.vehiculos.all() if vehiculo.activo
@@ -710,7 +728,8 @@ def auth_me(request):
 @authentication_classes([SessionAuthentication])
 @permission_classes([EsFuncionario])
 def pendientes(request):
-    return Response(selectors.contar_pendientes(request.funcionario.id))
+    ve_todas = request.funcionario.rol in (Rol.ADMINISTRADOR, Rol.PROPIETARIO)
+    return Response(selectors.contar_pendientes(request.funcionario.id, ve_todas))
 
 
 # --- Supervisión -----------------------------------------------------------
@@ -884,7 +903,8 @@ def alertas_listar(request):
 @permission_classes([EsFuncionario])
 def consultas_cerradas_con_alertas(request):
     queryset = selectors.consultas_cerradas(
-        con_alertas=request.query_params.get("con_alertas") == "1"
+        con_alertas=request.query_params.get("con_alertas") == "1",
+        q=request.query_params.get("q") or None,
     ).select_related(
         "contacto__cliente", "tipo_consulta"
     ).prefetch_related("alertas")
@@ -1386,7 +1406,7 @@ def siniestros_listar_o_crear(request):
     if estado is not None and estado not in EstadoSiniestro.values:
         raise DatosInvalidos("El filtro de estado no es válido.")
     return _pagina(
-        selectors.siniestros(estado),
+        selectors.siniestros(estado, q=request.query_params.get("q") or None),
         request,
         lambda siniestro: _siniestro_expediente(
             siniestro, incluir_adjuntos=False

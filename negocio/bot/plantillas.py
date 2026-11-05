@@ -4,13 +4,33 @@ SIN_SALDO = "No tenés saldo pendiente. ¡Gracias por estar al día!"
 VENCIMIENTO = "Estas son tus pólizas:\n{lineas}"
 SIN_POLIZAS = "No encontramos pólizas vigentes a tu nombre. Te derivamos con un asesor."
 SIN_CLIENTE = "No encuentro una póliza automotor asociada a este número. Puedo registrar tu consulta para que un asesor te ayude."
-SINIESTRO_INSTRUCCIONES = (
-    "Recibimos tu aviso de siniestro y te derivamos con un asesor para continuar. "
+SINIESTRO_AVISO = "Recibimos tu aviso de siniestro y te derivamos con un asesor para continuar."
+SINIESTRO_EXPEDIENTE = (
     "Si ya tenés un expediente, podés enviar una foto JPEG o PNG de hasta 5 MB "
     "e indicar su número SIN-AAAA-NNNNN en el texto del mensaje. Un asesor "
     "revisará el archivo. Si todavía no tenés expediente, contanos qué ocurrió "
     "y un asesor podrá registrar la denuncia. Recibir una foto o registrar una "
     "denuncia no confirma cobertura ni indemnización."
+)
+SINIESTRO_INSTRUCCIONES = SINIESTRO_AVISO + " " + SINIESTRO_EXPEDIENTE
+# Lo que se suma al aviso de un siniestro de un cliente: la grúa de su póliza
+# (sale de la base, como en «asistencia») y el recordatorio de la ambulancia.
+SINIESTRO_GRUA = "Si necesitás grúa, el número de asistencia de tu póliza {numero_poliza} es {telefono}."
+SINIESTRO_GRUA_VARIAS = "Si necesitás grúa, estos son los números de asistencia de tus pólizas:\n{lineas}"
+SINIESTRO_SIN_GRUA = (
+    "No encontramos un número de grúa cargado en tu póliza; el asesor te lo "
+    "confirma por este chat."
+)
+SINIESTRO_AMBULANCIA = "Si hay personas heridas, llamá a una ambulancia (107) o al 911."
+TELEFONOS_EMERGENCIA = frozenset({"107", "911"})
+# Un choque de alguien que no es cliente: no hay póliza nuestra que lo cubra,
+# así que no se deriva. Si ya es cliente, que escriba desde el número registrado.
+SINIESTRO_SIN_CLIENTE = (
+    "Lamentamos lo que pasó. No encontramos una póliza a tu nombre asociada a "
+    "este número, así que no podemos gestionar el siniestro desde acá: la "
+    "denuncia la tiene que hacer la aseguradora del vehículo. Si sos cliente "
+    "nuestro, escribinos desde el número que tenés registrado. Si hay personas "
+    "heridas, llamá primero a emergencias."
 )
 CONSULTA_DOCUMENTAL = (
     "Como información general, la fuente «{titulo}», versión {version} "
@@ -25,8 +45,18 @@ SOLICITUD_YA_REGISTRADA = (
     "y te confirma por este medio."
 )
 DERIVACION = "Te derivamos con un asesor, que te va a responder a la brevedad."
-DERIVACION_URGENTE = "Entendemos que es urgente. Ya avisamos a un asesor para que se comunique con vos cuanto antes."
-AVISO_NEUTRO = "Gracias por tu consulta, un asesor te responderá a la brevedad."
+DERIVACION_URGENTE = "Entendemos que es urgente. Te derivamos con un asesor, que se va a comunicar con vos cuanto antes."
+AVISO_NEUTRO = "Gracias por tu consulta. Te derivamos con un asesor, que te va a responder a la brevedad."
+# Toda respuesta que deriva avisa que derivó. Si el texto no lo dice ya, el
+# orquestador le suma esta línea (ver `con_aviso_de_derivacion`).
+AVISO_DERIVADO = "Te derivamos con un asesor, que te va a responder por este chat."
+
+
+def con_aviso_de_derivacion(texto: str) -> str:
+    """El texto con el aviso de derivación al final, salvo que ya lo diga."""
+    if "deriv" in (texto or "").lower():
+        return texto
+    return f"{texto.rstrip()} {AVISO_DERIVADO}" if texto else AVISO_DERIVADO
 
 # --- Charla que no es una consulta -------------------------------------------
 # Agradecer o despedirse se contesta y se cierra: no se repregunta ni se deriva.
@@ -144,28 +174,48 @@ SEGUIMIENTO_COTIZACION_SIN_NOMBRE = (
     "Si tenés dudas o querés ajustar algo, contanos."
 )
 
-RECHAZO_SEGURIDAD = "No puedo ayudarte con ese pedido. Si tenés una consulta sobre tu seguro, escribime y te ayudo."
+# --- Pago informado por el cliente -------------------------------------------
+# «Pagué», «transferí»…: se pide la referencia del comprobante y, con ella, queda
+# la acción `registrar_pago` para que un aprobador la confirme. La marca es el
+# rastro en el log, como en el alta (ver `pago_informado.pedidos_en_curso`).
+MARCA_PEDIDO_COMPROBANTE = "Para registrar tu pago necesito la referencia del comprobante."
+PEDIDO_COMPROBANTE = (
+    MARCA_PEDIDO_COMPROBANTE
+    + " ¿Me pasás el número o código de la operación que figura en el comprobante?"
+    + " Puede tener letras y/o números."
+)
+PEDIDO_COMPROBANTE_REVISAR = (
+    MARCA_PEDIDO_COMPROBANTE
+    + " No pude leer una referencia en tu mensaje. Escribime solo el número o código"
+    + " de la operación (letras y/o números), por ejemplo: 0012345678 o MP-AB1234."
+)
+# No dice que el pago quedó registrado: eso pasa cuando un aprobador lo confirma.
+PAGO_INFORMADO = (
+    "¡Gracias! Recibimos el comprobante {referencia} de tu pago. Un asesor lo va a "
+    "verificar y te confirma por este medio cuando quede registrado."
+)
+PAGO_YA_INFORMADO = (
+    "Ese comprobante ({referencia}) ya lo tenemos registrado. El asesor que lo revise "
+    "te confirma por este medio."
+)
+PAGO_SIN_CUOTAS = (
+    "Recibimos la referencia {referencia}, pero no encontramos cuotas pendientes en tus "
+    "pólizas. Te derivamos con un asesor para que revise el comprobante."
+)
+PAGO_SIN_REFERENCIA = (
+    "No pude leer la referencia del comprobante. Te derivamos con un asesor para "
+    "que te ayude a registrar el pago."
+)
+
+RECHAZO_SEGURIDAD ="No puedo ayudarte con ese pedido. Si tenés una consulta sobre tu seguro, escribime y te ayudo."
 SOLO_TEXTO = (
     "Puedo leer texto y recibir fotos JPEG o PNG de hasta 5 MB para un expediente "
     "indicado con su número. Otros tipos de archivo no se incorporan."
 )
-FOTO_SINIESTRO_EXPEDIENTE = (
-    "No incorporé la foto porque falta el número del expediente. Reenviála con "
-    "SIN-AAAA-NNNNN en el texto del mensaje; si todavía no tenés ese número, "
-    "pedí a un asesor que registre la denuncia."
-)
-FOTO_SINIESTRO_ERROR = (
-    "No pude vincular la foto a un expediente verificado. Un asesor podrá "
-    "ayudarte. Recibir una foto no confirma cobertura ni indemnización."
-)
-FOTO_SINIESTRO_INCORPORADA = (
-    "La foto se incorporó al expediente {numero_siniestro} para que un asesor "
-    "la revise. Esto no confirma cobertura ni indemnización."
-)
-FOTO_SINIESTRO_INVALIDA = (
-    "No pude incorporar la foto. Enviá una imagen JPEG o PNG válida de hasta "
-    "5 MB. Si el problema continúa, un asesor podrá ayudarte."
-)
+# Única respuesta a una foto, video, documento o audio del cliente. El bot no
+# opina sobre el archivo: si trae un expediente se incorpora igual, en silencio,
+# y lo revisa un asesor. Se repite tal cual aunque manden varios seguidos.
+ARCHIVO_RECIBIDO = "Archivo recibido."
 ACCION_APROBADA = "Tu solicitud de {descripcion} fue aprobada y procesada."
 ACCION_APROBADA_PENDIENTE = (
     "Tu solicitud de {descripcion} fue aprobada, pero todavía no fue realizada. "

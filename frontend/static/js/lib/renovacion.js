@@ -1,4 +1,4 @@
-import { api } from "../api.js?v=20261105burbujas1";
+import { api } from "../api.js?v=20261105fechas1";
 export async function abrirRenovacion(id,alGuardar=()=>{}){
     const p=await api.get(`/api/polizas/${id}/`);
     const dialogo=document.createElement('dialog');dialogo.className='dialog-accion';

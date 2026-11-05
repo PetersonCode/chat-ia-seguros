@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261105burbujas1";
-import { inicializarNav } from "../nav.js?v=20261105burbujas1";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261105burbujas1";
-import { claseTarjeta, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105burbujas1";
-import { armarQuery } from "../lib/consulta.js?v=20261105burbujas1";
-import { debounce } from "../lib/debounce.js?v=20261105burbujas1";
+import { api } from "../api.js?v=20261105fechas1";
+import { inicializarNav } from "../nav.js?v=20261105fechas1";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261105fechas1";
+import { claseTarjeta, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105fechas1";
+import { armarQuery } from "../lib/consulta.js?v=20261105fechas1";
+import { debounce } from "../lib/debounce.js?v=20261105fechas1";
 
 const formulario = document.getElementById("formulario-filtros");
 const campoEstado = document.getElementById("filtro-estado");
@@ -63,8 +63,8 @@ function pedirBorrado(conversacion, total = false) {
     dialogoBorrarDescripcion.textContent = total
         ? `Se borra de la base, sin dejar rastro, todo lo del número ${conversacion.whatsapp}:`
         + " conversaciones, mensajes, casos, alertas, acciones, avisos, contacto de WhatsApp"
-        + " e interesados. El cliente y sus pólizas no se tocan. No se puede deshacer. Con"
-        + " siniestros, fotos o acciones finalizadas no se borra nada."
+        + " e interesados. El cliente y sus pólizas no se tocan. No se puede deshacer. Se"
+        + " borran también sus siniestros (con historial y fotos) y las acciones finalizadas."
         : `Se borran para siempre la conversación con ${conversacion.whatsapp}, sus mensajes,`
         + " sus casos y sus alertas. No se puede deshacer. Si tiene acciones administrativas"
         + " o siniestros asociados, no se borra.";
@@ -102,6 +102,16 @@ function crearTarjetaConversacion(conversacion) {
     ver.className = "btn btn-sm btn-outline-primary";
     ver.textContent = "Ver";
     ver.setAttribute("aria-label", `Abrir conversación ${conversacion.whatsapp}`);
+
+    // Solo un contacto que ya es cliente tiene planilla que abrir.
+    let planilla = null;
+    if (conversacion.cliente?.id) {
+        planilla = document.createElement("a");
+        planilla.href = `/panel/cliente/?id=${encodeURIComponent(conversacion.cliente.id)}`;
+        planilla.className = "btn btn-sm btn-outline-secondary";
+        planilla.textContent = "Ver planilla cliente";
+        planilla.setAttribute("aria-label", `Ver planilla de ${nombreCliente(conversacion.cliente)}`);
+    }
 
     // Borrar es de aprobadores; la API lo exige igual, esto evita ofrecer un
     // botón que va a contestar 403.
@@ -145,7 +155,7 @@ function crearTarjetaConversacion(conversacion) {
             )],
             ["Atiende", conversacion.atendida_por?.nombre ?? "—"],
         ],
-        acciones: [ver, borrar, eliminarTodo],
+        acciones: [ver, planilla, borrar, eliminarTodo],
     });
 }
 

@@ -594,12 +594,19 @@ def datos_de_la_cotizacion(conversacion_id: int) -> DatosCotizacion:
 
     datos: dict[str, Any] = {}
     antes = pedidos[0] if pedidos else len(mensajes)
-    for texto in del_cliente(0, antes):
+    # Lo previo al primer pedido sirve para aprovechar «quiero cotizar el AB123CD»,
+    # pero una pregunta de catálogo («¿qué compañías trabajan?») no trae ningún
+    # dato del vehículo: leída como tal, «Con qué compañías trabajan» terminaba
+    # siendo la marca y el modelo.
+    from negocio.bot import catalogo
+
+    previos = [t for t in del_cliente(0, antes) if not catalogo.es_pregunta_de_catalogo(t)]
+    for texto in previos:
         for segmento in _segmentos(texto):
             hallada = _patente_en(segmento)
             if hallada:
                 datos["patente"] = hallada[0]
-    datos = _interpretar(del_cliente(0, antes), datos)
+    datos = _interpretar(previos, datos)
 
     for posicion, indice in enumerate(pedidos):
         fin = pedidos[posicion + 1] if posicion + 1 < len(pedidos) else len(mensajes)

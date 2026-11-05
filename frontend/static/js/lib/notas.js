@@ -1,4 +1,4 @@
-import { api } from "../api.js?v=20261105burbujas1";
+import { api } from "../api.js?v=20261105fechas1";
 export function iniciarNotas(id){
     const seccion=document.createElement('section');seccion.className='card mb-3';
     const titulo=document.createElement('h2');titulo.className='card-header h5';titulo.textContent='Notas internas del equipo';

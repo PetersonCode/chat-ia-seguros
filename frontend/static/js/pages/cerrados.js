@@ -1,7 +1,10 @@
-import { api } from "../api.js?v=20261105burbujas1";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261105burbujas1";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105burbujas1";
-import { claseTarjetaSeveridad, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105burbujas1";
+import { api } from "../api.js?v=20261105fechas1";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261105fechas1";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105fechas1";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105fechas1";
+import { debounce } from "../lib/debounce.js?v=20261105fechas1";
+
+const busqueda = document.getElementById("busqueda-casos");
 
 const filas = document.getElementById("filas-casos");
 const estado = document.getElementById("estado-casos");
@@ -67,7 +70,9 @@ async function cargarCasos(pagina = paginaSeleccionada) {
     filas.replaceChildren();
 
     try {
-        const datos = await api.get(`/api/consultas/cerradas-con-alertas/?pagina=${paginaSeleccionada}`);
+        const params = new URLSearchParams({ pagina: String(paginaSeleccionada) });
+        if (busqueda.value.trim()) params.set("q", busqueda.value.trim());
+        const datos = await api.get(`/api/consultas/cerradas-con-alertas/?${params}`);
         if (idSolicitud !== solicitudActual) {
             return;
         }
@@ -82,7 +87,9 @@ async function cargarCasos(pagina = paginaSeleccionada) {
         }
 
         if (datos.resultados.length === 0) {
-            filas.append(crearTarjetaVacia("No hay casos cerrados con alertas abiertas."));
+            filas.append(crearTarjetaVacia(
+                busqueda.value.trim() ? "Ningún caso cerrado coincide con la búsqueda." : "No hay casos cerrados.",
+            ));
         } else {
             filas.append(...datos.resultados.map(crearTarjetaCaso));
         }
@@ -116,6 +123,7 @@ async function reabrirCaso(id, boton) {
     }
 }
 
+busqueda.addEventListener("input", debounce(() => cargarCasos(1), 300));
 botonAnterior.addEventListener("click", () => {
     if (paginaSeleccionada > 1) {
         cargarCasos(paginaSeleccionada - 1);

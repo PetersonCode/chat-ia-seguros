@@ -5,7 +5,7 @@
  * pedirle nada al servidor, que es el que decide (R17).
  */
 
-import { patenteValida } from "./patente.js?v=20261105burbujas1";
+import { patenteValida } from "./patente.js?v=20261105fechas1";
 
 export const ANIO_MINIMO = 1950;
 

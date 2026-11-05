@@ -29,6 +29,7 @@ from datos.models import (
 )
 from negocio import whatsapp
 from negocio.adjuntos_siniestros import TAMANO_MAXIMO
+from negocio.bot.plantillas import ARCHIVO_RECIBIDO
 
 
 def _imagen_png() -> bytes:
@@ -73,6 +74,31 @@ class ExpedienteSiniestrosApiTests(ApiTestCase):
         return self.cliente_api.post(
             "/api/siniestros/", cuerpo, format="json"
         )
+
+    def test_la_busqueda_filtra_por_numero_cliente_dni_poliza_o_descripcion(self):
+        self.entrar()
+        propio = self._denunciar().json()
+        otro_cliente = fabricas.crear_cliente(nombre="Mónica", apellido="Suárez", dni="31999888")
+        otra_poliza = fabricas.crear_poliza(
+            otro_cliente, fecha_inicio=timezone.localdate() - timedelta(days=30),
+        )
+        ajeno = self._denunciar(
+            cliente_id=otro_cliente.id, poliza_id=otra_poliza.id, descripcion="Choque en la esquina."
+        ).json()
+
+        def ids(q):
+            respuesta = self.cliente_api.get("/api/siniestros/", {"q": q})
+            self.assertEqual(respuesta.status_code, 200, respuesta.content)
+            return {s["id"] for s in respuesta.json()["resultados"]}
+
+        self.assertIn(propio["id"], ids(propio["numero_siniestro"]))
+        self.assertEqual(ids("fernandez"), {propio["id"]})  # sin tilde
+        self.assertEqual(ids("31999888"), {ajeno["id"]})
+        self.assertIn(ajeno["id"], ids(otra_poliza.numero_poliza))
+        self.assertEqual(ids("granizo"), {propio["id"]})
+        self.assertEqual(ids("suarez choque"), {ajeno["id"]})
+        self.assertEqual(ids("inexistente"), set())
+        self.assertEqual(ids(""), {propio["id"], ajeno["id"]})
 
     # AC-T2-25
     def test_aprobador_registra_y_consulta_el_expediente(self):
@@ -408,7 +434,8 @@ class AdjuntoSiniestroApiTests(ApiTestCase):
                 emisor="bot",
             ).latest("id")
             self.assertEqual(respuesta_bot.estado_envio, EstadoEnvio.ENVIADO)
-            self.assertIn(expediente["numero_siniestro"], respuesta_bot.texto)
+            # La foto se incorpora, pero al cliente solo se le confirma que llegó.
+            self.assertEqual(respuesta_bot.texto, ARCHIVO_RECIBIDO)
 
     def test_whatsapp_no_descarga_sin_referencia(self):
         expediente = self._crear_expediente()

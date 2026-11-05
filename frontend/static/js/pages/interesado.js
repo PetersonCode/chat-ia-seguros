@@ -1,5 +1,5 @@
-import { api } from "../api.js?v=20261105burbujas1";
-import { inicializarNav } from "../nav.js?v=20261105burbujas1";
+import { api } from "../api.js?v=20261105fechas1";
+import { inicializarNav } from "../nav.js?v=20261105fechas1";
 import {
     COBERTURAS,
     datosDelInteresado,
@@ -14,11 +14,11 @@ import {
     siguienteEtapa,
     validarCotizacion,
     validarMotivoPerdida,
-} from "../lib/embudo.js?v=20261105burbujas1";
-import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261105burbujas1";
-import { patenteValida } from "../lib/patente.js?v=20261105burbujas1";
-import { ANIO_MINIMO, USOS, CLASES } from "../lib/vehiculos.js?v=20261105burbujas1";
-import { formatearPorcentaje } from "../lib/companias.js?v=20261105burbujas1";
+} from "../lib/embudo.js?v=20261105fechas1";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261105fechas1";
+import { patenteValida } from "../lib/patente.js?v=20261105fechas1";
+import { ANIO_MINIMO, USOS, CLASES } from "../lib/vehiculos.js?v=20261105fechas1";
+import { formatearPorcentaje } from "../lib/companias.js?v=20261105fechas1";
 
 const $ = (id) => document.getElementById(id);
 const mensajePagina = $("mensaje-pagina");

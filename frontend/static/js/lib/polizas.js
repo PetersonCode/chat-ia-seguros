@@ -62,6 +62,63 @@ export function mesesDeCobertura(inicio, vencimiento) {
     return Math.max(1, meses);
 }
 
+const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+    "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+/**
+ * La fecha escrita con palabras: «5 de noviembre de 2026».
+ *
+ * El campo `type="date"` lo dibuja el navegador con el formato de su idioma:
+ * en inglés espera mes/día, y «05/11/2026» queda guardado como 11 de mayo.
+ * Escrita así no hay forma de confundirla.
+ * @param {string} iso Fecha ISO `aaaa-mm-dd`.
+ * @returns {string} Vacío si la fecha no es válida.
+ */
+export function fechaEnPalabras(iso) {
+    const fecha = partesDeFecha(iso);
+    if (!fecha || fecha.mes < 1 || fecha.mes > 12) {
+        return "";
+    }
+    return `${fecha.dia} de ${MESES[fecha.mes - 1]} de ${fecha.anio}`;
+}
+
+/** Días entre dos fechas ISO (positivo si `iso` es posterior a `hoy`). */
+function diasEntre(hoy, iso) {
+    const a = partesDeFecha(hoy);
+    const b = partesDeFecha(iso);
+    if (!a || !b) {
+        return null;
+    }
+    const ms = Date.UTC(b.anio, b.mes - 1, b.dia) - Date.UTC(a.anio, a.mes - 1, a.dia);
+    return Math.round(ms / 86_400_000);
+}
+
+/** Hoy en la zona del navegador, como `aaaa-mm-dd`. */
+export function hoyIso(ahora = new Date()) {
+    const dos = (n) => String(n).padStart(2, "0");
+    return `${ahora.getFullYear()}-${dos(ahora.getMonth() + 1)}-${dos(ahora.getDate())}`;
+}
+
+/** Más allá de esto, un inicio se confirma antes de guardar. */
+export const DIAS_INICIO_SIN_AVISO = 30;
+
+/**
+ * Aviso si el inicio queda lejos de hoy: suele ser día y mes invertidos.
+ * @param {string} inicio Fecha ISO de inicio.
+ * @param {string} hoy Fecha ISO de hoy.
+ * @returns {string | null} El texto del aviso, o `null` si no hace falta.
+ */
+export function avisoInicioLejano(inicio, hoy) {
+    const dias = diasEntre(hoy, inicio);
+    if (dias === null || Math.abs(dias) <= DIAS_INICIO_SIN_AVISO) {
+        return null;
+    }
+    const cuando = dias < 0 ? `${-dias} días antes de hoy` : `${dias} días después de hoy`;
+    return `El inicio quedó el ${fechaEnPalabras(inicio)}, ${cuando}. `
+        + "Si escribiste día/mes, revisalo: el campo puede estar esperando mes/día. "
+        + "Si la fecha es correcta, tocá «Crear igual».";
+}
+
 /**
  * Valida el alta de una póliza antes de mandarla.
  *

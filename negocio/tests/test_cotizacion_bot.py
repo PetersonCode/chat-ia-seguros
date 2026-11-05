@@ -73,13 +73,25 @@ class PedidoDeDatosTests(BaseCotizacionBotTests):
         self.assertEqual(self._respuesta(resultado).estado_envio, EstadoEnvio.ENVIADO)
 
     # AC-T3-85
+    def test_las_preguntas_de_catalogo_previas_no_se_leen_como_datos_del_vehiculo(self):
+        # Antes: «¿Con qué compañías trabajan?» quedaba como marca «Con» y modelo «qué compañías trabajan».
+        conversacion = self._conversacion("1001")
+        for pregunta in ("¿Con qué compañías trabajan?", "¿Qué planes tiene Cóndor?"):
+            self._turno(conversacion, pregunta)
+        self._turno(conversacion, "cuanto sale asegurar un Toyota Corolla 2020")
+
+        self._turno(conversacion, COMPLETA)
+
+        datos = Interesado.objects.get().datos
+        self.assertEqual((datos["marca"], datos["modelo"], datos["patente"]), ("Toyota", "Corolla", "AB123CD"))
+
     def test_con_los_cinco_datos_responde_y_deriva_a_graciela_con_el_interesado_en_el_motivo(self):
         conversacion = self._conversacion("1001")
         self._turno(conversacion, "cuanto sale asegurar mi auto")
 
         resultado = self._turno(conversacion, COMPLETA)
 
-        self.assertEqual(self._respuesta(resultado).texto, plantillas.COTIZACION_REGISTRADA)
+        self.assertEqual(self._respuesta(resultado).texto, plantillas.con_aviso_de_derivacion(plantillas.COTIZACION_REGISTRADA))
         self.assertEqual(
             plantillas.COTIZACION_REGISTRADA,
             "¡Gracias! Con estos datos un asesor te prepara la cotización y te escribe por acá."
@@ -133,7 +145,7 @@ class PedidoDeDatosTests(BaseCotizacionBotTests):
 
         final = self._turno(conversacion, "comercial\nRosario")
 
-        self.assertEqual(self._respuesta(final).texto, plantillas.COTIZACION_REGISTRADA)
+        self.assertEqual(self._respuesta(final).texto, plantillas.con_aviso_de_derivacion(plantillas.COTIZACION_REGISTRADA))
         datos = Interesado.objects.get().datos
         self.assertEqual(datos["uso"], "comercial")
         self.assertEqual(datos["patente"], "AB123CD")  # lo de la primera vuelta cuenta
@@ -171,7 +183,7 @@ class PedidoDeDatosTests(BaseCotizacionBotTests):
         resultado = self._turno(conversacion, "dale")
 
         self.assertEqual(registro.MAX_PEDIDOS, 2)
-        self.assertEqual(self._respuesta(resultado).texto, plantillas.COTIZACION_REGISTRADA)
+        self.assertEqual(self._respuesta(resultado).texto, plantillas.con_aviso_de_derivacion(plantillas.COTIZACION_REGISTRADA))
         interesado = Interesado.objects.get()
         self.assertEqual(interesado.datos, {"patente": "AB123CD"})
         motivo = Derivacion.objects.get().motivo
@@ -187,7 +199,7 @@ class PedidoDeDatosTests(BaseCotizacionBotTests):
 
         resultado = self._turno(conversacion, "gracias")
 
-        self.assertEqual(self._respuesta(resultado).texto, plantillas.COTIZACION_REGISTRADA)
+        self.assertEqual(self._respuesta(resultado).texto, plantillas.con_aviso_de_derivacion(plantillas.COTIZACION_REGISTRADA))
         self.assertEqual(Interesado.objects.get().datos, {})
         self.assertIn("no dio ninguno", Derivacion.objects.get().motivo)
 
@@ -202,7 +214,7 @@ class PedidoDeDatosTests(BaseCotizacionBotTests):
         self.assertNotIn(plantillas.MARCA_PEDIDO_DATOS, self._respuesta(primero).texto)
         final = self._turno(conversacion, COMPLETA)
 
-        self.assertEqual(self._respuesta(final).texto, plantillas.COTIZACION_REGISTRADA)
+        self.assertEqual(self._respuesta(final).texto, plantillas.con_aviso_de_derivacion(plantillas.COTIZACION_REGISTRADA))
         interesado = Interesado.objects.get()
         self.assertEqual(interesado.nombre, "Dani")
         self.assertIsNone(interesado.cliente_id)
@@ -263,7 +275,7 @@ class PedidoDeDatosTests(BaseCotizacionBotTests):
             resultado = self._turno(conversacion, COMPLETA)
 
         self.assertFalse(AccionPendiente.objects.exists())
-        self.assertEqual(self._respuesta(resultado).texto, plantillas.COTIZACION_REGISTRADA)
+        self.assertEqual(self._respuesta(resultado).texto, plantillas.con_aviso_de_derivacion(plantillas.COTIZACION_REGISTRADA))
 
     # AC-T3-85
     def test_sigue_el_pedido_aunque_conteste_con_un_saludo_adelante(self):
@@ -273,7 +285,7 @@ class PedidoDeDatosTests(BaseCotizacionBotTests):
         resultado = self._turno(conversacion, "hola, te paso todo:\n" + COMPLETA)
 
         self.assertEqual(resultado.tipo_consulta, "saludo")
-        self.assertEqual(self._respuesta(resultado).texto, plantillas.COTIZACION_REGISTRADA)
+        self.assertEqual(self._respuesta(resultado).texto, plantillas.con_aviso_de_derivacion(plantillas.COTIZACION_REGISTRADA))
 
     # AC-T3-85
     def test_una_urgencia_en_medio_del_pedido_se_deriva_en_el_acto(self):
@@ -283,7 +295,7 @@ class PedidoDeDatosTests(BaseCotizacionBotTests):
         resultado = self._turno(conversacion, "tuve un choque, es urgente")
 
         self.assertEqual(resultado.tipo_consulta, "siniestro_urgente")
-        self.assertEqual(self._respuesta(resultado).texto, plantillas.DERIVACION_URGENTE)
+        self.assertTrue(self._respuesta(resultado).texto.startswith(plantillas.DERIVACION_URGENTE))
         self.assertFalse(Interesado.objects.exists())
 
     # AC-T3-85
@@ -307,7 +319,7 @@ class PedidoDeDatosTests(BaseCotizacionBotTests):
 
         resultado = self._turno(conversacion, "prefiero hablar con un asesor")
 
-        self.assertEqual(self._respuesta(resultado).texto, plantillas.COTIZACION_REGISTRADA)
+        self.assertEqual(self._respuesta(resultado).texto, plantillas.con_aviso_de_derivacion(plantillas.COTIZACION_REGISTRADA))
         self.assertEqual(Interesado.objects.get().datos, {"patente": "AB123CD"})
         self.assertEqual(Derivacion.objects.count(), 1)
 
@@ -324,7 +336,7 @@ class PedidoDeDatosTests(BaseCotizacionBotTests):
         self.assertEqual(conversacion.modo, "bot")
         self.assertEqual(Derivacion.objects.get().derivado_a_id, self.escenario.graciela.id)
         confirmacion = self._respuesta(resultado)
-        self.assertEqual(confirmacion.texto, plantillas.COTIZACION_REGISTRADA)
+        self.assertEqual(confirmacion.texto, plantillas.con_aviso_de_derivacion(plantillas.COTIZACION_REGISTRADA))
         self.assertEqual(confirmacion.estado_envio, EstadoEnvio.ENVIADO)
         self.assertEqual(confirmacion.payload, {"aviso_derivacion": True})
 
@@ -370,7 +382,7 @@ class PedidoDeDatosTests(BaseCotizacionBotTests):
         ):
             resultado = self._turno(conversacion, COMPLETA)
 
-        self.assertEqual(self._respuesta(resultado).texto, plantillas.COTIZACION_REGISTRADA)
+        self.assertEqual(self._respuesta(resultado).texto, plantillas.con_aviso_de_derivacion(plantillas.COTIZACION_REGISTRADA))
         derivacion = Derivacion.objects.get()
         self.assertIn("AB123CD", derivacion.motivo)
         self.assertNotIn("Interesado #", derivacion.motivo)

@@ -5,9 +5,12 @@ from django.test import TestCase
 from django.utils import timezone
 
 from datos import fabricas, selectors
+from django.db.models import F
+
 from datos.models import (
     AccionPendiente,
     Alerta,
+    Cuota,
     EstadoAccion,
     EstadoAlerta,
     EstadoConversacion,
@@ -362,8 +365,9 @@ class SelectorsTests(TestCase):
             fabricas.crear_conversacion(),
             estado="abierto",
         )
-        fabricas.crear_alerta(
+        inyeccion_de_caso_abierto = fabricas.crear_alerta(
             otra_consulta,
+            tipo=TipoAlerta.PROMPT_INJECTION,
             severidad="critica",
         )
 
@@ -375,16 +379,84 @@ class SelectorsTests(TestCase):
                     estado=EstadoAlerta.ABIERTA,
                 )
             ),
-            [critica_abierta],
+            [inyeccion_de_caso_abierto],
         )
+        # Un caso cerrado va solo a «Casos cerrados»: ninguna de sus alertas
+        # aparece en la lista, ni siquiera pidiendo todos los estados.
         self.assertEqual(
             list(selectors.listar_alertas(estado=None)),
-            list(Alerta.objects.order_by("-creada_en", "-id")),
+            list(
+                Alerta.objects.filter(consulta=otra_consulta).order_by("-creada_en", "-id")
+            ),
         )
+        self.assertNotIn(critica_abierta, selectors.listar_alertas(estado=None))
         self.assertEqual(
             list(selectors.consultas_cerradas_con_alertas()),
             [consulta_cerrada],
         )
+
+    def test_el_saldo_a_pagar_es_lo_vencido_mas_la_proxima_cuota(self):
+        """Las cuotas de los meses siguientes no son deuda todavía (SQL 37)."""
+        hoy = timezone.localdate()
+        poliza = fabricas.crear_poliza()
+        fabricas.crear_cuota(poliza, importe="100.00", vencimiento=hoy - timedelta(days=40))
+        fabricas.crear_cuota(poliza, importe="200.00", vencimiento=hoy - timedelta(days=10))
+        fabricas.crear_cuota(poliza, importe="300.00", vencimiento=hoy + timedelta(days=5))
+        fabricas.crear_cuota(poliza, importe="400.00", vencimiento=hoy + timedelta(days=35))
+        fabricas.crear_cuota(
+            poliza, importe="999.00", vencimiento=hoy - timedelta(days=70),
+            estado=EstadoCuota.PAGADA, fecha_pago=hoy - timedelta(days=71), importe_pagado="999.00",
+        )
+
+        fila = selectors.resumen_polizas(poliza.cliente_id).get()
+        self.assertEqual(fila.saldo_pendiente, Decimal("600.00"))
+        self.assertEqual(fila.saldo_total, Decimal("1000.00"))
+        self.assertEqual(fila.proximo_vencimiento_pago, hoy - timedelta(days=40))
+
+        def pagar(cuotas):
+            cuotas.update(estado=EstadoCuota.PAGADA, fecha_pago=hoy, importe_pagado=F("importe"))
+
+        # Sin cuotas futuras impagas, solo lo vencido; al día, cero.
+        pagar(Cuota.objects.filter(poliza=poliza, vencimiento__gt=hoy))
+        self.assertEqual(selectors.resumen_polizas(poliza.cliente_id).get().saldo_pendiente, Decimal("300.00"))
+        pagar(Cuota.objects.filter(poliza=poliza).exclude(estado=EstadoCuota.PAGADA))
+        self.assertEqual(selectors.resumen_polizas(poliza.cliente_id).get().saldo_pendiente, Decimal("0.00"))
+
+    def test_un_caso_cerrado_sale_de_alertas_criticas_bandeja_y_derivaciones(self):
+        funcionario = fabricas.crear_funcionario()
+        conversacion = fabricas.crear_conversacion()
+        caso = fabricas.crear_consulta(conversacion, estado="derivado")
+        fabricas.crear_alerta(caso, tipo="siniestro_grave", severidad="critica")
+        fabricas.crear_derivacion(caso, funcionario, prioridad="urgente")
+
+        self.assertEqual(selectors.contar_pendientes(funcionario.pk)["alertas_criticas"], 1)
+        self.assertEqual(selectors.contar_pendientes(funcionario.pk)["derivaciones"], 1)
+        fila = selectors.bandeja().get(pk=conversacion.pk)
+        self.assertEqual((fila.alertas_abiertas, fila.severidad_rango), (1, 4))
+        self.assertTrue(fila.derivacion_urgente)
+
+        caso.estado = "cerrado"
+        caso.save(update_fields=["estado"])
+
+        self.assertEqual(
+            selectors.contar_pendientes(funcionario.pk),
+            {"acciones": 0, "derivaciones": 0, "alertas_criticas": 0},
+        )
+        self.assertFalse(selectors.listar_alertas(severidad="critica").exists())
+        fila = selectors.bandeja().get(pk=conversacion.pk)
+        self.assertEqual((fila.alertas_abiertas, fila.severidad_rango), (0, 0))
+        self.assertFalse(fila.derivacion_urgente)
+        self.assertEqual(fila.prioridad_bandeja, 2)
+        self.assertFalse(selectors.bandeja(con_alertas=True).filter(pk=conversacion.pk).exists())
+        self.assertFalse(selectors.derivaciones_de(funcionario.pk).exists())
+        # Donde sí está: en «Casos cerrados», con su alerta.
+        self.assertEqual(list(selectors.consultas_cerradas()), [caso])
+        self.assertEqual(list(selectors.consultas_cerradas_con_alertas()), [caso])
+
+        # Si se reabre, vuelve a las listas de trabajo.
+        caso.estado = "pendiente_revision"
+        caso.save(update_fields=["estado"])
+        self.assertEqual(selectors.contar_pendientes(funcionario.pk)["alertas_criticas"], 1)
 
     # AC-T4-18
     def test_acciones_pendientes_y_derivaciones_priorizadas(self):
@@ -538,4 +610,8 @@ class SelectorsTests(TestCase):
         self.assertEqual(
             selectors.contar_pendientes(funcionario.pk),
             {"acciones": 2, "derivaciones": 1, "alertas_criticas": 3},
+        )
+        # Administrador y propietario ven (y cuentan) las derivaciones de todos.
+        self.assertEqual(
+            selectors.contar_pendientes(funcionario.pk, ve_todas=True)["derivaciones"], 2
         )

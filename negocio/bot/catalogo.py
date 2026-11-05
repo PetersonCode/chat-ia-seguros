@@ -120,8 +120,12 @@ def respuesta_planes(companias: list[Compania], elegidas: list[Compania]) -> str
     return "Estos son los planes disponibles:\n\n" + "\n\n".join(bloques) + f"\n\n{CIERRE}"
 
 
-def responder(texto: str) -> str | None:
-    """La lista de compañías o de planes si el mensaje la pide; `None` si es otra cosa."""
+def _que_pide(texto: str) -> tuple[bool, bool] | None:
+    """(habla de planes, habla de compañías/seguros) si es una pregunta de catálogo; si no, `None`.
+
+    No consulta la base: sirve también para saber que un mensaje no trae datos
+    de un vehículo (ver `cotizacion.datos_de_la_cotizacion`).
+    """
     normalizado = normalizar(texto)
     if not normalizado or PERSONAL.search(normalizado) or not PREGUNTA.search(normalizado):
         return None
@@ -129,6 +133,19 @@ def responder(texto: str) -> str | None:
     habla_de_companias = bool(SUJETO_COMPANIAS.search(normalizado) or SUJETO_SEGUROS.search(normalizado))
     if not (habla_de_planes or habla_de_companias) or not VERBO.search(normalizado):
         return None
+    return habla_de_planes, habla_de_companias
+
+
+def es_pregunta_de_catalogo(texto: str) -> bool:
+    return _que_pide(texto) is not None
+
+
+def responder(texto: str) -> str | None:
+    """La lista de compañías o de planes si el mensaje la pide; `None` si es otra cosa."""
+    pedido = _que_pide(texto)
+    if pedido is None:
+        return None
+    habla_de_planes, _ = pedido
     companias = _companias_activas()
     if not companias:
         return None

@@ -1,7 +1,7 @@
-import { api } from '../api.js?v=20261105burbujas1';
-import { fusionarMensajes } from './mensajes.js?v=20261105burbujas1';
-import { formatearFechaHora } from './formato.js?v=20261105burbujas1';
-import { crearTarjetaAdjunto, esMarcadorDeArchivo } from './adjuntos.js?v=20261105burbujas1';
+import { api } from '../api.js?v=20261105fechas1';
+import { fusionarMensajes } from './mensajes.js?v=20261105fechas1';
+import { formatearFechaHora } from './formato.js?v=20261105fechas1';
+import { crearTarjetaAdjunto, esMarcadorDeArchivo } from './adjuntos.js?v=20261105fechas1';
 
 // Solo referencias y borradores por usuario; nunca se almacena el historial.
 const PREFIJO = 'castano.chat.';
@@ -73,7 +73,7 @@ export async function iniciarChatFlotante() {
             const abajo=lista.scrollHeight-lista.scrollTop-lista.clientHeight<65;
             lista.replaceChildren(...mensajes.map(m=>{
                 const item=nodo('article','','mensaje-chat '+(m.emisor==='cliente'?'msg-cliente':'msg-saliente'));
-                item.append(nodo('p',`${m.emisor==='cliente'?'Cliente':m.emisor==='bot'?'Bot':'Asesor'} · ${formatearFechaHora(m.fecha_hora)} · ${m.estado_envio}`,'small text-muted mb-1'),...(m.adjunto?[crearTarjetaAdjunto(m.adjunto)]:[]),...(esMarcadorDeArchivo(m)?[]:[nodo('p',m.texto??'','mb-0')]));
+                item.append(nodo('p',`${m.emisor==='cliente'?'Cliente':m.emisor==='bot'?'Bot':'Asesor'} · ${formatearFechaHora(m.fecha_hora)} · ${m.estado_envio}`,'small text-muted mb-1'),...(m.adjunto?[crearTarjetaAdjunto(m.adjunto),...(m.adjunto.texto?[nodo('p',m.adjunto.texto,'mb-1')]:[])]:[]),...(esMarcadorDeArchivo(m)?[]:[nodo('p',m.texto??'','mb-0')]));
                 if(m.estado_envio==='retenido')item.classList.add('msg-retenido');return item;
             }));
             if(abajo || antes.size===0)lista.scrollTop=lista.scrollHeight;

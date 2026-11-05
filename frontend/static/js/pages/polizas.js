@@ -1,6 +1,6 @@
-import { api } from "../api.js?v=20261105burbujas1";
-import { inicializarNav } from "../nav.js?v=20261105burbujas1";
-import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105burbujas1";
+import { api } from "../api.js?v=20261105fechas1";
+import { inicializarNav } from "../nav.js?v=20261105fechas1";
+import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105fechas1";
 const $=id=>document.getElementById(id);
 $('busqueda').value = new URLSearchParams(location.search).get('q') || '';
 let pagina=1,total=0,elegida=null,puedeEditar=false,esAdministrador=false,turno=0;
@@ -28,7 +28,7 @@ async function cargar(){
             ficha.className='btn btn-sm btn-outline-secondary ms-2';
             b.className='btn btn-sm btn-outline-primary';b.onclick=()=>abrir(p);td.append(b,ficha);
             if(esAdministrador){const borrar=nodo('button','Eliminar (total)');borrar.className='btn btn-sm btn-danger ms-2';
-                borrar.onclick=()=>confirmarEliminacion(`Eliminar ${p.numero}`,`Se borra de la base la póliza de ${p.cliente} con sus cuotas, pagos, condiciones, acciones y avisos. El cliente y su vehículo quedan. No se puede deshacer. Si hay siniestros o acciones finalizadas, no se borra nada.`,
+                borrar.onclick=()=>confirmarEliminacion(`Eliminar ${p.numero}`,`Se borra de la base la póliza de ${p.cliente} con sus cuotas, pagos, condiciones, acciones y avisos. El cliente y su vehículo quedan. No se puede deshacer. Incluye siniestros (con historial y fotos) y acciones finalizadas.`,
                     async()=>{await api.post(`/api/polizas/${p.id}/eliminar-definitivo/`,{});await cargar();$('estado').textContent=`Póliza ${p.numero} eliminada.`;});
                 td.append(borrar);}
             tr.append(td);$('filas').append(tr);

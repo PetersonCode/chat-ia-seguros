@@ -11,6 +11,10 @@ No hay un paso manual de verificación de identidad en este recorrido. El númer
 ## Cuándo deriva
 
 - Si el cliente relata un siniestro ocurrido: siempre. Si es urgente, con prioridad urgente a Roberto; en otros casos, a administración. La consulta queda registrada y la conversación pasa a humano.
+- Toda derivación se avisa en el mismo mensaje: si el texto de la respuesta no dice que se derivó, el bot le suma «Te derivamos con un asesor, que te va a responder por este chat.» (`plantillas.con_aviso_de_derivacion`). Ese mensaje sale aunque la conversación pase a modo humano (marca `aviso_derivacion` en el payload).
+- En un siniestro de un cliente, el aviso de derivación lleva además la grúa de su póliza (el mismo número que contesta «asistencia»; si tiene varias, uno por póliza; si no hay ninguno cargado, que el asesor se lo confirma) y el recordatorio de llamar a una ambulancia (107) o al 911 si hay heridos.
+- Excepción: quien no está registrado como cliente nunca se deriva por un choque (ni urgente). El bot le contesta que no tiene póliza asociada a ese número, que la denuncia la hace la aseguradora del vehículo y que, si es cliente, escriba desde el número registrado. No se le piden datos de alta ni nace la alerta de siniestro grave.
+- Un cliente que avisa que ya pagó («pagué», «realicé el pago», «aboné», «transferí»…) no se deriva: el bot le pide la referencia del comprobante (letras y/o números) y deja la acción «Registro de pago» sobre su cuota impaga más vieja. El pago queda registrado recién cuando un aprobador la confirma en Acciones (misma regla que el panel: cobro completo, referencia única). Si no pasa una referencia legible tras dos pedidos, o no tiene cuotas pendientes, se deriva con el comprobante en el motivo. Requiere `SDD/sql/36_pago_informado_por_chat.sql`.
 - Si pide una persona, falta información suficiente para contestar o se requiere una decisión contractual o administrativa que el bot no puede tomar.
 - Si una respuesta dispara un control de seguridad, se retiene y el equipo revisa.
 

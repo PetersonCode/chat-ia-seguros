@@ -42,6 +42,7 @@ def vencimientos(request):
         'fecha_vencimiento':poliza.fecha_vencimiento.isoformat(),
         'dias_restantes':(poliza.fecha_vencimiento-timezone.localdate()).days,
         'saldo_pendiente':str(poliza.saldo or 0),
+        'saldo_total':str(poliza.saldo_total or 0),
         'saldo_vencido':str(poliza.saldo_vencido),
         'primera_cuota_vencida':poliza.primera_cuota_vencida.isoformat() if poliza.primera_cuota_vencida else None,
         'proxima_cuota':poliza.proxima_cuota.isoformat() if poliza.proxima_cuota else None,

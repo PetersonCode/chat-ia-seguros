@@ -2,11 +2,39 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+    avisoInicioLejano,
     etiquetaEstadoPoliza,
+    fechaEnPalabras,
+    hoyIso,
     mesesDeCobertura,
     ordenarPolizas,
     validarPoliza,
 } from "../static/js/lib/polizas.js";
+
+test("fechaEnPalabras deja claro el día y el mes", () => {
+    assert.equal(fechaEnPalabras("2026-11-05"), "5 de noviembre de 2026");
+    assert.equal(fechaEnPalabras("2026-05-11"), "11 de mayo de 2026");
+    assert.equal(fechaEnPalabras(""), "");
+    assert.equal(fechaEnPalabras("05/11/2026"), "");
+});
+
+test("hoyIso usa la fecha local del navegador", () => {
+    assert.equal(hoyIso(new Date(2026, 10, 5, 23, 30)), "2026-11-05");
+});
+
+test("un inicio a más de 30 días de hoy pide confirmación (día y mes invertidos)", () => {
+    // El caso real: quisieron poner 05/11/2026 y quedó 11 de mayo.
+    const aviso = avisoInicioLejano("2026-05-11", "2026-11-05");
+    assert.match(aviso, /11 de mayo de 2026/);
+    assert.match(aviso, /178 días antes de hoy/);
+    assert.match(aviso, /mes\/día/);
+    assert.match(avisoInicioLejano("2027-01-10", "2026-11-05"), /66 días después de hoy/);
+    // Hoy, mañana o dentro del mes no molestan.
+    assert.equal(avisoInicioLejano("2026-11-05", "2026-11-05"), null);
+    assert.equal(avisoInicioLejano("2026-12-05", "2026-11-05"), null);
+    assert.equal(avisoInicioLejano("2026-10-06", "2026-11-05"), null);
+    assert.equal(avisoInicioLejano("", "2026-11-05"), null);
+});
 
 test("AC-T1-20: ordenarPolizas pone vigentes primero por vencimiento sin mutar la lista", () => {
     const polizas = [

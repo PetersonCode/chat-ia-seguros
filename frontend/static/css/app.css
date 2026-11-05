@@ -67,7 +67,10 @@
     #nav .nav-menu-toggle { display: none; }
     body.con-menu-lateral { padding-left: 15rem; }
     body.con-menu-lateral #nav { position: fixed; inset: 0 auto 0 0; width: 15rem; overflow-y: auto; z-index: 1030; padding: 1rem .75rem; border-right: 1px solid var(--sc-borde); }
-    #nav .barra { flex-direction: column; align-items: stretch; gap: 1rem; }
+    body.con-menu-lateral #nav { display: flex; flex-direction: column; align-items: stretch; }
+    /* Navegación arriba; usuario y «Salir» pegados al fondo del menú. */
+    #nav .barra { flex: 1 1 auto; flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start; gap: 1rem; }
+    #nav .barra-derecha { margin-top: auto; }
     #nav .nav-marca { flex-wrap: wrap; }
     #nav .navbar-brand { font-size: 1rem; margin: 0; }
     #nav .nav-principal { flex-direction: column !important; align-items: stretch; gap: .15rem; width: 100%; }

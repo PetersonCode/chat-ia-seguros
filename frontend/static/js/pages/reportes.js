@@ -1,6 +1,6 @@
-import { formatearMonto } from "../lib/formato.js?v=20261105burbujas1";
-import { api } from "../api.js?v=20261105burbujas1";
-import { inicializarNav } from "../nav.js?v=20261105burbujas1";
+import { formatearMonto } from "../lib/formato.js?v=20261105fechas1";
+import { api } from "../api.js?v=20261105fechas1";
+import { inicializarNav } from "../nav.js?v=20261105fechas1";
 
 const formulario = document.getElementById("filtros-reportes");
 const campoDesde = document.getElementById("reporte-desde");

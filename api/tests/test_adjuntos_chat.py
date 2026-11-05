@@ -53,6 +53,45 @@ class AdjuntosChatTests(ApiTestCase):
         self.assertEqual(fila["adjunto"]["nombre"], adjunto.nombre_archivo)
         self.assertEqual(fila["adjunto"]["descarga_url"], f"/api/mensajes/{mensaje.id}/adjunto/")
 
+    def test_un_mensaje_con_imagen_aun_sin_guardar_ya_se_ve_como_adjunto(self):
+        mensaje = self._entrante("image", "image/jpeg", caption="Así quedó el paragolpes")
+        self.entrar()
+
+        cuerpo = self.cliente_api.get(f"/api/conversaciones/{self.conversacion.id}/mensajes/").json()
+
+        fila = next(m for m in cuerpo["mensajes"] if m["id"] == mensaje.id)
+        self.assertEqual(fila["adjunto"]["tipo"], "imagen")
+        self.assertFalse(fila["adjunto"]["guardado"])
+        self.assertRegex(fila["adjunto"]["nombre"], r"^imagen-\d{8}-\d{6}\.jpg$")
+        self.assertEqual(fila["adjunto"]["texto"], "Así quedó el paragolpes")
+        self.assertEqual(fila["adjunto"]["descarga_url"], f"/api/mensajes/{mensaje.id}/adjunto/")
+
+    def test_al_pedirlo_se_baja_de_meta_y_se_entrega_como_adjunto(self):
+        mensaje = self._entrante("video", "video/mp4")
+        self.entrar()
+
+        with patch("negocio.adjuntos_chat.descargar_media_whatsapp", return_value=VIDEO_MP4):
+            respuesta = self.cliente_api.get(f"/api/mensajes/{mensaje.id}/adjunto/")
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIn("attachment", respuesta["Content-Disposition"])
+        self.assertEqual(b"".join(respuesta.streaming_content), VIDEO_MP4)
+        adjunto = MensajeAdjunto.objects.get(mensaje=mensaje)
+        self.assertIn(adjunto.nombre_archivo, respuesta["Content-Disposition"])
+        cuerpo = self.cliente_api.get(f"/api/conversaciones/{self.conversacion.id}/mensajes/").json()
+        self.assertTrue(next(m for m in cuerpo["mensajes"] if m["id"] == mensaje.id)["adjunto"]["guardado"])
+
+    def test_si_meta_no_entrega_el_archivo_el_error_es_claro(self):
+        mensaje = self._entrante("image", "image/jpeg")
+        self.entrar()
+
+        with patch("negocio.adjuntos_chat.descargar_media_whatsapp", side_effect=DescargaMediaInvalida("caído")):
+            respuesta = self.cliente_api.get(f"/api/mensajes/{mensaje.id}/adjunto/")
+
+        self.assertEqual(respuesta.status_code, 409)
+        self.assertIn("No se pudo descargar", respuesta.json()["error"]["mensaje"])
+        self.assertFalse(MensajeAdjunto.objects.exists())
+
     def test_la_descarga_es_un_adjunto_sin_vista_previa(self):
         mensaje = self._entrante("image", "image/jpeg")
         self._guardar(mensaje, JPEG)

@@ -96,4 +96,31 @@ export const api = {
         // El navegador agrega el boundary; se conserva el mismo control CSRF.
         return solicitar("POST", url, formulario, true);
     },
+    /**
+     * Baja un archivo y lo devuelve como `Blob`. Mismo manejo que el resto:
+     * sin conexión, sesión vencida (vuelve al login) y error de la API.
+     */
+    async descargar(url) {
+        let respuesta;
+        try {
+            // Acepta cualquier tipo: la respuesta buena es el archivo, no JSON.
+            respuesta = await configuracion.fetch(url, { method: "GET", headers: { Accept: "*/*" } });
+        } catch {
+            throw new ApiError(0, 'sin_conexion', 'No se pudo conectar con el servidor. Revisá la conexión e intentá nuevamente.');
+        }
+        if (!respuesta.ok) {
+            let detalle = null;
+            try { detalle = (await respuesta.json())?.error ?? null; }
+            catch { /* el error no vino en JSON: queda el mensaje genérico */ }
+            if (respuesta.status === 401) {
+                configuracion.redirigir("/");
+            }
+            throw new ApiError(
+                respuesta.status,
+                detalle?.codigo ?? "error_http",
+                detalle?.mensaje ?? "No se pudo descargar el archivo.",
+            );
+        }
+        return respuesta.blob();
+    },
 };

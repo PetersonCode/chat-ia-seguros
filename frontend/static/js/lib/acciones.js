@@ -1,10 +1,11 @@
-import { formatearMonto } from "./formato.js?v=20261105burbujas1";
+import { formatearMonto } from "./formato.js?v=20261105fechas1";
 
 const tiposQueRequierenPoliza = new Set([
     "baja_poliza",
     "agregar_conductor",
     "modificar_poliza",
     "apertura_siniestro",
+    "registrar_pago",
 ]);
 
 function parametroFaltante(valor) {
@@ -59,6 +60,11 @@ export function describirAccion(accion) {
         }
         case "alta_poliza":
             return `Alta de póliza para ${parametros.marca ?? ""} ${parametros.modelo ?? ""} (${parametros.patente ?? "—"})`;
+        case "registrar_pago": {
+            const importe = formatearMonto(parametros.importe);
+            const monto = importe === "—" ? "" : ` de ${importe}`;
+            return `Registrar pago${monto} de la póliza ${numeroPoliza(accion)} (comprobante ${parametros.referencia ?? "—"})`;
+        }
         default:
             return "Acción pendiente";
     }
@@ -80,6 +86,7 @@ export function faltantes(accion) {
         alta_poliza: ["patente", "marca", "modelo", "anio", "clase", "uso", "compania_id",
             "cobertura", "fecha_inicio", "fecha_vencimiento", "prima_mensual"],
         baja_poliza: [],
+        registrar_pago: ["referencia"],
     };
     const requeridos = requeridosPorTipo[accion.tipo_accion] ?? [];
     const faltantesParametros = requeridos.filter((clave) => parametroFaltante(parametros[clave]));

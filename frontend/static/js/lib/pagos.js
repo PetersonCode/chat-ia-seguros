@@ -1,5 +1,5 @@
-import { api } from '../api.js?v=20261105burbujas1';
-import { formatearFecha, formatearMonto } from './formato.js?v=20261105burbujas1';
+import { api } from '../api.js?v=20261105fechas1';
+import { formatearFecha, formatearMonto } from './formato.js?v=20261105fechas1';
 
 /** Cobra la cuota más antigua con los mismos datos que valida el servidor. */
 export async function abrirRegistroPago(poliza, alGuardar) {

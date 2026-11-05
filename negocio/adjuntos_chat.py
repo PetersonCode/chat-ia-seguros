@@ -14,8 +14,8 @@ from django.db import DatabaseError, transaction
 from django.utils import timezone
 
 from datos.models import Mensaje, MensajeAdjunto
-from negocio.adjuntos_siniestros import AdjuntoInvalido, descargar_media_whatsapp
-from negocio.errores import NoEncontrado
+from negocio.adjuntos_siniestros import AdjuntoInvalido, DescargaMediaInvalida, descargar_media_whatsapp
+from negocio.errores import EstadoInvalido, NoEncontrado
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +58,52 @@ def _validar_contenido(contenido: bytes, mime: str) -> None:
         raise AdjuntoInvalido("El contenido no coincide con el tipo de imagen declarado.")
 
 
-def _nombre_archivo(tipo: str, extension: str) -> str:
-    ahora = timezone.localtime(timezone.now())
-    return f"{tipo}-{ahora:%Y%m%d-%H%M%S}.{extension}"
+def _nombre_archivo(tipo: str, extension: str, momento=None) -> str:
+    """`imagen-20261105-143012.jpg`: la fecha es la del mensaje, así el nombre no cambia."""
+    momento = timezone.localtime(momento or timezone.now())
+    return f"{tipo}-{momento:%Y%m%d-%H%M%S}.{extension}"
+
+
+def media_del_mensaje(mensaje: Mensaje) -> dict | None:
+    """Lo que el webhook dijo del archivo (imagen o video) de este mensaje, o `None`."""
+    if not isinstance(mensaje.payload, dict):
+        return None
+    for campo in CAMPOS_MEDIA:
+        if isinstance(mensaje.payload.get(campo), dict):
+            return mensaje.payload[campo]
+    return None
+
+
+def descripcion_del_archivo(mensaje: Mensaje) -> dict | None:
+    """Cómo mostrar el archivo de un mensaje en el chat, esté ya guardado o no.
+
+    Un mensaje con imagen o video siempre se ve como adjunto descargable: si
+    todavía no se bajó de Meta, se baja cuando alguien lo pide.
+    """
+    adjunto = getattr(mensaje, "adjunto_chat", None)
+    if adjunto is not None:
+        return {
+            "nombre": adjunto.nombre_archivo,
+            "content_type": adjunto.content_type,
+            "tipo": "video" if adjunto.content_type.startswith("video/") else "imagen",
+            "tamano": adjunto.tamano,
+            "guardado": True,
+            "texto": (media_del_mensaje(mensaje) or {}).get("caption") or "",
+        }
+    media = media_del_mensaje(mensaje)
+    if media is None:
+        return None
+    mime = str(media.get("mime_type") or "").lower().split(";")[0].strip()
+    extension, tipo = TIPOS.get(mime, ("jpg" if "image" in (mensaje.payload or {}) else "mp4",
+                                       "imagen" if "image" in (mensaje.payload or {}) else "video"))
+    return {
+        "nombre": _nombre_archivo(tipo, extension, mensaje.fecha_hora),
+        "content_type": mime or None,
+        "tipo": tipo,
+        "tamano": None,
+        "guardado": False,
+        "texto": media.get("caption") or "",
+    }
 
 
 def guardar_media_de_chat(mensaje_id: int) -> ResultadoGuardado:
@@ -105,7 +148,7 @@ def guardar_media_de_chat(mensaje_id: int) -> ResultadoGuardado:
             MensajeAdjunto.objects.create(
                 mensaje_id=mensaje.id,
                 clave_almacenamiento=clave,
-                nombre_archivo=_nombre_archivo(tipo, extension),
+                nombre_archivo=_nombre_archivo(tipo, extension, mensaje.fecha_hora),
                 content_type=mime,
                 tamano=len(contenido),
                 sha256=hashlib.sha256(contenido).hexdigest(),
@@ -122,7 +165,21 @@ def guardar_media_de_chat(mensaje_id: int) -> ResultadoGuardado:
 def abrir_adjunto_de_mensaje(mensaje_id: int):
     adjunto = MensajeAdjunto.objects.filter(mensaje_id=mensaje_id).first()
     if adjunto is None:
-        raise NoEncontrado("Este mensaje no tiene un archivo para descargar.")
+        mensaje = Mensaje.objects.filter(pk=mensaje_id).first()
+        if mensaje is None or media_del_mensaje(mensaje) is None:
+            raise NoEncontrado("Este mensaje no tiene un archivo para descargar.")
+        # Todavía no se bajó (el trabajo no corrió o falló): se baja ahora.
+        try:
+            guardar_media_de_chat(mensaje_id)
+        except (AdjuntoInvalido, DescargaMediaInvalida) as error:
+            logger.warning("No se pudo bajar a pedido el archivo del mensaje %s: %s", mensaje_id, error)
+            raise EstadoInvalido(
+                "No se pudo descargar el archivo desde WhatsApp. Probá de nuevo en un momento; "
+                "si pasaron más de 30 días, Meta ya no lo conserva."
+            ) from error
+        adjunto = MensajeAdjunto.objects.filter(mensaje_id=mensaje_id).first()
+        if adjunto is None:
+            raise NoEncontrado("Este mensaje no tiene un archivo para descargar.")
     storage = _storage()
     try:
         archivo = storage.open(adjunto.clave_almacenamiento, "rb")

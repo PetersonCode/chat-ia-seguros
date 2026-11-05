@@ -145,10 +145,12 @@ class _Respuesta:
     cotizacion: cotizacion.DatosCotizacion | None = None
     # Deriva (avisa y asigna al asesor) sin sacar al bot del chat.
     mantener_bot: bool = False
+    # Lo que se suma al motivo de la derivación (p. ej. el comprobante informado).
+    nota_motivo: str = ""
 
 
 # Flujos de varios pasos: los turnos seguidos del mismo flujo son un solo caso.
-FLUJOS_UN_CASO = frozenset({"alta_poliza", "cotizacion"})
+FLUJOS_UN_CASO = frozenset({"alta_poliza", "cotizacion", "pago"})
 
 
 def _consulta_del_flujo(conversacion, tipo_obj):
@@ -266,12 +268,11 @@ def _respuesta_vencimiento(cliente_id: int) -> _Respuesta:
     )
 
 
-def _respuesta_asistencia(cliente_id: int | None) -> _Respuesta:
-    """El teléfono de asistencia que le toca según la cobertura que contrató.
+def _telefonos_de_asistencia(cliente_id: int | None):
+    """`[(póliza, teléfono)]` de las pólizas automotor vigentes con grúa conocida.
 
-    El número es información de la empresa, pero *cuál* de los números le
-    corresponde sale de su póliza, así que se trata como un dato de la base:
-    sin póliza vigente el bot no elige un número al azar, deriva (R12).
+    Devuelve también las condiciones propias por póliza: con ellas el teléfono
+    sale del documento aprobado de esa póliza y no de la tabla por cobertura.
     """
     vigentes = list(polizas_vigentes(cliente_id).filter(tipo_seguro__codigo="automotor")) if cliente_id is not None else []
     from datos.models import CondicionesPoliza
@@ -287,6 +288,52 @@ def _respuesta_asistencia(cliente_id: int | None) -> _Respuesta:
             telefono = plantillas.TELEFONOS_ASISTENCIA.get(poliza.cobertura)
         if telefono:
             cubiertas.append((poliza, telefono))
+    return cubiertas, condiciones
+
+
+def _respuesta_siniestro(tipo: str, cliente_id: int | None) -> _Respuesta:
+    """Un cliente avisa un siniestro: se lo deriva y se le dice en el mismo mensaje.
+
+    Además del aviso de derivación lleva la grúa de su póliza (mismo dato que
+    contesta «asistencia») y el recordatorio de llamar a una ambulancia.
+    """
+    cubiertas, _ = _telefonos_de_asistencia(cliente_id)
+    if len(cubiertas) == 1:
+        poliza, telefono = cubiertas[0]
+        grua = plantillas.SINIESTRO_GRUA.format(numero_poliza=poliza.numero_poliza, telefono=telefono)
+    elif cubiertas:
+        grua = plantillas.SINIESTRO_GRUA_VARIAS.format(lineas="\n".join(
+            plantillas.LINEA_ASISTENCIA.format(
+                numero_poliza=poliza.numero_poliza, cobertura=poliza.cobertura, telefono=telefono)
+            for poliza, telefono in cubiertas))
+    else:
+        grua = plantillas.SINIESTRO_SIN_GRUA
+    urgente = tipo == "siniestro_urgente"
+    partes = [
+        plantillas.DERIVACION_URGENTE if urgente else plantillas.SINIESTRO_AVISO,
+        grua,
+        plantillas.SINIESTRO_AMBULANCIA,
+    ]
+    if not urgente:
+        partes.append(plantillas.SINIESTRO_EXPEDIENTE)
+    verificados = {poliza.numero_poliza for poliza, _ in cubiertas}
+    verificados.update(telefono for _, telefono in cubiertas)
+    verificados.update(plantillas.TELEFONOS_EMERGENCIA)
+    return _Respuesta(
+        "\n\n".join(partes),
+        datos_verificados=frozenset(verificados),
+        derivar_a=DERIVACION_POR_TIPO.get(tipo, DERIVACION_POR_DEFECTO),
+    )
+
+
+def _respuesta_asistencia(cliente_id: int | None) -> _Respuesta:
+    """El teléfono de asistencia que le toca según la cobertura que contrató.
+
+    El número es información de la empresa, pero *cuál* de los números le
+    corresponde sale de su póliza, así que se trata como un dato de la base:
+    sin póliza vigente el bot no elige un número al azar, deriva (R12).
+    """
+    cubiertas, condiciones = _telefonos_de_asistencia(cliente_id)
     if not cubiertas:
         return _Respuesta(plantillas.SIN_ASISTENCIA, derivar_a=DERIVACION_POR_DEFECTO)
 
@@ -339,6 +386,13 @@ def _respuesta_requiere_aprobacion(tipo: str, cliente_id: int | None, conversaci
         plantillas.SOLICITUD_REGISTRADA,
         accion=(ACCION_POR_TIPO[tipo], poliza_id, parametros),
     )
+
+
+TIPOS_SINIESTRO = frozenset({"siniestro", "siniestro_urgente"})
+
+
+def _es_cliente_registrado(contacto) -> bool:
+    return contacto is not None and contacto.cliente_id is not None
 
 
 def _respuesta_derivacion(tipo: str) -> _Respuesta:
@@ -424,6 +478,11 @@ def _armar_respuesta(
     from negocio.bot.clasificador import normalizar
     if tipo not in {'siniestro_urgente', 'siniestro'} and re.search(r'(?:seguro|poliza) (?:de |del )?(?:hogar|vida|comercio)|(?:la|el) de (?:hogar|vida|comercio)', normalizar(texto)):
         return _Respuesta('Actualmente trabajamos con seguros de autos y motos. Puedo ayudarte con sus coberturas, pagos o siniestros.')
+    if tipo in TIPOS_SINIESTRO and not _es_cliente_registrado(contacto):
+        # Quien no es cliente nunca se deriva por un choque, ni urgente.
+        return _Respuesta(plantillas.SINIESTRO_SIN_CLIENTE)
+    if tipo in TIPOS_SINIESTRO:
+        return _respuesta_siniestro(tipo, cliente_id)
     if tipo == "consulta_cobertura":
         return _respuesta_documental(texto, conversacion)
     # El alta de cliente es `requiere_aprobacion` pero no se puede pedir sin
@@ -452,8 +511,6 @@ def _armar_respuesta(
         return responder(texto, historial_roles, llm)
     if tipo == "ajeno":
         return _Respuesta(plantillas.FUERA_DE_TEMA)
-    if tipo == "siniestro":
-        return _Respuesta(plantillas.SINIESTRO_INSTRUCCIONES, derivar_a=DERIVACION_POR_DEFECTO)
     if tipo == "asistencia":
         # Va antes del corte por cliente: tiene su propio aviso cuando no hay
         # una póliza de la que sacar el número.
@@ -861,11 +918,12 @@ def _puede_registrarse(tipo: str, politica: str, contacto) -> bool:
     no hay nada que registrarle. Y nunca por encima de `siniestro_urgente`, que
     no puede quedar esperando a que alguien complete un formulario, ni de la
     política de seguridad, que a un intento de inyección le contesta el rechazo
-    y nada más.
+    y nada más. Tampoco en un choque: a un desconocido no se lo deriva por un
+    siniestro, así que no hay alta previa que pedirle.
     """
     if contacto is None or contacto.cliente_id is not None:
         return False
-    if tipo == "siniestro_urgente":
+    if tipo in TIPOS_SINIESTRO:
         return False
     return politica != Politica.SEGURIDAD
 
@@ -931,6 +989,80 @@ def _respuesta_registro(conversacion, contacto) -> _Respuesta:
         texto_al_derivar=plantillas.DERIVACION,
         contacto=contacto,
         derivar=False,
+    )
+
+
+def _respuesta_pago_informado(
+    texto: str, *, tipo_por_reglas: str, conversacion, cliente_id: int | None
+) -> _Respuesta | None:
+    """«Pagué», «transferí»…: pide la referencia del comprobante y deja el pago para aprobar.
+
+    `None` si el turno no es de esto: no avisa un pago ni hay un pedido de
+    referencia en curso, o quien escribe no es cliente (sin póliza no hay pago
+    que registrar; sigue el camino de siempre). Con un pedido en curso, un
+    mensaje sin referencia que se entiende como otra cosa («¿cuál es mi
+    saldo?») también sigue su camino: el cliente cambió de tema.
+    """
+    from negocio.bot import pago_informado
+
+    pedidos = pago_informado.pedidos_en_curso(conversacion.id)
+    declara = pago_informado.declara_pago(texto)
+    if (not pedidos and not declara) or cliente_id is None:
+        return None
+    referencia = pago_informado.extraer_referencia(texto, en_pedido=bool(pedidos))
+    if referencia is None:
+        if pedidos and not declara and tipo_por_reglas not in {"otro", "pago"}:
+            return None
+        if pedidos >= pago_informado.MAX_PEDIDOS:
+            return _Respuesta(plantillas.PAGO_SIN_REFERENCIA, derivar_a=DERIVACION_POR_DEFECTO)
+        return _Respuesta(
+            plantillas.PEDIDO_COMPROBANTE_REVISAR if pedidos else plantillas.PEDIDO_COMPROBANTE
+        )
+    return _pago_con_referencia(referencia, cliente_id=cliente_id, conversacion=conversacion)
+
+
+def _pago_con_referencia(referencia: str, *, cliente_id: int, conversacion) -> _Respuesta:
+    """Deja la acción `registrar_pago` sobre la cuota impaga más vieja del cliente."""
+    from datos.models import Cuota, Pago
+    from negocio.polizas import CUOTAS_IMPAGAS
+
+    verificados = frozenset({referencia})
+    ya_pagado = Pago.objects.filter(referencia=referencia, cuota__poliza__cliente_id=cliente_id).exists()
+    ya_pedido = AccionPendiente.objects.filter(
+        consulta__conversacion=conversacion,
+        tipo_accion=TipoAccion.REGISTRAR_PAGO,
+        estado=EstadoAccion.PENDIENTE,
+        parametros__referencia=referencia,
+    ).exists()
+    if ya_pagado or ya_pedido:
+        return _Respuesta(
+            plantillas.PAGO_YA_INFORMADO.format(referencia=referencia),
+            datos_verificados=verificados,
+        )
+    impagas = Cuota.objects.filter(
+        poliza__cliente_id=cliente_id, estado__in=CUOTAS_IMPAGAS
+    ).select_related("poliza")
+    cuota = impagas.order_by("vencimiento", "periodo", "id").first()
+    if cuota is None:
+        return _Respuesta(
+            plantillas.PAGO_SIN_CUOTAS.format(referencia=referencia),
+            derivar_a=DERIVACION_POR_DEFECTO,
+            datos_verificados=verificados,
+            nota_motivo=f"Comprobante informado por el cliente: {referencia}.",
+        )
+    parametros = {"referencia": referencia, "importe": str(cuota.importe)}
+    otras = sorted(set(
+        impagas.exclude(poliza_id=cuota.poliza_id).values_list("poliza__numero_poliza", flat=True)
+    ))
+    if otras:
+        parametros["aclaracion"] = (
+            "El cliente tiene cuotas impagas también en " + ", ".join(otras)
+            + ": se tomó la de vencimiento más antiguo."
+        )
+    return _Respuesta(
+        plantillas.PAGO_INFORMADO.format(referencia=referencia),
+        accion=(TipoAccion.REGISTRAR_PAGO, cuota.poliza_id, parametros),
+        datos_verificados=verificados,
     )
 
 
@@ -1127,11 +1259,24 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
     ][-MAX_HISTORIAL:]
 
     tipo_por_reglas = clasificar_por_reglas(texto)
+    # «Pagué», «transferí» o la referencia que el bot pidió: se resuelve antes
+    # que todo lo demás, salvo una inyección o un siniestro.
+    respuesta_pago = None
+    if (
+        not alertas_entrada
+        # «Pagué y me sigue figurando deuda» es un reclamo, no un aviso de pago.
+        and tipo_por_reglas not in {"siniestro_urgente", "siniestro", "baja_avisos", "reclamo"}
+        and not pide_un_humano(texto)
+    ):
+        respuesta_pago = _respuesta_pago_informado(
+            texto, tipo_por_reglas=tipo_por_reglas, conversacion=conversacion, cliente_id=cliente_id
+        )
     # «¿Qué seguros/compañías tienen?», «¿qué planes tiene Litoral?»: la lista,
     # sin el detalle. Un siniestro o un pedido de asesor nunca se quedan acá.
     respuesta_catalogo = None
     if (
-        not alertas_entrada
+        respuesta_pago is None
+        and not alertas_entrada
         and tipo_por_reglas not in {"siniestro_urgente", "siniestro", "baja", "reclamo"}
         and not pide_un_humano(texto)
     ):
@@ -1141,16 +1286,18 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
     alta_preparada = None
     from negocio.bot.alta_poliza import preparar_turno, quiere_alta
     cotizacion_en_curso = cotizacion.datos_de_la_cotizacion(conversacion.id).intentos > 0
-    if respuesta_catalogo is None and not cotizacion_en_curso and not alertas_entrada and tipo_por_reglas not in {'baja_avisos','encuesta_respuesta','credencial','siniestro_urgente','siniestro','baja','reclamo'} and (tipo_por_reglas != 'modificacion' or quiere_alta(texto)) and not pide_un_humano(texto):
+    if respuesta_pago is None and respuesta_catalogo is None and not cotizacion_en_curso and not alertas_entrada and tipo_por_reglas not in {'baja_avisos','encuesta_respuesta','credencial','siniestro_urgente','siniestro','baja','reclamo'} and (tipo_por_reglas != 'modificacion' or quiere_alta(texto)) and not pide_un_humano(texto):
         alta_preparada = preparar_turno(texto, conversacion, max(previo.id for previo in agrupados))
         if alta_preparada:
             tipo_por_reglas = 'alta_poliza'
     from negocio.coberturas import es_seleccion
-    if not alta_preparada and not alertas_entrada and tipo_por_reglas not in {"siniestro_urgente", "siniestro", "baja", "modificacion", "reclamo"} and es_seleccion(texto, conversacion):
+    if respuesta_pago is None and not alta_preparada and not alertas_entrada and tipo_por_reglas not in {"siniestro_urgente", "siniestro", "baja", "modificacion", "reclamo"} and es_seleccion(texto, conversacion):
         tipo_por_reglas = "consulta_cobertura"
     if alertas_entrada:
         # AC-T3-32: con inyección no se llama al LLM y se responde el rechazo.
         tipo = "prompt_injection"
+    elif respuesta_pago is not None:
+        tipo = "pago"
     elif respuesta_catalogo is not None:
         tipo = "consulta_cobertura"
     elif tipo_por_reglas in PRIORIDAD_REGLAS:
@@ -1172,6 +1319,8 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
         # Nunca se deriva: a la tercera, el número queda ignorado (ver
         # `ignorar_si_bloqueado`), pero no pasa a una persona.
         respuesta = _Respuesta(plantillas.RECHAZO_SEGURIDAD)
+    elif respuesta_pago is not None:
+        respuesta = respuesta_pago
     elif respuesta_catalogo is not None:
         respuesta = _Respuesta(respuesta_catalogo)
     elif alta_preparada:
@@ -1216,6 +1365,10 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
                 conversacion=conversacion,
                 contacto=contacto,
             )
+
+    # Toda derivación se avisa en el mismo mensaje, diga lo que diga el resto.
+    if respuesta.derivar_a is not None:
+        respuesta.texto = plantillas.con_aviso_de_derivacion(respuesta.texto)
 
     anterior_bot = Mensaje.objects.filter(conversacion=conversacion, direccion='saliente', emisor='bot', estado_envio__in=['enviado','entregado','leido']).order_by('-id').first()
     if anterior_bot and tipo == 'saludo' and plantillas.es_repeticion(respuesta.texto, anterior_bot.texto):
@@ -1343,8 +1496,17 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
                     motivo = f"{motivo} {respuesta.datos_registro.resumen()}"
                 if nota_cotizacion:
                     motivo = f"{motivo} {nota_cotizacion}"
+                if respuesta.nota_motivo:
+                    motivo = f"{motivo} {respuesta.nota_motivo}"
                 derivar(consulta.id, funcionario.id, prioridad, motivo=motivo,
                         mantener_bot=respuesta.mantener_bot)
+                if tipo == "siniestro_urgente":
+                    # Un siniestro grave queda también como alerta crítica, para seguirlo.
+                    _crear_alertas(consulta, [AlertaDetectada(
+                        tipo="siniestro_grave",
+                        severidad="critica",
+                        descripcion=f"Siniestro grave derivado a {funcionario.nombre}: requiere atención inmediata.",
+                    )], saliente)
             else:
                 logger.warning("No hay aprobador activo para derivar la consulta %s.", consulta.id)
 

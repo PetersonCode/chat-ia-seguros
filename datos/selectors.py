@@ -56,6 +56,14 @@ from datos.models import (
 )
 
 _ALERTAS_ABIERTAS = (EstadoAlerta.ABIERTA, EstadoAlerta.EN_REVISION)
+# Un caso cerrado solo se ve en «Casos cerrados»: sus alertas y derivaciones
+# salen de las listas de trabajo (alertas, contadores, bandeja, derivaciones).
+# No se tocan en la base, así que si el caso se reabre vuelven a aparecer.
+_CASOS_NO_CERRADOS = (
+    EstadoConsulta.ABIERTO,
+    EstadoConsulta.PENDIENTE_REVISION,
+    EstadoConsulta.DERIVADO,
+)
 # Un interesado deja de estar abierto al emitirse la póliza o al perderse.
 _INTERESADO_CERRADO = (EstadoInteresado.EMITIDA, EstadoInteresado.PERDIDA)
 
@@ -193,7 +201,7 @@ def siniestro_por_numero(numero: str) -> Siniestro | None:
     return Siniestro.objects.filter(numero_siniestro=numero).first()
 
 
-def siniestros(estado: str | None = None) -> QuerySet[Siniestro]:
+def siniestros(estado: str | None = None, q: str | None = None) -> QuerySet[Siniestro]:
     historial = HistorialSiniestro.objects.select_related("responsable").order_by(
         "fecha", "id"
     )
@@ -203,6 +211,12 @@ def siniestros(estado: str | None = None) -> QuerySet[Siniestro]:
     )
     if estado:
         siniestros = siniestros.filter(estado=estado)
+    if q and q.strip():
+        siniestros = filtrar_cartera(siniestros, q, (
+            "numero_siniestro", "descripcion", "poliza__numero_poliza",
+            "poliza__cliente__nombre", "poliza__cliente__apellido", "poliza__cliente__dni",
+            "poliza__vehiculo__patente", "poliza__vehiculo__marca", "poliza__vehiculo__modelo",
+        ))
     return siniestros.order_by("-creado_en", "-id")
 
 
@@ -259,7 +273,8 @@ def bandeja_contactos(*, vista='atencion', **filtros):
         abierta_primero=Case(When(estado='abierta', then=Value(0)), default=Value(1))
     ).order_by('abierta_primero','-creada_en','-id').values('id')[:1]
     base = bandeja(**filtros).filter(pk=Subquery(ultima)).annotate(
-        derivacion_pendiente=Exists(Derivacion.objects.filter(consulta__conversacion_id=OuterRef('pk'),atendida_en__isnull=True))
+        derivacion_pendiente=Exists(Derivacion.objects.filter(consulta__conversacion_id=OuterRef('pk'),atendida_en__isnull=True,
+            consulta__estado__in=_CASOS_NO_CERRADOS))
     )
     necesita = Q(estado='abierta') & (Q(retenidas__gt=0) | (Q(ultimo_emisor_atencion='cliente',modo='humano')) | (Q(derivacion_pendiente=True) & ~Q(ultimo_emisor_atencion='funcionario')))
     grupos = {
@@ -294,33 +309,41 @@ def bandeja(
         derivacion_urgente=Exists(
             Derivacion.objects.filter(
                 consulta__conversacion_id=OuterRef("pk"),
+                consulta__estado__in=_CASOS_NO_CERRADOS,
                 prioridad=Prioridad.URGENTE,
                 atendida_en__isnull=True,
             )
         ),
         alertas_abiertas=Count(
             "consultas__alertas",
-            filter=Q(consultas__alertas__estado__in=_ALERTAS_ABIERTAS),
+            filter=Q(
+                consultas__estado__in=_CASOS_NO_CERRADOS,
+                consultas__alertas__estado__in=_ALERTAS_ABIERTAS,
+            ),
             distinct=True,
         ),
         severidad_rango=Max(
             Case(
                 When(
+                    consultas__estado__in=_CASOS_NO_CERRADOS,
                     consultas__alertas__estado__in=_ALERTAS_ABIERTAS,
                     consultas__alertas__severidad=Severidad.CRITICA,
                     then=Value(4),
                 ),
                 When(
+                    consultas__estado__in=_CASOS_NO_CERRADOS,
                     consultas__alertas__estado__in=_ALERTAS_ABIERTAS,
                     consultas__alertas__severidad=Severidad.ALTA,
                     then=Value(3),
                 ),
                 When(
+                    consultas__estado__in=_CASOS_NO_CERRADOS,
                     consultas__alertas__estado__in=_ALERTAS_ABIERTAS,
                     consultas__alertas__severidad=Severidad.MEDIA,
                     then=Value(2),
                 ),
                 When(
+                    consultas__estado__in=_CASOS_NO_CERRADOS,
                     consultas__alertas__estado__in=_ALERTAS_ABIERTAS,
                     consultas__alertas__severidad=Severidad.BAJA,
                     then=Value(1),
@@ -399,7 +422,9 @@ def listar_alertas(
     severidad: str | None = None,
     estado: str | None = "abierta",
 ) -> QuerySet[Alerta]:
-    alertas = Alerta.objects.select_related("consulta")
+    alertas = Alerta.objects.select_related("consulta").filter(
+        consulta__estado__in=_CASOS_NO_CERRADOS
+    )
     if tipo is not None:
         alertas = alertas.filter(tipo=tipo)
     if severidad is not None:
@@ -409,11 +434,23 @@ def listar_alertas(
     return alertas.order_by("-creada_en", "-id")
 
 
-def consultas_cerradas(*, con_alertas: bool = False) -> QuerySet[ConsultaBot]:
-    """Casos cerrados; con `con_alertas`, solo los que aún tienen alertas abiertas."""
+def consultas_cerradas(*, con_alertas: bool = False, q: str | None = None) -> QuerySet[ConsultaBot]:
+    """Casos cerrados; con `con_alertas`, solo los que aún tienen alertas abiertas.
+
+    `q` busca por código de caso, número, nombre, apellido o DNI del cliente,
+    tipo de consulta y lo que escribió el cliente.
+    """
     if not con_alertas:
-        return ConsultaBot.objects.filter(estado=EstadoConsulta.CERRADO).order_by('-fecha_hora', '-id')
-    return consultas_cerradas_con_alertas()
+        casos = ConsultaBot.objects.filter(estado=EstadoConsulta.CERRADO).order_by('-fecha_hora', '-id')
+    else:
+        casos = consultas_cerradas_con_alertas()
+    if q and q.strip():
+        casos = filtrar_cartera(casos, q, (
+            'codigo_caso', 'contacto__numero', 'contacto__cliente__nombre',
+            'contacto__cliente__apellido', 'contacto__cliente__dni',
+            'tipo_consulta__nombre', 'mensaje_usuario',
+        ))
+    return casos
 
 
 def consultas_cerradas_con_alertas() -> QuerySet[ConsultaBot]:
@@ -471,7 +508,9 @@ def derivaciones_de(
     if funcionario_id is not None:
         derivaciones = derivaciones.filter(derivado_a_id=funcionario_id)
     if not incluir_atendidas:
-        derivaciones = derivaciones.filter(atendida_en__isnull=True)
+        derivaciones = derivaciones.filter(
+            atendida_en__isnull=True, consulta__estado__in=_CASOS_NO_CERRADOS
+        )
     return derivaciones.annotate(
         orden_prioridad=Case(
             When(prioridad=Prioridad.URGENTE, then=Value(0)),
@@ -803,24 +842,24 @@ def detalle_poliza(poliza_id: int) -> Poliza:
     )
     resumen = getattr(poliza, "vpolizaresumen", None)
     poliza.saldo_pendiente = resumen.saldo_pendiente if resumen else None
+    poliza.saldo_total = resumen.saldo_total if resumen else None
     poliza.proximo_vencimiento_pago = (
         resumen.proximo_vencimiento_pago if resumen else None
     )
     return poliza
 
 
-def contar_pendientes(funcionario_id: int) -> dict[str, int]:
+def contar_pendientes(funcionario_id: int, ve_todas: bool = False) -> dict[str, int]:
+    """`ve_todas`: administrador y propietario ven (y cuentan) las derivaciones de todos."""
     return {
         "acciones": AccionPendiente.objects.filter(
             estado__in=(EstadoAccion.PENDIENTE, EstadoAccion.APROBADA)
         ).count(),
-        "derivaciones": Derivacion.objects.filter(
-            derivado_a_id=funcionario_id,
-            atendida_en__isnull=True,
-        ).count(),
+        "derivaciones": derivaciones_de(None if ve_todas else funcionario_id).count(),
         "alertas_criticas": Alerta.objects.filter(
             estado__in=_ALERTAS_ABIERTAS,
             severidad=Severidad.CRITICA,
+            consulta__estado__in=_CASOS_NO_CERRADOS,
         ).count(),
     }
 

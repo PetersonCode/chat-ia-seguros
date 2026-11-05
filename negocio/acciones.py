@@ -67,9 +67,12 @@ PARAMETROS_REQUERIDOS = {
     TipoAccion.ALTA_CLIENTE: ("nombre", "apellido", "dni", "telefono"),
     TipoAccion.ALTA_POLIZA: ('patente', 'marca', 'modelo', 'anio', 'clase', 'uso',
         'compania_id', 'cobertura', 'fecha_inicio', 'fecha_vencimiento', 'prima_mensual'),
+    # El importe lo pone el bot (la cuota impaga más vieja); si falta, se toma
+    # el de esa cuota al aprobar.
+    TipoAccion.REGISTRAR_PAGO: ("referencia",),
 }
 # Acciones que no se pueden ejecutar sin una póliza concreta.
-REQUIEREN_POLIZA = {TipoAccion.BAJA_POLIZA, TipoAccion.AGREGAR_CONDUCTOR}
+REQUIEREN_POLIZA = {TipoAccion.BAJA_POLIZA, TipoAccion.AGREGAR_CONDUCTOR, TipoAccion.REGISTRAR_PAGO}
 
 
 def _aprobador(funcionario_id: int) -> Funcionario:
@@ -137,6 +140,9 @@ def solicitar_accion(
         )
         if tipo == TipoAccion.ALTA_POLIZA:
             existentes = existentes.filter(parametros__borrador_alta_id=(parametros or {}).get('borrador_alta_id'))
+        if tipo == TipoAccion.REGISTRAR_PAGO:
+            # Dos comprobantes distintos son dos pagos, no el mismo pedido.
+            existentes = existentes.filter(parametros__referencia=(parametros or {}).get('referencia'))
     else:
         existentes = existentes.filter(consulta_id=consulta_id)
     repetida = existentes.order_by("id").first()
@@ -311,6 +317,35 @@ def _ejecutar(accion: AccionPendiente, funcionario: Funcionario) -> bool:
         from negocio.altas_chat import ejecutar_alta_poliza
         ejecutar_alta_poliza(accion, funcionario)
 
+    elif tipo == TipoAccion.REGISTRAR_PAGO:
+        # El mismo registro que desde el panel: cobro completo de la cuota
+        # impaga más vieja, idempotente por referencia. Si el importe no
+        # coincide o no quedan cuotas, falla y la aprobación se revierte.
+        from negocio.polizas import CUOTAS_IMPAGAS, registrar_pago
+
+        cliente_id = _cliente_validado_para_accion(accion)
+        if not Poliza.objects.filter(pk=accion.poliza_id, cliente_id=cliente_id).exists():
+            raise DatosInvalidos("La póliza del pago no pertenece al cliente vinculado.")
+        importe = parametros.get("importe")
+        if importe in (None, ""):
+            from datos.models import Cuota
+
+            cuota = (
+                Cuota.objects.filter(poliza_id=accion.poliza_id, estado__in=CUOTAS_IMPAGAS)
+                .order_by("periodo", "id")
+                .first()
+            )
+            if cuota is None:
+                raise EstadoInvalido("La póliza no tiene cuotas pendientes de pago.")
+            importe = cuota.importe
+        pago = registrar_pago(
+            accion.poliza_id,
+            referencia=str(parametros["referencia"]),
+            importe=importe,
+            funcionario_id=funcionario.id,
+        )
+        accion.parametros = {**parametros, "importe": str(pago.importe)}
+
     elif tipo in (TipoAccion.REEMBOLSO, TipoAccion.MODIFICAR_POLIZA):
         return False
 
@@ -339,6 +374,8 @@ def _descripcion(accion: AccionPendiente) -> str:
         return "alta como cliente"
     if accion.tipo_accion == TipoAccion.ALTA_POLIZA:
         return f'alta de la póliza {numero}'
+    if accion.tipo_accion == TipoAccion.REGISTRAR_PAGO:
+        return f"registro del pago de la póliza {numero} (comprobante {parametros.get('referencia', '-')})"
     if accion.tipo_accion == TipoAccion.APERTURA_SINIESTRO:
         return (
             "denuncia de siniestro "

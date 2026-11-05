@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261105burbujas1";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105burbujas1";
-import { armarQuery } from "../lib/consulta.js?v=20261105burbujas1";
-import { describirAccion, faltantes } from "../lib/acciones.js?v=20261105burbujas1";
-import { formatearFechaHora } from "../lib/formato.js?v=20261105burbujas1";
-import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105burbujas1";
+import { api } from "../api.js?v=20261105fechas1";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105fechas1";
+import { armarQuery } from "../lib/consulta.js?v=20261105fechas1";
+import { describirAccion, faltantes } from "../lib/acciones.js?v=20261105fechas1";
+import { formatearFechaHora } from "../lib/formato.js?v=20261105fechas1";
+import { crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105fechas1";
 
 const estado = document.getElementById("estado-acciones");
 const carga = document.getElementById("carga-acciones");
@@ -72,7 +72,14 @@ const etiquetasParametros = {
     fecha_ocurrencia: "Fecha de ocurrencia",
     descripcion: "Descripción del siniestro",
     poliza: "Número de póliza",
+    referencia: "Referencia del comprobante",
+    aclaracion: "Aclaración",
 };
+
+function etiquetaParametro(accion, clave) {
+    if (clave === "importe" && accion.tipo_accion === "registrar_pago") return "Importe de la cuota";
+    return etiquetasParametros[clave] ?? clave;
+}
 
 function mostrarEstado(mensaje, error = false) {
     estado.textContent = mensaje;
@@ -234,7 +241,7 @@ function renderizarDetalle(accion) {
         if (['borrador_alta_id', 'cliente_id', 'compania_id', 'plan_id'].includes(clave)) continue;
         const termino = document.createElement("dt");
         termino.className = "col-sm-5";
-        termino.textContent = etiquetasParametros[clave] ?? clave;
+        termino.textContent = etiquetaParametro(accion, clave);
         const definicion = document.createElement("dd");
         definicion.className = "col-sm-7";
         definicion.textContent = clave === 'plan_condiciones' ? Object.entries(valor || {}).map(([k,v]) => `${({cubre:'Cubre',no_cubre:'No cubre',limites:'Límites',asistencia:'Asistencia'})[k] || k}: ${v || 'No informado.'}`).join('\n') : valorLegible(valor);
