@@ -754,3 +754,152 @@ def contar_pendientes(funcionario_id: int) -> dict[str, int]:
             severidad=Severidad.CRITICA,
         ).count(),
     }
+
+
+# --- Métricas del panel ---------------------------------------------------
+
+from django.db.models import Avg, DurationField, ExpressionWrapper  # noqa: E402
+from datos.models import Direccion, Emisor  # noqa: E402
+
+
+# Ramo al que se atribuye cada tipo de consulta en el panel de métricas.
+# El alcance actual es solo automotor: lo que no figura acá cuenta como
+# automotor. Para mover un tipo de ramo, basta con editar estos conjuntos.
+TIPOS_ACCIDENTES = frozenset({"siniestro", "siniestro_urgente"})
+TIPOS_OTROS = frozenset(
+    {
+        "saludo",
+        "agradecimiento",
+        "ajeno",
+        "otro",
+        "prompt_injection",
+        "baja_avisos",
+        "credencial",
+        "encuesta_respuesta",
+    }
+)
+RAMOS_METRICAS = (
+    ("automotor", "Seguros de Automotor"),
+    ("accidentes", "Seguros de Accidentes"),
+    ("otros", "Otros / Consultas Generales"),
+)
+
+
+def _ramo_de_tipo(codigo: str) -> str:
+    if codigo in TIPOS_ACCIDENTES:
+        return "accidentes"
+    if codigo in TIPOS_OTROS:
+        return "otros"
+    return "automotor"
+
+
+def _limites_del_periodo(desde, hasta):
+    zona = timezone.get_current_timezone()
+    inicio = timezone.make_aware(datetime.combine(desde, time.min), zona)
+    fin = timezone.make_aware(datetime.combine(hasta, time.max), zona)
+    return inicio, fin
+
+
+def _porcentaje(parte: int, total: int) -> float | None:
+    if not total:
+        return None
+    return round(parte * 100 / total, 1)
+
+
+def _resumen_consultas(desde, hasta) -> dict:
+    inicio, fin = _limites_del_periodo(desde, hasta)
+    consultas = ConsultaBot.objects.filter(fecha_hora__gte=inicio, fecha_hora__lte=fin)
+    derivadas = Derivacion.objects.filter(consulta=OuterRef("pk"))
+    return consultas.aggregate(
+        total=Count("id"),
+        derivadas=Count("id", filter=Q(Exists(derivadas))),
+    )
+
+
+def metricas_panel(desde, hasta) -> dict:
+    """Indicadores del panel de métricas para el período [desde, hasta].
+
+    Todo se calcula con las consultas cuya `fecha_hora` cae en el período:
+    - efectividad: consultas sin ninguna derivación sobre el total.
+    - derivadas: consultas con al menos una derivación a una persona.
+    - tiempo de respuesta: del mensaje del cliente a la respuesta automática
+      del bot (`respuesta_a`), en minutos.
+    - ramos: cada tipo de consulta se atribuye a un ramo (ver `_ramo_de_tipo`).
+    - motivos: texto de `Derivacion.motivo` de esas consultas, más frecuentes primero.
+    La variación compara con el período inmediato anterior de igual duración.
+    """
+    inicio, fin = _limites_del_periodo(desde, hasta)
+    actual = _resumen_consultas(desde, hasta)
+    total = actual["total"]
+    derivadas = actual["derivadas"]
+
+    dias = (hasta - desde).days + 1
+    hasta_anterior = desde - timedelta(days=1)
+    desde_anterior = hasta_anterior - timedelta(days=dias - 1)
+    total_anterior = _resumen_consultas(desde_anterior, hasta_anterior)["total"]
+    variacion = (
+        round((total - total_anterior) * 100 / total_anterior, 1)
+        if total_anterior
+        else None
+    )
+
+    demora = ExpressionWrapper(
+        F("fecha_hora") - F("respuesta_a__fecha_hora"), output_field=DurationField()
+    )
+    promedio = (
+        Mensaje.objects.filter(
+            emisor=Emisor.BOT,
+            direccion=Direccion.SALIENTE,
+            respuesta_a__isnull=False,
+            respuesta_a__fecha_hora__gte=inicio,
+            respuesta_a__fecha_hora__lte=fin,
+        )
+        .annotate(demora=demora)
+        .filter(demora__gte=timedelta(0))
+        .aggregate(promedio=Avg("demora"))["promedio"]
+    )
+
+    por_tipo = (
+        ConsultaBot.objects.filter(fecha_hora__gte=inicio, fecha_hora__lte=fin)
+        .values("tipo_consulta__codigo")
+        .annotate(cantidad=Count("id"))
+    )
+    por_ramo = {codigo: 0 for codigo, _ in RAMOS_METRICAS}
+    for fila in por_tipo:
+        por_ramo[_ramo_de_tipo(fila["tipo_consulta__codigo"])] += fila["cantidad"]
+
+    motivos = list(
+        Derivacion.objects.filter(
+            consulta__fecha_hora__gte=inicio, consulta__fecha_hora__lte=fin
+        )
+        .values("motivo")
+        .annotate(cantidad=Count("id"))
+        .order_by("-cantidad", "motivo")
+    )
+    total_derivaciones = sum(fila["cantidad"] for fila in motivos)
+
+    return {
+        "consultas": {"total": total, "variacion_pct": variacion},
+        "efectividad_pct": _porcentaje(total - derivadas, total),
+        "derivadas": derivadas,
+        "tiempo_respuesta_min": (
+            round(promedio.total_seconds() / 60, 1) if promedio is not None else None
+        ),
+        "ramos": [
+            {
+                "codigo": codigo,
+                "nombre": nombre,
+                "cantidad": por_ramo[codigo],
+                "porcentaje": _porcentaje(por_ramo[codigo], total) or 0,
+            }
+            for codigo, nombre in RAMOS_METRICAS
+        ],
+        "motivos_derivacion": [
+            {
+                "motivo": fila["motivo"],
+                "cantidad": fila["cantidad"],
+                "porcentaje": _porcentaje(fila["cantidad"], total_derivaciones) or 0,
+            }
+            for fila in motivos[:6]
+        ],
+    }
