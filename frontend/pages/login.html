@@ -1,43 +1,37 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es-AR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ingresar | Seguros Castaño</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="/static/css/app.css?v=20261104gestion2">
-    <link rel="stylesheet" href="/static/css/tema.css?v=20261105revision1">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#102b3e"><meta name="robots" content="noindex,nofollow">
+<title>Ingresar | Seguros Castaño</title>
+<link rel="icon" href="/static/img/logo-castano.png">
+<link rel="stylesheet" href="/static/css/login.css?v=20261105identidad1">
 </head>
-<body class="pagina-login">
-    <nav id="nav" aria-label="Navegación principal"></nav>
-    <main class="container py-5">
-        <section class="card login-card shadow-sm mx-auto" aria-labelledby="titulo-login">
-            <div class="card-body p-4 p-md-5">
-               <header class="text-center mb-4">
-    <a class="login-logo" href="https://beelyora.com/castano-page" target="_blank" rel="noopener noreferrer"
-        title="Sitio web de Seguros Castaño">
-        <img src="/static/img/logo-castano.png?v=20261104gestion2" width="112" height="112"
-            alt="Seguros Castaño: ir al sitio web (se abre en una pestaña nueva)">
-    </a>
-    <h1 id="titulo-login" class="visually-hidden">Seguros Castaño</h1>
-    <p class="text-muted mt-3 mb-0">Ingresá al panel de supervisión</p>
-</header>
-                <p id="mensaje-login" class="alert alert-danger d-none" role="alert" aria-live="polite"></p>
-                <form id="formulario-login">
-                    <div class="mb-3">
-                        <label for="email" class="form-label">Correo electrónico</label>
-                        <input id="email" name="email" type="email" class="form-control" autocomplete="username" required>
-                    </div>
-                    <div class="mb-4">
-                        <label for="password" class="form-label">Contraseña</label>
-                        <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required>
-                    </div>
-                    <button id="boton-ingresar" class="btn btn-primary w-100" type="submit">Ingresar</button>
-                </form>
-            </div>
-        </section>
-    </main>
-    <script type="module" src="/static/js/pages/login.js?v=20261105revision9"></script>
-</body>
-</html>
+<body>
+<a class="saltar" href="#email">Ir al formulario de acceso</a>
+<main class="acceso">
+<section class="presentacion" aria-labelledby="titulo-login">
+<a class="marca" href="https://beelyora.com/castano-page" target="_blank" rel="noopener noreferrer" aria-label="Sitio web de Seguros Castaño (se abre en una pestaña nueva)">
+<img src="/static/img/logo-castano.png" width="58" height="58" alt=""><span><strong>SEGUROS CASTAÑO</strong><small>CERCA TUYO, EN CADA CAMINO</small></span></a>
+<div class="bienvenida"><p class="etiqueta"><span></span> ESPACIO DEL EQUIPO</p>
+<h1 id="titulo-login">Tu agencia,<br><em>en marcha.</em></h1>
+<p class="bajada">Cada consulta, cada vehículo y cada cliente.<br>Todo conectado para acompañar mejor.</p>
+<div class="escena"><div class="orbita"></div><img class="auto" src="/static/img/login-auto.svg" alt="" width="1040" height="520"><span class="sello"><span class="check">✓</span> La tranquilidad de estar cerca</span></div>
+</div>
+<footer class="pie-marca"><span>Autos y motos</span><span>Atención cercana. Gestión simple.</span></footer>
+</section>
+<section class="formulario" aria-labelledby="titulo-formulario">
+<div class="formulario-interior"><p class="paso">PANEL DE GESTIÓN</p><h2 id="titulo-formulario">Qué bueno verte.</h2><p class="introduccion">Ingresá con tu cuenta para continuar con lo de hoy.</p>
+<p id="mensaje-login" class="aviso d-none" role="alert" aria-live="polite"></p>
+<form id="formulario-login">
+<div class="campo"><label for="email">Correo electrónico</label><input id="email" name="email" type="email" autocomplete="username" placeholder="tu.nombre@agencia.com" required></div>
+<div class="campo"><label for="password">Contraseña</label><input id="password" name="password" type="password" autocomplete="current-password" placeholder="Ingresá tu contraseña" required></div>
+<button id="boton-ingresar" type="submit">Ingresar al panel <span aria-hidden="true">→</span></button>
+</form>
+<p class="ayuda">¿Necesitás acceso? Consultá al responsable de la agencia.</p>
+<div class="nota-equipo"><span class="simbolo" aria-hidden="true">◇</span><div><strong>Un equipo, todo conectado.</strong><p>Conversaciones, pólizas y próximos pasos en un mismo lugar.</p></div></div>
+</div><footer class="pie-formulario">Seguros Castaño <span>·</span> Acceso exclusivo del equipo</footer>
+</section>
+</main>
+<script type="module" src="/static/js/pages/login.js?v=20261105revision9"></script>
+</body></html>

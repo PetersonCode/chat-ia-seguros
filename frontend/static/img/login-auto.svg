@@ -1,0 +1,39 @@
+<svg class="car-svg" viewBox="0 0 1040 520" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="carPaint" x1=".1" y1="0" x2=".75" y2="1"><stop stop-color="#d6e1e2"/><stop offset=".32" stop-color="#8ca3ad"/><stop offset=".63" stop-color="#456579"/><stop offset="1" stop-color="#153a50"/></linearGradient>
+          <linearGradient id="carRoof" x1="0" y1="0" x2=".4" y2="1"><stop stop-color="#edf5f1"/><stop offset=".46" stop-color="#a6b9bc"/><stop offset="1" stop-color="#647e8c"/></linearGradient>
+          <linearGradient id="windshield" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#a6c2ca"/><stop offset=".25" stop-color="#517184"/><stop offset="1" stop-color="#162f42"/></linearGradient>
+          <linearGradient id="bodyShade" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#809da9"/><stop offset=".4" stop-color="#c4d3d0"/><stop offset=".65" stop-color="#3f677b"/><stop offset="1" stop-color="#173b52"/></linearGradient>
+          <linearGradient id="rim" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#f5f7f4"/><stop offset=".5" stop-color="#8a9da6"/><stop offset="1" stop-color="#dce3e0"/></linearGradient>
+          <linearGradient id="glassShine" x1="0" x2="1"><stop stop-color="#e7eeee" stop-opacity=".8"/><stop offset="1" stop-color="#eff8f0" stop-opacity="0"/></linearGradient>
+          <filter id="blurCar"><feGaussianBlur stdDeviation="14"/></filter>
+        </defs>
+        <ellipse cx="527" cy="422" rx="428" ry="39" fill="#000c18" opacity=".52" filter="url(#blurCar)"/>
+        <path d="M127 301c10-26 45-44 94-55l89-15c44-55 116-101 199-105l146-4c65 2 121 38 188 101l83 21c31 9 58 30 66 58l5 67c-16 14-35 19-65 21h-67c-5-54-45-89-94-89-53 0-96 36-101 91H342c-3-54-45-90-97-90-54 0-96 38-99 91l-27-7c-18-8-26-21-25-38l4-25z" fill="url(#bodyShade)" stroke="#d3e2df" stroke-width="2"/>
+        <path d="M310 231c46-55 107-97 199-104l145-3c63 4 128 45 185 99l-266 2z" fill="url(#carRoof)"/>
+        <path d="M339 224c41-43 96-76 171-81l59-1 4 82z" fill="url(#windshield)" stroke="#b1c7c8" stroke-width="3"/>
+        <path d="M583 142h68c56 3 108 35 151 79l-218 1z" fill="url(#windshield)" stroke="#b1c7c8" stroke-width="3"/>
+        <path d="M360 213c38-34 81-56 133-65l30-2-114 75h-55z" fill="url(#glassShine)" opacity=".36"/>
+        <path d="M602 149h26l97 70h-49z" fill="url(#glassShine)" opacity=".19"/>
+        <path d="M571 137l10 98" stroke="#587887" stroke-width="8"/>
+        <path d="M309 233c-50 9-91 19-128 34M846 232c46 6 93 25 119 48" fill="none" stroke="#e7f0e7" opacity=".58" stroke-width="3"/>
+        <path d="M165 307c219-28 572-26 774 4" stroke="#dce7e5" opacity=".55" stroke-width="3" fill="none"/>
+        <path d="M159 344c232 18 563 20 789-10" stroke="#21485d" opacity=".62" stroke-width="3" fill="none"/>
+        <path d="M580 231l-4 151M810 226l11 67" stroke="#22475a" stroke-width="2" opacity=".6"/>
+        <path d="M618 267h46" stroke="#d5dedb" stroke-width="5" stroke-linecap="round"/>
+        <path d="M440 265h40" stroke="#d5dedb" stroke-width="5" stroke-linecap="round"/>
+        <path d="M196 268c-20 3-39 8-52 14-11 5-13 19-4 26l59 3 7-44z" fill="#e4ece9"/>
+        <path d="M149 283l51-8-6 20-51 5" fill="#bcece7" opacity=".9"/>
+        <path d="M924 255c26 8 40 16 54 29l-7 19-47-2z" fill="#8a3c36"/>
+        <path d="M929 266l42 21-5 6h-38" fill="#e8a185"/>
+        <path d="M92 331h27c10 0 13 16 3 21l-25 4z" fill="#e7d1a1"/>
+        <path d="M111 362c54 21 315 26 459 27h316c58-1 95-7 108-19" stroke="#082e43" stroke-width="11" fill="none" opacity=".6"/>
+        <path d="M352 380h313" stroke="#cddad7" stroke-width="2" opacity=".4"/>
+        <!-- Ruedas y llantas -->
+        <g transform="translate(245 384)"><circle r="78" fill="#101d27"/><circle r="67" fill="#242e34" stroke="#111820" stroke-width="8"/><circle r="52" fill="url(#rim)" stroke="#52636c" stroke-width="4"/><circle r="43" fill="#415966" stroke="#c3d2d5" stroke-width="3"/>
+          <g fill="#cedbd9"><path d="M-7-39h14l6 26-13 13-13-13z"/><path d="M-7-39h14l6 26-13 13-13-13z" transform="rotate(72)"/><path d="M-7-39h14l6 26-13 13-13-13z" transform="rotate(144)"/><path d="M-7-39h14l6 26-13 13-13-13z" transform="rotate(216)"/><path d="M-7-39h14l6 26-13 13-13-13z" transform="rotate(288)"/></g><circle r="15" fill="#d9e4e0" stroke="#8c9c9c" stroke-width="4"/><circle r="5" fill="#20394a"/></g>
+        <g transform="translate(766 384)"><circle r="78" fill="#101d27"/><circle r="67" fill="#242e34" stroke="#111820" stroke-width="8"/><circle r="52" fill="url(#rim)" stroke="#52636c" stroke-width="4"/><circle r="43" fill="#415966" stroke="#c3d2d5" stroke-width="3"/>
+          <g fill="#cedbd9"><path d="M-7-39h14l6 26-13 13-13-13z"/><path d="M-7-39h14l6 26-13 13-13-13z" transform="rotate(72)"/><path d="M-7-39h14l6 26-13 13-13-13z" transform="rotate(144)"/><path d="M-7-39h14l6 26-13 13-13-13z" transform="rotate(216)"/><path d="M-7-39h14l6 26-13 13-13-13z" transform="rotate(288)"/></g><circle r="15" fill="#d9e4e0" stroke="#8c9c9c" stroke-width="4"/><circle r="5" fill="#20394a"/></g>
+        <path d="M127 321l33-5M951 320l29 5" stroke="#f9e7bd" stroke-width="3" opacity=".7"/>
+        <path d="M350 375h325" stroke="#9fbec1" stroke-width="2" opacity=".65"/>
+      </svg>
