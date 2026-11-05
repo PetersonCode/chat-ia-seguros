@@ -77,6 +77,9 @@ SISTEMA_CLASIFICADOR = (
     # los que ya existían y se les parecen.
     "pago es todo lo de cobranza que no sea preguntar cuánto debe: adelantar "
     "cuotas, pagar por adelantado, medios o planes de pago, refinanciar. "
+    "También es pago avisar que ya pagó, aboné, transferí o mandar el número "
+    "del comprobante; pero si pagó y se queja de que le cobraron mal o le "
+    "sigue figurando la deuda, eso es reclamo. "
     "Preguntar cuánto debe o cuándo vence sigue siendo saldo o vencimiento. "
     "asistencia es necesitar ayuda en el camino o preguntar a qué número "
     "llamar: grúa, remolque, auxilio, quedarse sin batería, quedarse varado. "

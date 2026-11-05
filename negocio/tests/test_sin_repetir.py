@@ -31,6 +31,7 @@ TEXTOS_SIN_DATOS = (
     plantillas.DATOS_REGISTRADOS,
     plantillas.RECHAZO_SEGURIDAD,
     plantillas.SOLO_TEXTO,
+    plantillas.ARCHIVO_RECIBIDO,
     plantillas.ACCION_RECHAZADA,
     *plantillas.NO_ENTENDI_POR_INTENTO,
 )

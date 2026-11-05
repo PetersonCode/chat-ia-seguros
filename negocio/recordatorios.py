@@ -25,6 +25,7 @@ def polizas_por_vencer(dias=None, incluir_vencidas=False, q=''):
         fecha_vencimiento__gte=hoy-timedelta(days=30) if incluir_vencidas else hoy
     ).select_related('cliente', 'vehiculo', 'compania').annotate(
         saldo=Subquery(resumen.values('saldo_pendiente')[:1]),
+        saldo_total=Subquery(resumen.values('saldo_total')[:1]),
         proxima_cuota=Subquery(resumen.values('proximo_vencimiento_pago')[:1]),
         ultimo_recordatorio=Subquery(ultimo.values('creado_en')[:1]),
         saldo_vencido=Coalesce(Subquery(atrasos.values('total')[:1]),Value(Decimal('0')),
@@ -64,13 +65,15 @@ def texto_recordatorio(poliza):
         plazo = 'vence mañana'
     else:
         plazo = f'vence en {dias} días'
+    # Lo que hay que pagar ahora (vencidas + próxima cuota), no el total del
+    # contrato: las cuotas de los meses siguientes todavía no son deuda (SQL 37).
     saldo = VPolizaResumen.objects.get(poliza_id=poliza.pk).saldo_pendiente or Decimal('0')
     vencido = Cuota.objects.filter(poliza=poliza,estado__in=['pendiente','vencida'],
         vencimiento__lt=timezone.localdate()).aggregate(total=Sum('importe'))['total'] or Decimal('0')
     atraso = f'De ese total, {formatear_monto(vencido)} corresponde a cuotas vencidas.\n' if vencido>0 else ''
     texto = (f'Hola {poliza.cliente.nombre}, te recordamos que tu póliza {poliza.numero_poliza} '
              f'{plazo} ({formatear_fecha(poliza.fecha_vencimiento)}).\n'
-             f'Saldo pendiente de esta póliza: {formatear_monto(saldo)}.\n'
+             f'Saldo a pagar de esta póliza: {formatear_monto(saldo)}.\n'
              f'{atraso}Si ya realizaste el pago o querés consultar la renovación, escribinos. Seguros Castaño.')
     return texto, saldo
 

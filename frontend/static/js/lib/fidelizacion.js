@@ -1,4 +1,4 @@
-import { api } from "../api.js?v=20261105burbujas1";
+import { api } from "../api.js?v=20261105fechas1";
 export async function iniciarFidelizacion(id){
     const c=document.createElement('section');c.className='card mb-3';
     c.append(document.getElementById('plantilla-fidelizacion').content.cloneNode(true));

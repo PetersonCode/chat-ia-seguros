@@ -542,9 +542,8 @@ def eliminacion_total(conversacion_id: int, funcionario_id: int) -> dict[str, in
     el contacto de WhatsApp.
 
     No toca al cliente ni a sus pólizas: solo se pierde su vínculo con este
-    número. Se niega, sin borrar nada, si hay siniestros, fotos de siniestro o
-    acciones finalizadas: la base los declara inmutables y borrarlos es
-    manipular un expediente, no limpiar un chat de prueba.
+    número. Sin límites: también borra los siniestros de esos casos (con su
+    historial y fotos) y las acciones finalizadas.
 
     La auditoría de seguridad no se borra (la base la declara inmutable): solo
     registra la ruta y el usuario, sin teléfonos ni textos.
@@ -576,8 +575,7 @@ def borrar_rastro_del_numero(
 
     Sin permisos: lo usan `eliminacion_total` y el borrado definitivo de un
     cliente, que ya verificaron que quien llama es administrador. Debe correr
-    dentro de una transacción. Se niega, sin borrar nada, ante registros que la
-    base declara inmutables.
+    dentro de una transacción.
     """
     filtro_casos = Q(conversacion_id__in=conversaciones)
     if contacto_id is not None:
@@ -594,21 +592,14 @@ def borrar_rastro_del_numero(
         else []
     )
 
-    # Lo inmutable no se toca: se avisa antes de borrar nada.
-    bloqueos = []
-    n = Siniestro.objects.filter(consulta_id__in=casos).count()
-    if n:
-        bloqueos.append(f"{n} siniestro(s)")
-    n = AdjuntoSiniestro.objects.filter(mensaje_origen_id__in=mensajes).count()
-    if n:
-        bloqueos.append(f"{n} foto(s) de siniestro")
-    n = FinalizacionAccion.objects.filter(accion__consulta_id__in=casos).count()
-    if n:
-        bloqueos.append(f"{n} acción(es) finalizada(s)")
-    if bloqueos:
-        raise EstadoInvalido(
-            "No se puede hacer la eliminación total: hay " + ", ".join(bloqueos)
-            + ", que la base declara inmutables. No se borró nada."
+    # Borrado total: también se llevan siniestros, fotos y acciones finalizadas.
+    from negocio.eliminaciones import borrar_finalizaciones, borrar_siniestros
+
+    with connection.cursor() as cursor:
+        siniestros = borrar_siniestros(cursor, consulta_ids=casos, mensaje_ids=mensajes)
+        borrar_finalizaciones(
+            cursor,
+            list(AccionPendiente.objects.filter(consulta_id__in=casos).values_list("id", flat=True)),
         )
 
     alertas, _ = Alerta.objects.filter(
@@ -633,6 +624,9 @@ def borrar_rastro_del_numero(
     RecordatorioPoliza.objects.filter(
         Q(contacto_id=contacto_id) | Q(mensaje_id__in=mensajes)
     ).delete()
+    from negocio.adjuntos_chat import borrar_archivos_de_mensajes
+
+    borrar_archivos_de_mensajes(mensajes)
     Mensaje.objects.filter(pk__in=mensajes).update(respuesta_a=None)
     Mensaje.objects.filter(pk__in=mensajes).delete()
     ConsultaBot.objects.filter(pk__in=casos).delete()
@@ -647,6 +641,7 @@ def borrar_rastro_del_numero(
         "conversaciones": len(conversaciones),
         "mensajes": len(mensajes),
         "casos": len(casos),
+        "siniestros": siniestros,
         "alertas": alertas,
         "acciones": acciones,
         "interesados": len(interesados),

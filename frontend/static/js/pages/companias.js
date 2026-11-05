@@ -1,8 +1,8 @@
-import { api } from "../api.js?v=20261105burbujas1";
-import { inicializarNav } from "../nav.js?v=20261105burbujas1";
-import { formatearPorcentaje, validarCompania } from "../lib/companias.js?v=20261105burbujas1";
-import { inicializarPlanes } from "../lib/planes.js?v=20261105burbujas1";
-import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105burbujas1";
+import { api } from "../api.js?v=20261105fechas1";
+import { inicializarNav } from "../nav.js?v=20261105fechas1";
+import { formatearPorcentaje, validarCompania } from "../lib/companias.js?v=20261105fechas1";
+import { inicializarPlanes } from "../lib/planes.js?v=20261105fechas1";
+import { confirmarEliminacion, inicializarEliminacion } from "../lib/eliminar-total.js?v=20261105fechas1";
 
 const mensajePagina = document.getElementById("mensaje-pagina");
 const contenido = document.getElementById("contenido-companias");
@@ -137,7 +137,7 @@ function crearFila(compania) {
                 `Eliminar ${compania.nombre}`,
                 "Se borran de la base la compañía, todas sus pólizas (con cuotas, pagos y condiciones), "
                 + "sus planes y sus cotizaciones. Los clientes quedan, sin esas pólizas. "
-                + "No se puede deshacer. Si hay siniestros o acciones finalizadas, no se borra nada.",
+                + "No se puede deshacer. Incluye siniestros (con historial y fotos) y acciones finalizadas.",
                 async () => {
                     const r = await api.post(`/api/companias/${compania.id}/eliminar-definitivo/`, {});
                     mostrarAviso(mensajePagina, `${compania.nombre} eliminada: ${r.borrados.polizas} póliza(s) y ${r.borrados.planes} plan(es).`);

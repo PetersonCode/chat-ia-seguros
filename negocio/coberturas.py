@@ -97,6 +97,21 @@ def es_personal(texto):
     return bool(re.search(r'\b(mi|mis|tengo|me cubre|me ampara|me pagan|estoy cubiert[oa]|estoy asegurad[oa]|pol-\d+)\b', _normalizar(texto)))
 
 
+# «¿Qué cubre?», «y qué incluye?»: sin «mi», pero un cliente con póliza habla de la suya.
+PREGUNTA_BREVE_DE_COBERTURA = re.compile(
+    r'^[¿\s]*(?:(?:y|pero|entonces|ahora)\s+)?'
+    r'(?:(?:que|cuales?)\s+(?:es\s+lo\s+que\s+|cosas\s+|coberturas\s+)?)?'
+    r'(?:cubre|cubren|incluye|incluyen|protege|ampara)\b'
+)
+# Si nombra un plan, pregunta por ese plan y no necesariamente por el suyo.
+NOMBRA_UN_PLAN = re.compile(r'\b(?:terceros|todo riesgo|responsabilidad civil|basic[oa]|intermedi[oa])\b')
+
+
+def _pregunta_implicita_de_su_poliza(texto):
+    normalizado = _normalizar(texto)
+    return bool(PREGUNTA_BREVE_DE_COBERTURA.match(normalizado) and not NOMBRA_UN_PLAN.search(normalizado))
+
+
 def es_seleccion(texto, conversacion):
     contexto = contexto_vigente(conversacion)
     if not contexto or not contexto.pregunta:
@@ -139,7 +154,7 @@ def responder_cobertura(texto, conversacion):
     # Una pregunta breve «¿cubre granizo?» puede omitir «mi». Las preguntas
     # generales («qué documentación necesito», «el seguro cubre...») conservan
     # la biblioteca general sin asumir un contrato del cliente.
-    implicita = bool(cliente_reconocido(conversacion) and re.match(r'^[¿\s]*(?:cubre|incluye|protege)\b', _normalizar(texto)))
+    implicita = bool(cliente_reconocido(conversacion) and _pregunta_implicita_de_su_poliza(texto))
     if general or (not implicita and not es_personal(texto) and not seguimiento and not (contexto and contexto.poliza_id)):
         return None
     if contexto is None:
@@ -147,8 +162,9 @@ def responder_cobertura(texto, conversacion):
     if contexto is None:
         return (SIN_CLIENTE, None)
     hoy = timezone.localdate()
+    # Incluye la que empieza en los próximos días: ya está contratada y cargada.
     polizas = list(Poliza.objects.filter(cliente_id=contexto.cliente_id, tipo_seguro__codigo='automotor', estado='vigente',
-        fecha_inicio__lte=hoy, fecha_vencimiento__gte=hoy).select_related('tipo_seguro', 'vehiculo', 'compania').order_by('id'))
+        fecha_vencimiento__gte=hoy).select_related('tipo_seguro', 'vehiculo', 'compania').order_by('id'))
     texto_norm = _normalizar(texto)
     numeros = re.findall(r'POL-\d+', texto.upper())
     tipos = {'auto': 'automotor', 'coche': 'automotor', 'vehiculo': 'automotor', 'automotor': 'automotor',
@@ -164,6 +180,10 @@ def responder_cobertura(texto, conversacion):
     elif contexto.poliza_id and not seguimiento:
         opciones = [p for p in opciones if p.pk == contexto.poliza_id]
     if not opciones:
+        if implicita and not es_personal(texto) and not seguimiento:
+            # «¿Qué cubre?» sin «mi» y sin póliza que coincida: no hay contrato
+            # propio que citar, queda la búsqueda general de siempre.
+            return None
         return (SIN_POLIZA, None)
     if len(opciones) != 1:
         contexto.pregunta = (contexto.pregunta or texto)[:300]
@@ -217,7 +237,10 @@ def responder_cobertura(texto, conversacion):
     if not encontrado['respaldo_suficiente']:
         return (SIN_PASAJE, None)
     fuente = encontrado['resultados'][0]
+    # Si todavía no empezó, se dice: las condiciones valen desde esa fecha.
+    aviso_inicio = (f' La cobertura empieza el {poliza.fecha_inicio:%d/%m/%Y}.'
+                    if poliza.fecha_inicio > hoy else '')
     if directas and fuente.get('fragmento_id'):
         compania = f' — {poliza.compania.nombre}' if poliza.compania else ''
-        return (f'Tu póliza {poliza.numero_poliza}{compania}. Condiciones registradas por la agencia:\n“{fuente["pasaje"]}”\nEste es un extracto; aplican los límites y exclusiones indicados.', fuente['fragmento_id'])
-    return (f'Condiciones vinculadas a tu póliza {poliza.numero_poliza}. Fuente: {fuente["titulo"]}, versión {fuente["version"]}.\n“{fuente["pasaje"]}”\nEste es un extracto de tus condiciones. Aplican los límites y exclusiones indicados; si querés denunciar un hecho, contame qué ocurrió.', fuente['fragmento_id'])
+        return (f'Tu póliza {poliza.numero_poliza}{compania}.{aviso_inicio} Condiciones registradas por la agencia:\n“{fuente["pasaje"]}”\nEste es un extracto; aplican los límites y exclusiones indicados.', fuente['fragmento_id'])
+    return (f'Condiciones vinculadas a tu póliza {poliza.numero_poliza}.{aviso_inicio} Fuente: {fuente["titulo"]}, versión {fuente["version"]}.\n“{fuente["pasaje"]}”\nEste es un extracto de tus condiciones. Aplican los límites y exclusiones indicados; si querés denunciar un hecho, contame qué ocurrió.', fuente['fragmento_id'])

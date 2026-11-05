@@ -46,6 +46,8 @@ MAX_INTENTOS_ENVIO = 8
 # dejar esos mensajes afuera de la agrupación, aunque durante la atención
 # humana no se genere la respuesta automática.
 PREFIJO_NO_SOPORTADO = "[mensaje de tipo "
+# Tipos de WhatsApp que son un archivo: se contestan solo con `ARCHIVO_RECIBIDO`.
+TIPOS_ARCHIVO = frozenset({"image", "video", "document", "audio"})
 
 # Orden de avance de la entrega: un estado nunca vuelve para atrás (AC-T3-11).
 ORDEN_ENTREGA = {
@@ -159,19 +161,44 @@ def registrar_entrante(
         raise
 
 
+def es_archivo(mensaje: Mensaje) -> bool:
+    """Si el cliente mandó un archivo (foto, video, documento o audio)."""
+    payload = mensaje.payload if isinstance(mensaje.payload, dict) else {}
+    return payload.get("type") in TIPOS_ARCHIVO
+
+
 def _avisar_solo_texto(mensaje: Mensaje) -> None:
     """Explica qué formatos se pueden recibir por este canal."""
     from negocio.bot.plantillas import SOLO_TEXTO, sin_repetir
+
+    _responder_formato(
+        mensaje, lambda previo: sin_repetir(SOLO_TEXTO, previo.texto if previo else None)
+    )
+
+
+def _confirmar_archivo(mensaje: Mensaje) -> None:
+    """Al archivo del cliente solo se le contesta que llegó, nada más."""
+    from negocio.bot.plantillas import ARCHIVO_RECIBIDO
+
+    _responder_formato(mensaje, lambda _previo: ARCHIVO_RECIBIDO)
+
+
+def _responder_formato(mensaje: Mensaje, armar_texto) -> None:
+    """Deja una única respuesta del bot a un mensaje que no es texto.
+
+    Con un humano a cargo no se contesta nada: el archivo queda en la bandeja.
+    """
+    from negocio.bot.orquestador import ignorar_si_bloqueado
 
     conversacion_id = mensaje.conversacion_id
     with transaction.atomic():
         conversacion = Conversacion.objects.select_for_update().get(
             pk=conversacion_id
         )
-        if conversacion.modo == ModoConversacion.HUMANO:
+        if conversacion.modo == ModoConversacion.HUMANO or ignorar_si_bloqueado(mensaje):
             return
         previo = Mensaje.objects.filter(conversacion=conversacion, direccion='saliente', emisor='bot').exclude(estado_envio__in=['retenido','descartado']).order_by('-id').first()
-        texto = sin_repetir(SOLO_TEXTO, previo.texto if previo else None)
+        texto = armar_texto(previo)
         Mensaje.objects.get_or_create(
             respuesta_a=mensaje,
             defaults={
@@ -186,64 +213,36 @@ def _avisar_solo_texto(mensaje: Mensaje) -> None:
     enviar_pendientes(conversacion_id)
 
 
+def _guardar_media_para_el_chat(mensaje_id: int, *, reintentar: bool) -> None:
+    """Deja la imagen o el video descargable desde el chat.
+
+    Con `reintentar`, un fallo hace fallar el trabajo y se vuelve a intentar; en
+    las imágenes es secundario (el flujo de siniestros baja la suya) y solo se registra.
+    """
+    from negocio.adjuntos_chat import guardar_media_de_chat
+    from negocio.adjuntos_siniestros import AdjuntoInvalido, DescargaMediaInvalida
+
+    try:
+        guardar_media_de_chat(mensaje_id)
+    except (AdjuntoInvalido, DescargaMediaInvalida) as error:
+        logger.warning("No se pudo guardar el archivo del mensaje %s: %s", mensaje_id, error)
+        if reintentar and isinstance(error, DescargaMediaInvalida):
+            raise
+
+
 def _procesar_imagen_siniestro(mensaje_id: int) -> None:
+    """Si la foto trae un expediente válido, la incorpora. Al cliente no le dice nada.
+
+    El resultado (incorporada, falta el número, inválida…) queda para el asesor;
+    al cliente solo se le confirma que el archivo llegó (`_confirmar_archivo`).
+    """
     from negocio.adjuntos_siniestros import procesar_media_entrante
     from negocio.bot.orquestador import ignorar_si_bloqueado
-    from negocio.bot.plantillas import (
-        FOTO_SINIESTRO_ERROR,
-        FOTO_SINIESTRO_EXPEDIENTE,
-        FOTO_SINIESTRO_INCORPORADA,
-        FOTO_SINIESTRO_INVALIDA,
-    )
 
-    mensaje = Mensaje.objects.select_related("conversacion").filter(
-        pk=mensaje_id
-    ).first()
+    mensaje = Mensaje.objects.filter(pk=mensaje_id).first()
     if mensaje is None or ignorar_si_bloqueado(mensaje):
         return
-    resultado = procesar_media_entrante(mensaje_id)
-    respuestas = {
-        "falta_expediente": FOTO_SINIESTRO_EXPEDIENTE,
-        "sin_vinculacion": FOTO_SINIESTRO_ERROR,
-        "expediente_no_verificado": FOTO_SINIESTRO_ERROR,
-        "error_descarga": FOTO_SINIESTRO_ERROR,
-        "invalido": FOTO_SINIESTRO_INVALIDA,
-    }
-    if resultado.estado == "incorporado":
-        texto = FOTO_SINIESTRO_INCORPORADA.format(
-            numero_siniestro=resultado.numero_siniestro
-        )
-    elif resultado.estado == "ya_procesado":
-        texto = FOTO_SINIESTRO_INCORPORADA.format(
-            numero_siniestro=resultado.numero_siniestro
-        )
-    elif resultado.estado in respuestas:
-        texto = respuestas[resultado.estado]
-    else:
-        return
-
-    with transaction.atomic():
-        conversacion = Conversacion.objects.select_for_update().filter(
-            pk=mensaje.conversacion_id
-        ).first()
-        if (
-            conversacion is None
-            or conversacion.modo == ModoConversacion.HUMANO
-            or ignorar_si_bloqueado(mensaje)
-        ):
-            return
-        Mensaje.objects.get_or_create(
-            respuesta_a=mensaje,
-            defaults={
-                "conversacion": conversacion,
-                "direccion": Direccion.SALIENTE,
-                "emisor": Emisor.BOT,
-                "texto": texto,
-                "estado_envio": EstadoEnvio.PENDIENTE_ENVIO,
-                "fecha_hora": timezone.now(),
-            },
-        )
-    enviar_pendientes(mensaje.conversacion_id)
+    procesar_media_entrante(mensaje_id)
 
 
 def procesar_webhook(payload: dict) -> None:
@@ -308,6 +307,9 @@ def procesar_webhook(payload: dict) -> None:
                     es_imagen = tipo == "image" and isinstance(
                         entrante.get("image"), dict
                     )
+                    es_video = tipo == "video" and isinstance(
+                        entrante.get("video"), dict
+                    )
                     cuerpo_texto = entrante.get("text") or {}
                     if not isinstance(cuerpo_texto, dict):
                         cuerpo_texto = {}
@@ -317,11 +319,12 @@ def procesar_webhook(payload: dict) -> None:
                         else f"{PREFIJO_NO_SOPORTADO}{tipo or 'desconocido'} no soportado]"
                     )
                     payload_entrante = entrante
-                    if es_imagen:
+                    if es_imagen or es_video:
+                        campo = "image" if es_imagen else "video"
                         payload_entrante = dict(entrante)
-                        payload_entrante["image"] = {
+                        payload_entrante[campo] = {
                             clave: dato
-                            for clave, dato in entrante["image"].items()
+                            for clave, dato in entrante[campo].items()
                             if clave != "url"
                         }
                     tipo_trabajo = (
@@ -330,7 +333,11 @@ def procesar_webhook(payload: dict) -> None:
                         else (
                             TipoTrabajoWhatsApp.IMAGEN
                             if es_imagen
-                            else TipoTrabajoWhatsApp.AVISO_FORMATO
+                            else (
+                                TipoTrabajoWhatsApp.VIDEO
+                                if es_video
+                                else TipoTrabajoWhatsApp.AVISO_FORMATO
+                            )
                         )
                     )
                     with transaction.atomic():
@@ -377,9 +384,19 @@ def ejecutar_trabajo_whatsapp(trabajo_id: int) -> None:
     if trabajo.tipo == TipoTrabajoWhatsApp.TEXTO:
         procesar_tras_ventana(mensaje.id)
     elif trabajo.tipo == TipoTrabajoWhatsApp.IMAGEN:
+        _guardar_media_para_el_chat(mensaje.id, reintentar=False)
         _procesar_imagen_siniestro(mensaje.id)
+        _confirmar_archivo(mensaje)
+    elif trabajo.tipo == TipoTrabajoWhatsApp.VIDEO:
+        _guardar_media_para_el_chat(mensaje.id, reintentar=True)
+        _confirmar_archivo(mensaje)
     elif trabajo.tipo == TipoTrabajoWhatsApp.AVISO_FORMATO:
-        _avisar_solo_texto(mensaje)
+        # Documentos y audios también son archivos; stickers, ubicaciones,
+        # contactos o reacciones no, y para esos sigue el aviso de solo texto.
+        if es_archivo(mensaje):
+            _confirmar_archivo(mensaje)
+        else:
+            _avisar_solo_texto(mensaje)
     else:
         raise ValueError(f"Tipo de trabajo WhatsApp desconocido: {trabajo.tipo}")
 
@@ -470,9 +487,8 @@ def _enviar_por_api(mensaje: Mensaje) -> None:
 
 def mensaje_permitido_durante_atencion(mensaje: Mensaje) -> bool:
     """Avisos de derivación, respuestas liberadas explícitamente y texto humano."""
-    from negocio.bot.plantillas import DERIVACION, DERIVACION_URGENTE, AVISO_NEUTRO, COTIZACION_REGISTRADA, DATOS_REGISTRADOS, SINIESTRO_INSTRUCCIONES, SIN_ASISTENCIA, SIN_POLIZAS, SIN_CLIENTE
+    from negocio.bot.plantillas import DERIVACION, DERIVACION_URGENTE
     from datos.models import Derivacion
-    from negocio.coberturas import AVISOS_COBERTURA
 
     if mensaje.emisor == Emisor.FUNCIONARIO:
         return True
@@ -481,9 +497,11 @@ def mensaje_permitido_durante_atencion(mensaje: Mensaje) -> bool:
     if mensaje.texto in (DERIVACION, DERIVACION_URGENTE):
         return True
     consulta = mensaje.consulta
+    # El mensaje con el que el bot avisa la derivación sale siempre, sea cual
+    # sea su texto (el de un siniestro lleva la grúa de la póliza, por ejemplo).
+    # La marca la pone solo el orquestador, en el turno que deriva.
     if (
         consulta
-        and mensaje.texto in (AVISO_NEUTRO, DATOS_REGISTRADOS, COTIZACION_REGISTRADA, SINIESTRO_INSTRUCCIONES, SIN_ASISTENCIA, SIN_POLIZAS, SIN_CLIENTE, *AVISOS_COBERTURA)
         and (mensaje.payload or {}).get("aviso_derivacion") is True
         and Derivacion.objects.filter(consulta_id=consulta.id).exists()
     ):

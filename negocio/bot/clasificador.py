@@ -203,6 +203,23 @@ PATRONES: dict[str, tuple[str, ...]] = {
         "atrasada con",
         "mercado pago",
         "transferencia",
+        # Avisar que ya pagó también es cobranza: el bot pide el comprobante
+        # (ver `pago_informado`). «Pagué y me sigue figurando deuda» es
+        # reclamo, que se evalúa antes.
+        "ya pague",
+        "pague el",
+        "pague la",
+        "realice el pago",
+        "hice el pago",
+        "transferi",
+        "abone",
+        "deposite",
+        "ya esta pago",
+        "comprobante de pago",
+        "paso el comprobante",
+        "pase el comprobante",
+        "mando el comprobante",
+        "mande el comprobante",
     ),
     # Asistencia en el camino: es lo único de esta tanda que el bot contesta
     # solo, porque el teléfono sale de la cobertura de la póliza del cliente.

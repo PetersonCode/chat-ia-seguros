@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from django.test import TestCase
+import os
+import tempfile
+
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from datos import fabricas
@@ -720,15 +723,17 @@ class EliminacionTotalTests(BaseSupervisionTests):
         with self.assertRaises(NoEncontrado):
             eliminacion_total(999999, self.admin.id)
 
-    def test_se_niega_sin_borrar_nada_si_hay_siniestros(self):
-        poliza = fabricas.crear_poliza(self.cliente)
-        from datos.models import Siniestro
+    def test_con_siniestros_borra_tambien_el_expediente_con_historial_y_fotos(self):
+        from datos.models import AdjuntoSiniestro, HistorialSiniestro, Siniestro
 
-        Siniestro.objects.create(
-            numero_siniestro="SIN-2026-00001", poliza=poliza, consulta=self.consulta,
-            fecha_ocurrencia=timezone.localdate(), descripcion="Choque",
-        )
-        with self.assertRaises(EstadoInvalido):
-            eliminacion_total(self.conversacion.id, self.admin.id)
-        self.assertTrue(Mensaje.objects.filter(pk=self.msg.pk).exists())
-        self.assertTrue(Conversacion.objects.filter(pk=self.conversacion.id).exists())
+        poliza = fabricas.crear_poliza(self.cliente)
+        with tempfile.TemporaryDirectory() as carpeta:
+            fabricas.crear_expediente_completo(poliza, self.consulta, self.msg, self.admin, carpeta)
+            with override_settings(PRIVATE_MEDIA_ROOT=carpeta), self.captureOnCommitCallbacks(execute=True):
+                borrados = eliminacion_total(self.conversacion.id, self.admin.id)
+            self.assertEqual(borrados["siniestros"], 1)
+            self.assertEqual([f for _, _, fs in os.walk(carpeta) for f in fs], [])
+        for modelo in (Siniestro, HistorialSiniestro, AdjuntoSiniestro, Mensaje, Conversacion):
+            self.assertFalse(modelo.objects.exists(), modelo.__name__)
+        # La póliza no se toca: solo se pierde el rastro del número.
+        self.assertTrue(type(poliza).objects.filter(pk=poliza.pk).exists())

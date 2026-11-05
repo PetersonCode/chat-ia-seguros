@@ -120,6 +120,34 @@ CORPUS: tuple[Conversacion, ...] = (
         M("cuanto es la franquicia de mi poliza?", "consulta_cobertura", para_llm=True),
         M("y si me roban la fiorino que pasa", "consulta_cobertura", para_llm=True),
     )),
+    # Simulación del 05/11/2026: cinco clientes reciben el recordatorio de la
+    # cuota, avisan que pagaron, pasan el comprobante y preguntan la cobertura
+    # (ver api/tests/test_simulacion_cobro_y_cobertura.py).
+    Conversacion("+5491100007700", "formal, tras el recordatorio", (
+        M("Buenas tardes, ya pagué la cuota de este mes.", "pago", para_llm=True),
+        M("¿Qué me cubre mi póliza?", "consulta_cobertura"),
+    )),
+    Conversacion("+5491100007701", "apurado, sin tildes", (
+        M("realice el pago recien", "pago", para_llm=True),
+        M("y que cubre?", "consulta_cobertura"),
+    )),
+    Conversacion("+5491100007702", "home banking", (
+        M("aboné por home banking", "pago", para_llm=True),
+        M("mi seguro cubre granizo?", "consulta_cobertura"),
+    )),
+    Conversacion("+5491100007703", "transferencia", (
+        M("te transferí hace un rato", "pago", para_llm=True),
+        M("que cobertura tengo", "consulta_cobertura", para_llm=True),
+    )),
+    Conversacion("+5491100007704", "con faltas", (
+        M("hice la transferencia, te paso el comprobante", "pago"),
+        M("kiero saver q me cubre", "consulta_cobertura"),
+    )),
+    Conversacion("+5491126914442", "Daniel, prueba real", (
+        M("Pague el seguro", "pago", para_llm=True),
+        M("Comprobante 1111222", "pago"),
+        M("Realice el pago", "pago"),
+    )),
 )
 
 
@@ -150,6 +178,9 @@ VARIANTES: tuple[Mensaje, ...] = (
     M("necesito hablar con un humano", "otro"),
     M("estoy atrasado 2 meses, como regularizo", "pago"),
     M("kiero saver q me cubre", "consulta_cobertura"),
+    M("ya esta pago el seguro de la moto", "pago"),
+    M("deposite la cuota ayer", "pago"),
+    M("les pase el comprobante por aca", "pago"),
 )
 
 

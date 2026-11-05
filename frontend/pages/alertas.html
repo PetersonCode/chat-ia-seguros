@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alertas | Seguros Castaño</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/app.css?v=20261105burbujas1">
-    <link rel="stylesheet" href="/static/css/tema.css?v=20261105burbujas1">
+    <link rel="stylesheet" href="/static/css/app.css?v=20261105menu1">
+    <link rel="stylesheet" href="/static/css/tema.css?v=20261105fechas1">
 </head>
 <body>
     <nav id="nav" aria-label="Navegación principal"></nav>
@@ -17,7 +17,7 @@
                     <h1 class="h3 fw-bold mb-1">Alertas abiertas</h1>
                     <p class="text-muted mb-0">Revisá alertas y abrí la conversación relacionada.</p>
                 </div>
-                <a href="/panel/cerrados/" class="btn btn-outline-secondary btn-sm">Casos cerrados con alertas</a>
+                <a href="/panel/cerrados/" class="btn btn-outline-secondary btn-sm">Casos cerrados</a>
             </div>
         </header>
         <form id="filtros-alertas" class="card card-body shadow-sm border-0 mb-3">
@@ -32,6 +32,7 @@
                         <option value="dato_inventado">Dato inventado</option>
                         <option value="dato_inconsistente">Dato inconsistente</option>
                         <option value="dato_no_verificado">Dato no verificado</option>
+                        <option value="siniestro_grave">Siniestro grave</option>
                     </select>
                 </div>
                 <div class="col-12 col-md-5">
@@ -63,7 +64,7 @@
             </nav>
         </section>
     </main>
-    <script type="module" src="/static/js/pages/alertas.js?v=20261105burbujas1"></script>
-<script type="module" src="/static/js/lib/chat-flotante.js?v=20261105burbujas1"></script>
+    <script type="module" src="/static/js/pages/alertas.js?v=20261105fechas1"></script>
+<script type="module" src="/static/js/lib/chat-flotante.js?v=20261105fechas1"></script>
 </body>
 </html>

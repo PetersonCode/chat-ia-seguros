@@ -333,3 +333,26 @@ def crear_cotizacion(
     }
     valores.update(campos)
     return Cotizacion.objects.create(**valores)
+
+
+def crear_expediente_completo(poliza, consulta, mensaje, responsable, carpeta):
+    """Siniestro con historial y una foto guardada en disco (`carpeta`), como lo deja el bot."""
+    import io
+
+    from django.test import override_settings
+    from PIL import Image
+
+    from negocio.adjuntos_siniestros import _guardar_validado
+    from negocio.siniestros import _crear_denuncia
+
+    siniestro = _crear_denuncia(
+        poliza=poliza, fecha_ocurrencia=timezone.localdate(), descripcion="Choque",
+        responsable=responsable, consulta_id=consulta.id,
+    )
+    imagen = io.BytesIO()
+    Image.new("RGB", (8, 8), "red").save(imagen, "PNG")
+    with override_settings(PRIVATE_MEDIA_ROOT=carpeta):
+        adjunto = _guardar_validado(
+            siniestro, imagen.getvalue(), origen="whatsapp", mensaje_origen=mensaje,
+        )
+    return siniestro, adjunto

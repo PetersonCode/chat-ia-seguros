@@ -103,7 +103,7 @@ class VencimientosTests(ApiTestCase):
             self.poliza.fecha_vencimiento=self.hoy+timedelta(days=dias)
             texto,saldo=texto_recordatorio(self.poliza)
             self.assertIn(esperado,texto)
-            self.assertIn('Saldo pendiente de esta póliza: $0',texto)
+            self.assertIn('Saldo a pagar de esta póliza: $0',texto)
 
     def test_numero_ajeno_no_recibe_datos_ni_crea_aviso(self):
         otro=fabricas.crear_contacto(fabricas.crear_cliente())
@@ -120,7 +120,7 @@ class VencimientosTests(ApiTestCase):
         with self.captureOnCommitCallbacks(execute=True):
             r=self.cliente_api.post(self.ruta,{'contacto_id':self.contacto.pk},format='json')
         self.assertEqual(r.status_code,201,r.content)
-        self.assertIn('Saldo pendiente de esta póliza: $0',RecordatorioPoliza.objects.get().texto)
+        self.assertIn('Saldo a pagar de esta póliza: $0',RecordatorioPoliza.objects.get().texto)
 
     def test_envio_se_registra_en_chat_sin_tomar_el_control(self):
         self.entrar(self.operador)

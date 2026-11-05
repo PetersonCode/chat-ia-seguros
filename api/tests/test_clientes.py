@@ -77,6 +77,31 @@ class AltaPorApiTests(ApiTestCase):
             self.cliente_api.get(f"/api/clientes/{self.cliente.id}/").status_code, 200
         )
 
+    def test_la_ficha_trae_la_conversacion_de_cada_numero(self):
+        """Para «Ver conversación»: la abierta y, si no hay, la última; sin chat, null."""
+        from django.utils import timezone
+
+        from datos.models import Conversacion
+
+        self.entrar(self.operador)
+        cerrada = fabricas.crear_conversacion(
+            self.contacto, estado="cerrada", cerrada_en=timezone.now()
+        )
+        otro = fabricas.crear_contacto(self.cliente)
+
+        chats = self.cliente_api.get(f"/api/clientes/{self.cliente.id}/").json()["chats"]
+        por_numero = {chat["numero"]: chat["conversacion_id"] for chat in chats}
+        # La abierta de `ApiTestCase` gana aunque la cerrada sea más nueva.
+        self.assertEqual(por_numero[self.contacto.numero], self.conversacion.id)
+        self.assertIsNone(por_numero[otro.numero])
+
+        Conversacion.objects.filter(pk=self.conversacion.pk).update(
+            estado="cerrada", cerrada_en=timezone.now()
+        )
+        chats = self.cliente_api.get(f"/api/clientes/{self.cliente.id}/").json()["chats"]
+        por_numero = {chat["numero"]: chat["conversacion_id"] for chat in chats}
+        self.assertEqual(por_numero[self.contacto.numero], cerrada.id)
+
     # AC-T2-22
     def test_sin_sesion_el_alta_es_401(self):
         respuesta = self.cliente_api.post("/api/clientes/", self.ALTA, format="json")
@@ -150,6 +175,19 @@ class ModificacionYBajaPorApiTests(ApiTestCase):
         self.assertError(respuesta, 409, "estado_invalido")
         self.cliente.refresh_from_db()
         self.assertTrue(self.cliente.activo)
+
+    def test_una_poliza_que_empieza_manana_cuenta_como_por_iniciar(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        self.entrar()
+        fabricas.crear_poliza(
+            self.cliente, estado=EstadoPoliza.VIGENTE,
+            fecha_inicio=timezone.localdate() + timedelta(days=1),
+        )
+
+        fila = self.cliente_api.get("/api/clientes/?q=27345678").json()["resultados"][0]
+        self.assertEqual(fila["polizas_vigentes"], 0)
+        self.assertEqual(fila["polizas_por_iniciar"], 1)
 
     # AC-T2-23
     def test_reactivar_vuelve_a_dejarlo_activo_y_repetirlo_es_409(self):

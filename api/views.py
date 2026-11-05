@@ -20,6 +20,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone
 from django.db import transaction
+from django.db.models import Case, Value, When
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
@@ -68,6 +69,7 @@ from datos.models import (
     AccionPendiente,
     Alerta,
     Cliente,
+    Rol,
     Compania,
     ConsultaBot,
     Conversacion,
@@ -280,15 +282,27 @@ def _poliza_resumen(fila) -> dict:
         "cobertura": fila.cobertura,
         "estado": fila.estado,
         "fecha_vencimiento": _iso(fila.fecha_vencimiento),
+        # A pagar ahora (vencidas + próxima cuota) y el total impago del contrato.
         "saldo_pendiente": _dinero(getattr(fila, "saldo_pendiente", None)),
+        "saldo_total": _dinero(getattr(fila, "saldo_total", None)),
         "proximo_vencimiento_pago": _iso(
             getattr(fila, "proximo_vencimiento_pago", None)
         ),
     }
 
 
+def _adjunto_de_mensaje(mensaje: Mensaje) -> dict | None:
+    from negocio.adjuntos_chat import descripcion_del_archivo
+
+    datos = descripcion_del_archivo(mensaje)
+    if datos is None:
+        return None
+    return {**datos, "descarga_url": f"/api/mensajes/{mensaje.id}/adjunto/"}
+
+
 def _mensaje(mensaje: Mensaje) -> dict:
     return {
+        "adjunto": _adjunto_de_mensaje(mensaje),
         "id": mensaje.id,
         "direccion": mensaje.direccion,
         "emisor": mensaje.emisor,
@@ -558,7 +572,22 @@ def _cliente_resumen(cliente: Cliente) -> dict:
         "email": cliente.email,
         "activo": cliente.activo,
         "polizas_vigentes": getattr(cliente, "polizas_vigentes", 0) or 0,
+        "polizas_por_iniciar": getattr(cliente, "polizas_por_iniciar", 0) or 0,
     }
+
+
+def _conversacion_de_contacto(contacto) -> int | None:
+    """La conversación que se abre desde la ficha: la abierta o, si no hay, la última."""
+    return (
+        Conversacion.objects.filter(contacto=contacto)
+        .order_by(
+            Case(When(estado="abierta", then=Value(0)), default=Value(1)),
+            "-creada_en",
+            "-id",
+        )
+        .values_list("id", flat=True)
+        .first()
+    )
 
 
 def _cliente_detalle(cliente: Cliente, ver_comision: bool = False) -> dict:
@@ -571,6 +600,11 @@ def _cliente_detalle(cliente: Cliente, ver_comision: bool = False) -> dict:
         "email": cliente.email,
         "activo": cliente.activo,
         "contactos": [contacto.numero for contacto in cliente.contactos.all()],
+        # Para el botón «Ver conversación» de la ficha: un chat por número.
+        "chats": [
+            {"numero": contacto.numero, "conversacion_id": _conversacion_de_contacto(contacto)}
+            for contacto in cliente.contactos.all()
+        ],
         "polizas": [_poliza_con_bien(poliza, ver_comision) for poliza in polizas],
         "vehiculos": [
             _vehiculo(vehiculo) for vehiculo in cliente.vehiculos.all() if vehiculo.activo
@@ -694,7 +728,8 @@ def auth_me(request):
 @authentication_classes([SessionAuthentication])
 @permission_classes([EsFuncionario])
 def pendientes(request):
-    return Response(selectors.contar_pendientes(request.funcionario.id))
+    ve_todas = request.funcionario.rol in (Rol.ADMINISTRADOR, Rol.PROPIETARIO)
+    return Response(selectors.contar_pendientes(request.funcionario.id, ve_todas))
 
 
 # --- Supervisión -----------------------------------------------------------
@@ -867,7 +902,10 @@ def alertas_listar(request):
 @authentication_classes([SessionAuthentication])
 @permission_classes([EsFuncionario])
 def consultas_cerradas_con_alertas(request):
-    queryset = selectors.consultas_cerradas_con_alertas().select_related(
+    queryset = selectors.consultas_cerradas(
+        con_alertas=request.query_params.get("con_alertas") == "1",
+        q=request.query_params.get("q") or None,
+    ).select_related(
         "contacto__cliente", "tipo_consulta"
     ).prefetch_related("alertas")
     return _pagina(queryset, request, _consulta_resumen)
@@ -997,7 +1035,9 @@ def consulta_reabrir(request, id):
 def acciones_listar(request):
     estado = request.query_params.get("estado")
     queryset = selectors.listar_acciones(
-        estado="pendiente" if estado is None else (estado or None)
+        estado="pendiente" if estado is None else (estado or None),
+        q=request.query_params.get("q"),
+        orden="reciente" if request.query_params.get("orden") == "reciente" else "antiguo",
     )
     return _pagina(queryset, request, _accion)
 
@@ -1083,8 +1123,9 @@ def accion_rechazar(request, id):
 @authentication_classes([SessionAuthentication])
 @permission_classes([EsFuncionario])
 def derivaciones_listar(request):
+    ve_todas = request.funcionario.rol in (Rol.ADMINISTRADOR, Rol.PROPIETARIO)
     queryset = selectors.derivaciones_de(
-        request.funcionario.id,
+        None if ve_todas else request.funcionario.id,
         incluir_atendidas=request.query_params.get("atendidas") == "1",
     ).select_related("consulta")
     return _pagina(queryset, request, _derivacion)
@@ -1365,7 +1406,7 @@ def siniestros_listar_o_crear(request):
     if estado is not None and estado not in EstadoSiniestro.values:
         raise DatosInvalidos("El filtro de estado no es válido.")
     return _pagina(
-        selectors.siniestros(estado),
+        selectors.siniestros(estado, q=request.query_params.get("q") or None),
         request,
         lambda siniestro: _siniestro_expediente(
             siniestro, incluir_adjuntos=False
@@ -1396,6 +1437,25 @@ def siniestro_adjunto_subir(request, id):
         _siniestro_expediente(selectors.detalle_siniestro(id)),
         status=status.HTTP_201_CREATED,
     )
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([EsFuncionario])
+def mensaje_adjunto_descargar(request, id):
+    """Descarga la imagen o el video que mandó el cliente, siempre como archivo adjunto."""
+    from negocio.adjuntos_chat import abrir_adjunto_de_mensaje
+
+    adjunto, archivo = abrir_adjunto_de_mensaje(id)
+    respuesta = FileResponse(
+        archivo,
+        as_attachment=True,
+        filename=adjunto.nombre_archivo,
+        content_type=adjunto.content_type,
+    )
+    respuesta["Cache-Control"] = "private, no-store"
+    respuesta["X-Content-Type-Options"] = "nosniff"
+    return respuesta
 
 
 @api_view(["GET"])

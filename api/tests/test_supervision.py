@@ -360,7 +360,7 @@ class ListadosTests(ApiTestCase):
             self.conversacion, estado=EstadoConsulta.CERRADO
         )
 
-        payload = self.cliente_api.get("/api/consultas/cerradas-con-alertas/").json()
+        payload = self.cliente_api.get("/api/consultas/cerradas-con-alertas/?con_alertas=1").json()
         ids = [c["id"] for c in payload["resultados"]]
         self.assertIn(self.consulta.id, ids)
         self.assertNotIn(sin_alertas.id, ids)
@@ -369,6 +369,38 @@ class ListadosTests(ApiTestCase):
         self.assertEqual(fila["alertas_abiertas"], 1)
         self.assertEqual(fila["severidad_maxima"], "alta")
         self.assertEqual(fila["cliente"]["apellido"], "Fernández")
+
+    def test_casos_cerrados_sin_filtro_trae_tambien_los_que_no_tienen_alertas(self):
+        sin_alertas = fabricas.crear_consulta(
+            self.conversacion, estado=EstadoConsulta.CERRADO
+        )
+        payload = self.cliente_api.get("/api/consultas/cerradas-con-alertas/").json()
+        self.assertIn(sin_alertas.id, [c["id"] for c in payload["resultados"]])
+
+    def test_casos_cerrados_se_buscan_por_caso_cliente_dni_o_numero(self):
+        cerrado = fabricas.crear_consulta(self.conversacion, estado=EstadoConsulta.CERRADO)
+        otro = fabricas.crear_consulta(
+            fabricas.crear_conversacion(fabricas.crear_contacto(
+                fabricas.crear_cliente(nombre="Mónica", apellido="Suárez", dni="31999888")
+            )),
+            estado=EstadoConsulta.CERRADO,
+        )
+        abierto = fabricas.crear_consulta(self.conversacion, estado=EstadoConsulta.ABIERTO)
+
+        def ids(q):
+            respuesta = self.cliente_api.get("/api/consultas/cerradas-con-alertas/", {"q": q})
+            self.assertEqual(respuesta.status_code, 200, respuesta.content)
+            return {c["id"] for c in respuesta.json()["resultados"]}
+
+        self.assertIn(cerrado.id, ids(cerrado.codigo_caso))
+        self.assertIn(cerrado.id, ids("fernandez"))
+        self.assertNotIn(otro.id, ids("fernandez"))
+        self.assertEqual(ids("31999888"), {otro.id})
+        self.assertEqual(ids("suarez"), {otro.id})
+        self.assertIn(cerrado.id, ids(self.contacto.numero[-6:]))
+        # Un caso abierto nunca aparece acá, aunque coincida.
+        self.assertNotIn(abierto.id, ids("fernandez"))
+        self.assertEqual(ids("inexistente"), set())
 
 
 class CerrarCasosTests(ApiTestCase):

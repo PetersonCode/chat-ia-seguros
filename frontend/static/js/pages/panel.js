@@ -1,5 +1,5 @@
-import { api } from "../api.js?v=20261105burbujas1";
-import { inicializarNav } from "../nav.js?v=20261105burbujas1";
+import { api } from "../api.js?v=20261105fechas1";
+import { inicializarNav } from "../nav.js?v=20261105fechas1";
 
 const COLORES_RAMO = {
     automotor: "bg-primary",

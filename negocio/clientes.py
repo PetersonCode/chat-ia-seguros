@@ -224,9 +224,9 @@ def eliminar_cliente_definitivo(cliente_id: int, funcionario_id: int) -> dict[st
     cotizaciones) y, por cada número de WhatsApp vinculado, todo su rastro
     (conversaciones, mensajes, casos, alertas, contacto).
 
-    Se niega, sin borrar nada, si hay siniestros, fotos de siniestro o acciones
-    finalizadas: la base los declara inmutables. La auditoría de seguridad no se
-    borra: guarda rutas y usuario, sin datos personales.
+    Sin límites: también borra sus siniestros (con historial y fotos) y las
+    acciones finalizadas. La auditoría de seguridad no se borra: guarda rutas y
+    usuario, sin datos personales.
     """
     from datos.models import (
         Conversacion,
@@ -235,7 +235,7 @@ def eliminar_cliente_definitivo(cliente_id: int, funcionario_id: int) -> dict[st
         Vehiculo,
     )
     from negocio.supervision import borrar_rastro_del_numero
-    from negocio.eliminaciones import borrar_polizas, verificar_polizas_borrables
+    from negocio.eliminaciones import borrar_polizas
 
     funcionario = Funcionario.objects.filter(pk=funcionario_id, activo=True).first()
     if funcionario is None or funcionario.rol != Rol.ADMINISTRADOR:
@@ -245,18 +245,17 @@ def eliminar_cliente_definitivo(cliente_id: int, funcionario_id: int) -> dict[st
     cliente = _cliente(cliente_id)
 
     polizas = list(Poliza.objects.filter(cliente_id=cliente.id).values_list("id", flat=True))
-    verificar_polizas_borrables(polizas, "el cliente")
 
-    # Primero el rastro de cada número vinculado. Si algo es inmutable se niega
-    # y la transacción deshace lo ya borrado.
+    # Primero el rastro de cada número vinculado.
     contactos = list(
         ContactoWhatsapp.objects.filter(cliente_id=cliente.id).values_list("id", flat=True)
     )
+    siniestros_borrados = 0
     for contacto_id in contactos:
         conversaciones = list(
             Conversacion.objects.filter(contacto_id=contacto_id).values_list("id", flat=True)
         )
-        borrar_rastro_del_numero(contacto_id, conversaciones)
+        siniestros_borrados += borrar_rastro_del_numero(contacto_id, conversaciones)["siniestros"]
 
     # Las pólizas, con la misma lógica que el borrado de póliza o de compañía.
     resumen_polizas = borrar_polizas(polizas)
@@ -297,6 +296,7 @@ def eliminar_cliente_definitivo(cliente_id: int, funcionario_id: int) -> dict[st
         "polizas": resumen_polizas["polizas"],
         "vehiculos": len(vehiculos),
         "cuotas": resumen_polizas["cuotas"],
+        "siniestros": siniestros_borrados + resumen_polizas["siniestros"],
         "interesados": len(interesados),
         "numeros": len(contactos),
     }

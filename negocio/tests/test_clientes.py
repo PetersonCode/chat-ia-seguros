@@ -6,9 +6,11 @@ alcanzaría con un `save()`. Por eso los casos de error pesan más que los felic
 
 from __future__ import annotations
 
+import os
+import tempfile
 from datetime import timedelta
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from datos import fabricas
@@ -336,15 +338,22 @@ class EliminarClienteDefinitivoTests(TestCase):
         with self.assertRaises(NoEncontrado):
             eliminar_cliente_definitivo(999999, self.admin.id)
 
-    def test_con_siniestro_se_niega_y_no_borra_nada(self):
-        from datos.models import Poliza, Siniestro
+    def test_con_siniestro_se_borra_todo_incluidos_historial_y_fotos(self):
+        from datos.models import AdjuntoSiniestro, HistorialSiniestro, Poliza, Siniestro
+        from datos.models import Mensaje
 
-        Siniestro.objects.create(
-            numero_siniestro="SIN-2026-00002", poliza=self.poliza,
-            fecha_ocurrencia=timezone.localdate(), descripcion="Choque",
-        )
-        with self.assertRaises(EstadoInvalido):
-            eliminar_cliente_definitivo(self.cliente.id, self.admin.id)
-        self.assertTrue(Cliente.objects.filter(pk=self.cliente.id).exists())
-        self.assertTrue(Poliza.objects.filter(pk=self.poliza.id).exists())
-        self.assertTrue(ContactoWhatsapp.objects.filter(pk=self.contacto.id).exists())
+        aprobador = fabricas.crear_funcionario("Graciela", puede_aprobar=True)
+        mensaje = Mensaje.objects.filter(consulta=self.consulta).first()
+        with tempfile.TemporaryDirectory() as carpeta:
+            _, adjunto = fabricas.crear_expediente_completo(self.poliza, self.consulta, mensaje, aprobador, carpeta)
+            archivo = os.path.join(carpeta, adjunto.clave_almacenamiento)
+            self.assertTrue(os.path.exists(archivo))
+
+            with override_settings(PRIVATE_MEDIA_ROOT=carpeta), self.captureOnCommitCallbacks(execute=True):
+                resumen = eliminar_cliente_definitivo(self.cliente.id, self.admin.id)
+
+            self.assertEqual(resumen["siniestros"], 1)
+            self.assertFalse(os.path.exists(archivo))
+        for modelo in (Siniestro, HistorialSiniestro, AdjuntoSiniestro, Poliza, ContactoWhatsapp):
+            self.assertFalse(modelo.objects.exists(), modelo.__name__)
+        self.assertFalse(Cliente.objects.filter(pk=self.cliente.id).exists())

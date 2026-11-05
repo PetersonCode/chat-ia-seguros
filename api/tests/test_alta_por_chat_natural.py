@@ -184,7 +184,7 @@ class CotizarYContratarTests(AltaPorChatNaturalTests):
         from negocio.bot import plantillas
 
         cierre = self.cotizar()
-        self.assertEqual(cierre, plantillas.COTIZACION_REGISTRADA)
+        self.assertEqual(cierre, plantillas.con_aviso_de_derivacion(plantillas.COTIZACION_REGISTRADA))
         self.conversacion.refresh_from_db()
         self.assertEqual(self.conversacion.modo, "bot")
 

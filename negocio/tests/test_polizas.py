@@ -173,7 +173,7 @@ class AltaPolizaTests(TestCase):
             f for f in resumen_polizas(self.cliente.id)
             if f.numero_poliza == poliza.numero_poliza
         )
-        self.assertEqual(fila.saldo_pendiente, Decimal("216000.00"))
+        self.assertEqual(fila.saldo_total, Decimal("216000.00"))
         self.assertEqual(fila.proximo_vencimiento_pago, date(2026, 1, 10))
 
     # --- validaciones -----------------------------------------------------
@@ -312,7 +312,7 @@ class RegistrarPagoTests(TestCase):
             f for f in resumen_polizas(self.cliente.id)
             if f.numero_poliza == self.poliza.numero_poliza
         )
-        self.assertEqual(fila.saldo_pendiente, Decimal("198000.00"))
+        self.assertEqual(fila.saldo_total, Decimal("198000.00"))
         self.assertEqual(fila.proximo_vencimiento_pago, date(2026, 2, 10))
 
     def test_dos_pagos_seguidos_cobran_dos_meses_distintos(self):

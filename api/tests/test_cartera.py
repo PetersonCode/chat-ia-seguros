@@ -84,7 +84,7 @@ class CarteraApiTests(ApiTestCase):
         fila = respuesta.json()['resultados'][0]
         self.assertIn('BB888ZZ', fila['vehiculo'])
         self.assertEqual(fila['compania'], self.compania.nombre)
-        self.assertEqual(float(fila['saldo_pendiente']), 6000)
+        self.assertEqual(float(fila['saldo_total']), 6000)
 
     def test_clase_valida_en_alta_y_edicion(self):
         self.entrar()

@@ -138,6 +138,7 @@ class EstadoTrabajoWhatsApp(models.TextChoices):
 class TipoTrabajoWhatsApp(models.TextChoices):
     TEXTO = "texto", "Procesar texto"
     IMAGEN = "imagen", "Procesar imagen"
+    VIDEO = "video", "Guardar video para el chat"
     AVISO_FORMATO = "aviso_formato", "Avisar formato no soportado"
 
 
@@ -155,6 +156,7 @@ class TipoAlerta(models.TextChoices):
     DATO_INVENTADO = "dato_inventado", "Dato inventado"
     DATO_INCONSISTENTE = "dato_inconsistente", "Dato inconsistente"
     DATO_NO_VERIFICADO = "dato_no_verificado", "Dato no verificado"
+    SINIESTRO_GRAVE = "siniestro_grave", "Siniestro grave"
 
 
 class Severidad(models.TextChoices):
@@ -189,6 +191,7 @@ class TipoAccion(models.TextChoices):
     APERTURA_SINIESTRO = "apertura_siniestro", "Apertura de siniestro"
     ALTA_CLIENTE = "alta_cliente", "Alta de cliente"
     ALTA_POLIZA = "alta_poliza", "Alta de póliza"
+    REGISTRAR_PAGO = "registrar_pago", "Registro de pago"
 
 
 class EstadoAccion(models.TextChoices):
@@ -451,6 +454,25 @@ class AdjuntoSiniestro(models.Model):
     class Meta:
         managed = False
         db_table = "siniestro_adjuntos"
+
+
+class MensajeAdjunto(models.Model):
+    """Imagen o video que mandó el cliente, descargable desde el chat."""
+
+    id = models.BigAutoField(primary_key=True)
+    mensaje = models.OneToOneField(
+        "Mensaje", on_delete=models.DO_NOTHING, related_name="adjunto_chat"
+    )
+    clave_almacenamiento = models.TextField(unique=True)
+    nombre_archivo = models.TextField()
+    content_type = models.TextField()
+    tamano = models.PositiveIntegerField()
+    sha256 = models.TextField()
+    creado_en = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "mensaje_adjuntos"
 
 
 class DocumentoGeneral(models.Model):
@@ -726,8 +748,11 @@ class VPolizaResumen(models.Model):
     cobertura = models.TextField()
     estado = models.TextField()
     fecha_vencimiento = models.DateField()
+    # Lo que hay que pagar ahora: cuotas vencidas más la próxima (SQL 37).
     saldo_pendiente = models.DecimalField(max_digits=12, decimal_places=2)
     proximo_vencimiento_pago = models.DateField(null=True)
+    # Todas las cuotas impagas del contrato, incluidas las de meses siguientes.
+    saldo_total = models.DecimalField(max_digits=12, decimal_places=2)
 
     class Meta:
         managed = False

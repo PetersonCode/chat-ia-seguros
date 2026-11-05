@@ -1,7 +1,7 @@
-import { api } from "../api.js?v=20261105burbujas1";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105burbujas1";
-import { formatearFechaHora } from "../lib/formato.js?v=20261105burbujas1";
-import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105burbujas1";
+import { api } from "../api.js?v=20261105fechas1";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105fechas1";
+import { formatearFechaHora } from "../lib/formato.js?v=20261105fechas1";
+import { crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261105fechas1";
 
 const lista = document.getElementById("lista-derivaciones");
 const estado = document.getElementById("estado-derivaciones");

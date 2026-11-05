@@ -62,7 +62,7 @@ class AltaDePolizaPorApiTests(ApiTestCase):
         cuerpo = self.cliente_api.get(f"/api/polizas/{creada['id']}/").json()
 
         # 12 cuotas de 18.000, todas pendientes.
-        self.assertEqual(cuerpo["saldo_pendiente"], "216000.00")
+        self.assertEqual(cuerpo["saldo_total"], "216000.00")
         self.assertEqual(cuerpo["proximo_vencimiento_pago"], "2026-01-10")
 
     def test_las_opciones_traen_tipos_coberturas_y_el_proximo_numero(self):
@@ -194,7 +194,7 @@ class RegistrarPagoPorApiTests(ApiTestCase):
         self.assertEqual(respuesta.status_code, 200, respuesta.content)
         cuerpo = respuesta.json()
         # Eran 12 × 18.000; queda un mes menos.
-        self.assertEqual(cuerpo["saldo_pendiente"], "198000.00")
+        self.assertEqual(cuerpo["saldo_total"], "198000.00")
         self.assertEqual(cuerpo["proximo_vencimiento_pago"], "2026-02-10")
         self.assertEqual(
             cuerpo["pago"],
@@ -228,7 +228,7 @@ class RegistrarPagoPorApiTests(ApiTestCase):
         self.assertEqual(pago_segundo, pago_primero)
         self.assertEqual(Pago.objects.count(), 1)
         self.assertEqual(
-            segundo.json()["saldo_pendiente"],
+            segundo.json()["saldo_total"],
             "198000.00",
         )
         self.assertEqual(

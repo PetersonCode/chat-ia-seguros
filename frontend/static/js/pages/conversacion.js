@@ -1,10 +1,11 @@
-import { api } from "../api.js?v=20261105burbujas1";
-import { abrirRegistroPago } from '../lib/pagos.js?v=20261105revision9';
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105burbujas1";
-import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261105burbujas1";
-import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261105burbujas1";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261105burbujas1";
-import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261105burbujas1";
+import { api } from "../api.js?v=20261105fechas1";
+import { abrirRegistroPago } from '../lib/pagos.js?v=20261105fechas1';
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261105fechas1";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261105fechas1";
+import { crearTarjetaAdjunto, esMarcadorDeArchivo } from "../lib/adjuntos.js?v=20261105fechas1";
+import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261105fechas1";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261105fechas1";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261105fechas1";
 
 const idConversacion = new URLSearchParams(globalThis.location.search).get("id");
 const tituloChat = document.getElementById("titulo-chat");
@@ -98,8 +99,16 @@ function actualizarNodoMensaje(nodo, mensaje) {
         "small text-muted mb-2",
         `${nombreRemitente(mensaje)} · ${formatearFechaHora(mensaje.fecha_hora)} · ${mensaje.estado_envio}`,
     );
-    const texto = crearElemento("p", "mb-2", mensaje.texto ?? "");
-    const contenido = [encabezado, texto];
+    const contenido = [encabezado];
+    if (mensaje.adjunto) {
+        contenido.push(crearTarjetaAdjunto(mensaje.adjunto));
+        if (mensaje.adjunto.texto) {
+            contenido.push(crearElemento("p", "mb-2", mensaje.adjunto.texto));
+        }
+    }
+    if (!esMarcadorDeArchivo(mensaje)) {
+        contenido.push(crearElemento("p", "mb-2", mensaje.texto ?? ""));
+    }
 
     const acciones = accionesPermitidas(mensaje, funcionario);
     if (acciones.length > 0) {
@@ -190,7 +199,7 @@ function renderizarCliente(detalle) {
             clase: debe ? "tarjeta-amarillo" : "tarjeta-verde",
             insignias: [crearInsignia(poliza.estado)],
             datos: [
-                ["Saldo", debe ? formatearMonto(poliza.saldo_pendiente) : "Sin cuotas pendientes"],
+                ["A pagar", debe ? formatearMonto(poliza.saldo_pendiente) : "Sin cuotas pendientes"],
                 ["Vence pago", formatearFecha(poliza.proximo_vencimiento_pago)],
             ],
             acciones: [pagar],
@@ -225,6 +234,12 @@ function renderizarConversacion(detalle) {
     estadoChat.textContent = `Estado: ${detalle.estado} · Modo: ${detalle.modo}`
         + (detalle.derivacion_urgente ? " · Derivación urgente" : "")
         + (detalle.atendida_por?.nombre ? ` · Atiende: ${detalle.atendida_por.nombre}` : "");
+
+    // La planilla del cliente, si el contacto ya es cliente.
+    const botonPlanilla = document.getElementById("boton-planilla");
+    const clienteId = detalle.cliente_info?.id ?? detalle.cliente?.id;
+    botonPlanilla.hidden = !clienteId;
+    if (clienteId) botonPlanilla.href = `/panel/cliente/?id=${encodeURIComponent(clienteId)}`;
 
     // Una conversación vaciada ya no recibe mensajes: el cliente sigue en una
     // nueva. Queda solo para consulta.
@@ -373,8 +388,8 @@ function eliminacionTotal() {
         "Se borra de la base, sin dejar rastro, todo lo de este número: todas sus"
         + " conversaciones, mensajes, casos, alertas, acciones, avisos, su contacto de"
         + " WhatsApp y sus interesados con historial y cotizaciones. El cliente y sus"
-        + " pólizas no se tocan. No se puede deshacer. Si tiene siniestros, fotos de"
-        + " siniestro o acciones finalizadas, no se borra nada.",
+        + " pólizas no se tocan. No se puede deshacer. Se borran también sus"
+        + " siniestros (con historial y fotos) y las acciones finalizadas.",
         async () => {
             await api.post(`/api/conversaciones/${idConversacion}/eliminacion-total/`);
             globalThis.location.assign("/panel/");
