@@ -546,8 +546,16 @@ class ExtraccionDeDatosDeCotizacionTests(SimpleTestCase):
         self.assertEqual(self._leer("Toyota Corolla Rosario"), {})
         # Un solo texto libre cuando faltan los dos y nada lo ubica: tampoco.
         self.assertEqual(self._leer("Rosario"), {})
-        # Tres renglones libres para dos datos: ambiguo.
-        self.assertEqual(self._leer("Toyota", "Corolla", "Rosario"), {})
+        # Tres renglones libres para dos datos: ambiguo si la primera palabra no es
+        # una marca conocida...
+        self.assertEqual(self._leer("Xyz", "Abc", "Def"), {})
+        # ...y con una marca conocida son marca, modelo y localidad, en el orden del
+        # pedido (conversación 33: «Ford / EcoSport / Banfield»).
+        leido = self._leer("Toyota", "Corolla", "Rosario")
+        self.assertEqual(
+            (leido["marca"], leido["modelo"], leido["localidad"]),
+            ("Toyota", "Corolla", "Rosario"),
+        )
 
     # AC-T3-85
     def test_un_texto_libre_se_ubica_por_donde_aparece_en_el_pedido(self):

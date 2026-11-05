@@ -79,7 +79,7 @@ LOCK_CODIGO_CASO = 4242
 # Tiene que quedar bien por debajo del minuto que espera `reprocesar_pendientes`
 # para reintentar un mensaje sin respuesta: si no, el worker llegaría primero y
 # contestaría la ráfaga por la mitad.
-VENTANA_AGRUPACION_POR_DEFECTO = 5.0
+VENTANA_AGRUPACION_POR_DEFECTO = 3.0
 
 # Qué acción pide cada tipo con política `requiere_aprobacion` (sección 3).
 ACCION_POR_TIPO = {
@@ -542,6 +542,11 @@ def procesar_tras_ventana(mensaje_id: int) -> ResultadoBot:
     if urgente:
         return procesar_mensaje(mensaje_id)
 
+    # Si ya llegó otro mensaje, este no contesta: el último de la ráfaga la agrupa.
+    # Dormir acá solo demoraría la cola (el worker atiende de a uno).
+    if _hay_entrante_posterior(mensaje):
+        return ResultadoBot(True, None, None, False, [])
+
     espera = ventana_agrupacion()
     if espera:
         time.sleep(espera)
@@ -847,6 +852,8 @@ def _respuesta_de_alta(
         return _Respuesta(
             texto_al_derivar, derivar_a=destino, datos_registro=datos
         )
+    if datos.dni_mal_escrito and datos.dni is None:
+        return _Respuesta(plantillas.PEDIDO_DNI_REVISAR)
     return _Respuesta(
         plantillas.PEDIDO_DATOS.format(faltantes=datos.texto_faltantes())
     )

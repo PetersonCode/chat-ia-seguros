@@ -93,6 +93,13 @@ NO_ENTENDI_POR_INTENTO = (
 # si se reescribe el texto, la marca y la detección no se pueden desincronizar.
 MARCA_PEDIDO_DATOS = "Para registrarte necesito un par de datos."
 PEDIDO_DATOS = MARCA_PEDIDO_DATOS + " ¿Me pasás {faltantes}?"
+# El cliente mandó un número que no puede ser un DNI: se le dice qué está mal en
+# vez de repetirle la misma pregunta. Lleva la marca para contar como pedido.
+PEDIDO_DNI_REVISAR = (
+    MARCA_PEDIDO_DATOS
+    + " El número que me mandaste no parece un DNI: tiene que tener 7 u 8 números, sin puntos ni letras."
+    + " ¿Me lo escribís de nuevo?"
+)
 # No repite el nombre ni el DNI: un DNI en boca del bot es exactamente lo que
 # `guardrails._alertas_dni` tiene que mirar con lupa, y confirmarlo no aporta.
 DATOS_REGISTRADOS = "¡Gracias! Ya registré tus datos. Te derivamos con un asesor, que te va a responder a la brevedad."

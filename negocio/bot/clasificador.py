@@ -123,6 +123,14 @@ PATRONES: dict[str, tuple[str, ...]] = {
         # persona, y el cliente se quedaba sin la respuesta que el bot ya tenía.
         # Van en plural y con el verbo adelante a propósito: un "poliza" suelto
         # también aparece en "cuanto cuesta una poliza", que es una cotización.
+        # «¿Cuál es mi patente?»: el listado trae la patente de cada póliza. Va
+        # como pregunta (no «mi patente es…») para no robarle a la cotización
+        # el renglón en que el cliente informa la suya.
+        "cual es mi patente",
+        "cual es la patente",
+        "que patente tengo",
+        "patente de mi auto",
+        "patente de mi vehiculo",
         "tengo polizas",
         "tengo alguna poliza",
         "mis polizas",

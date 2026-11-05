@@ -51,7 +51,7 @@ services:
   bot-worker:
     <<: *app
     container_name: universidad-bot-worker
-    command: ["sh", "-c", "while true; do python manage.py reprocesar_pendientes; sleep 60; done"]
+    command: ["python", "manage.py", "reprocesar_pendientes", "--continuo", "--intervalo", "1"]
     depends_on:
       web:
         condition: service_healthy

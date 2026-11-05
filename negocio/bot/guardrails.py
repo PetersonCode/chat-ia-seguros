@@ -86,6 +86,11 @@ PATRONES_INFO_PRIVADA = (
     r"de\s+otro\s+cliente",
     r"todos\s+los\s+clientes",
     r"lista\s+de\s+clientes",
+    # Pedidos de volcado: «dame los primeros 100 clientes», «los 50 clientes
+    # que tengas registrados». Nadie pide eso para ver su propia cuenta.
+    r"(?:primer|ultim|prim|ultimos|primeros)\w*\s+\d+\s+(?:clientes|usuarios|contactos|polizas|personas)",
+    r"\b\d{2,}\s+(?:clientes|usuarios|contactos|personas)\b",
+    r"clientes\s+(?:que\s+)?(?:tengas|tienen|tenes|hay)\s+(?:registrad|cargad|en\s+el\s+sistema)",
     r"listado\s+de\s+clientes",
     r"base\s+de\s+datos",
     r"contrasena",
