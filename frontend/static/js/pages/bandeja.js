@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261104bot2";
-import { inicializarNav } from "../nav.js?v=20261104bot2";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261104bot2";
-import { claseTarjeta, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261104bot2";
-import { armarQuery } from "../lib/consulta.js?v=20261104bot2";
-import { debounce } from "../lib/debounce.js?v=20261104bot2";
+import { api } from "../api.js?v=20261104gestion2";
+import { inicializarNav } from "../nav.js?v=20261104flotante1";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261104gestion2";
+import { claseTarjeta, crearInsignia, crearTarjeta, crearTarjetaVacia } from "../lib/tarjetas.js?v=20261104gestion2";
+import { armarQuery } from "../lib/consulta.js?v=20261104gestion2";
+import { debounce } from "../lib/debounce.js?v=20261104gestion2";
 
 const formulario = document.getElementById("formulario-filtros");
 const campoEstado = document.getElementById("filtro-estado");
@@ -140,7 +140,8 @@ function mostrarConversaciones(resultados) {
 
 function filtrosActuales() {
     return {
-        estado: campoEstado.value,
+        agrupada: true,
+        vista: campoEstado.value,
         con_alertas: campoAlertas.checked,
         esperando_humano: campoHumano.checked,
         q: campoBusqueda.value.trim(),
@@ -151,7 +152,7 @@ function filtrosActuales() {
 function actualizarPaginacion(datos) {
     paginaSeleccionada = datos.pagina;
     paginasTotales = Math.max(1, Math.ceil(datos.total / datos.por_pagina));
-    totalResultados.textContent = `${datos.total} conversación${datos.total === 1 ? "" : "es"}`;
+    totalResultados.textContent = `${datos.total} contacto${datos.total === 1 ? "" : "s"}`;
     paginaActual.textContent = `Página ${paginaSeleccionada} de ${paginasTotales}`;
     botonAnterior.disabled = paginaSeleccionada <= 1;
     botonSiguiente.disabled = paginaSeleccionada >= paginasTotales;
@@ -178,6 +179,7 @@ async function cargarConversaciones(pagina = paginaSeleccionada) {
         ) {
             throw new Error("La respuesta de conversaciones no tiene el formato esperado.");
         }
+        document.getElementById('resumen-clientes').textContent = `${datos.clientes.atencion} ${datos.clientes.atencion === 1 ? "cliente necesita" : "clientes necesitan"} atención · ${datos.clientes.bot} atendidos por el bot · ${datos.clientes.esperando} esperando al cliente · ${datos.clientes.resueltas} resueltos. Los filtros aplican a estos contadores.`;
         mostrarConversaciones(datos.resultados);
         actualizarPaginacion(datos);
         estadoCarga.textContent = "";
@@ -226,3 +228,5 @@ api.get("/api/auth/me/")
     })
     .catch(() => {})
     .finally(() => cargarConversaciones());
+
+setInterval(()=>{if(!document.hidden && !dialogoBorrar.open)cargarConversaciones();},15000);

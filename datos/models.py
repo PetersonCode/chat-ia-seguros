@@ -247,6 +247,7 @@ class Cliente(models.Model):
 
 
 class ContactoWhatsapp(models.Model):
+    acepta_avisos = models.BooleanField(default=True)
     id = models.BigAutoField(primary_key=True)
     numero = models.TextField()
     cliente = models.ForeignKey(
@@ -984,3 +985,5 @@ class Cotizacion(models.Model):
     class Meta:
         managed = False
         db_table = "cotizaciones"
+
+from datos import gestion_models  # Registra las tablas operativas managed=False.

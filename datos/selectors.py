@@ -253,6 +253,29 @@ def alertas_abiertas(
     return alertas
 
 
+def bandeja_contactos(*, vista='atencion', **filtros):
+    """Una conversación representativa por contacto, sin mezclar expedientes históricos."""
+    ultima = Conversacion.objects.filter(contacto_id=OuterRef('contacto_id')).annotate(
+        abierta_primero=Case(When(estado='abierta', then=Value(0)), default=Value(1))
+    ).order_by('abierta_primero','-creada_en','-id').values('id')[:1]
+    base = bandeja(**filtros).filter(pk=Subquery(ultima)).annotate(
+        derivacion_pendiente=Exists(Derivacion.objects.filter(consulta__conversacion_id=OuterRef('pk'),atendida_en__isnull=True))
+    )
+    necesita = Q(estado='abierta') & (Q(retenidas__gt=0) | (Q(ultimo_emisor='cliente',modo='humano')) | (Q(derivacion_pendiente=True) & ~Q(ultimo_emisor='funcionario')))
+    grupos = {
+        'atencion': necesita,
+        'bot': Q(estado='abierta',modo='bot') & ~necesita,
+        'esperando': Q(estado='abierta',modo='humano') & ~necesita,
+        'resueltas': Q(estado='cerrada'),
+        'todas': Q(),
+    }
+    if vista not in grupos:
+        from negocio.errores import DatosInvalidos
+        raise DatosInvalidos('La vista de bandeja no es válida.')
+    cantidades = {k:base.filter(v).count() for k,v in grupos.items() if k!='todas'}
+    return base.filter(grupos[vista]).order_by('prioridad_bandeja',F('ultimo_fecha_hora').asc(nulls_last=True),'id'), cantidades
+
+
 def bandeja(
     *,
     estado: str | None = None,

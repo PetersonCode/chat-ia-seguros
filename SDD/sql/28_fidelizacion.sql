@@ -1,0 +1,12 @@
+BEGIN;
+CREATE TABLE IF NOT EXISTS gestion_perfiles(cliente_id bigint PRIMARY KEY REFERENCES clientes(id), nacimiento date CHECK(nacimiento>='1900-01-01'), comerciales boolean NOT NULL DEFAULT false);
+CREATE TABLE IF NOT EXISTS gestion_renovaciones(id bigserial PRIMARY KEY, origen_id bigint NOT NULL UNIQUE REFERENCES polizas(id), nueva_id bigint NOT NULL UNIQUE REFERENCES polizas(id), responsable_id bigint NOT NULL REFERENCES funcionarios(id), creada_en timestamptz NOT NULL DEFAULT now(), CHECK(origen_id<>nueva_id));
+CREATE TABLE IF NOT EXISTS gestion_referidos(id bigserial PRIMARY KEY, referente_id bigint NOT NULL REFERENCES clientes(id), referido_id bigint NOT NULL UNIQUE REFERENCES clientes(id), beneficio text NOT NULL DEFAULT '', estado text NOT NULL DEFAULT 'pendiente' CHECK(estado IN ('pendiente','otorgado','cancelado')), responsable_id bigint NOT NULL REFERENCES funcionarios(id), creado_en timestamptz NOT NULL DEFAULT now(), CHECK(referente_id<>referido_id));
+CREATE TABLE IF NOT EXISTS gestion_encuestas(id bigserial PRIMARY KEY, contacto_id bigint NOT NULL REFERENCES contactos_whatsapp(id), referencia text NOT NULL UNIQUE, puntaje smallint CHECK(puntaje BETWEEN 1 AND 5), creada_en timestamptz NOT NULL DEFAULT now(), respondida_en timestamptz, CHECK((puntaje IS NULL)=(respondida_en IS NULL)));
+ALTER TABLE gestion_encuestas ADD COLUMN IF NOT EXISTS cliente_id bigint REFERENCES clientes(id);
+ALTER TABLE gestion_avisos ADD COLUMN IF NOT EXISTS encuesta_id bigint REFERENCES gestion_encuestas(id);
+ALTER TABLE gestion_avisos DROP CONSTRAINT IF EXISTS gestion_avisos_tipo_check;
+ALTER TABLE gestion_avisos ADD CONSTRAINT gestion_avisos_tipo_check CHECK(tipo IN ('renovacion','cuota','seguimiento','cumpleanos','renovacion_confirmada','encuesta'));
+INSERT INTO tipos_consulta(codigo,nombre,politica) VALUES('encuesta_respuesta','Respuesta de encuesta','bot_responde') ON CONFLICT(codigo) DO NOTHING;
+INSERT INTO tipos_consulta(codigo,nombre,politica) VALUES('credencial','Credencial de contacto','bot_responde') ON CONFLICT(codigo) DO NOTHING;
+COMMIT;

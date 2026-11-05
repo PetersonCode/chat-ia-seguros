@@ -22,7 +22,7 @@ CLAVES_ITEM = {
     "seguimiento_vencido", "motivo_perdida", "datos", "cliente_id", "contacto",
     "creado_en", "actualizado_en",
 }
-CLAVES_DETALLE = CLAVES_ITEM | {"cliente", "historial", "cotizaciones"}
+CLAVES_DETALLE = CLAVES_ITEM | {"cliente", "historial", "cotizaciones", "conversacion_id"}
 CLAVES_COTIZACION = {
     "id", "interesado", "poliza", "compania", "cobertura", "prima_mensual",
     "vigencia_hasta", "elegida", "notas", "creada_por", "creada_en",
@@ -199,6 +199,22 @@ class CrearInteresadoApiTests(BaseInteresadosApi):
 
 
 class DetalleDelInteresadoApiTests(BaseInteresadosApi):
+    def test_enlace_al_chat_mas_reciente_del_contacto_sin_mezclar_otros(self):
+        i = self.crear(telefono='1155550199')
+        fabricas.crear_conversacion(contacto=i.contacto, estado='cerrada', cerrada_en=timezone.now())
+        ultima = fabricas.crear_conversacion(contacto=i.contacto)
+        fabricas.crear_conversacion()
+        self.entrar(self.operador)
+        r = self.cliente_api.get(f'/api/interesados/{i.pk}/')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['conversacion_id'], ultima.id)
+
+    def test_sin_chat_devuelve_null_con_y_sin_contacto(self):
+        self.entrar()
+        for campos in ({}, {'telefono':'1155550198'}):
+            i = self.crear(**campos)
+            self.assertIsNone(self.cliente_api.get(f'/api/interesados/{i.pk}/').json()['conversacion_id'])
+
     # AC-T2-36
     def test_detalle_con_historial_cotizaciones_y_contacto(self):
         interesado = self.crear(telefono="1155550104")

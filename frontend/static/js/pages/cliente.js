@@ -1,22 +1,24 @@
-import { api } from "../api.js?v=20261104bot2";
-import { inicializarNav } from "../nav.js?v=20261104bot2";
-import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261104bot2";
+import { api } from "../api.js?v=20261104gestion2";
+import { inicializarNav } from "../nav.js?v=20261104flotante1";
+import { iniciarNotas } from "../lib/notas.js?v=20261104gestion2";
+import { iniciarFidelizacion } from "../lib/fidelizacion.js?v=20261104gestion2";
+import { formatearFecha, formatearMonto } from "../lib/formato.js?v=20261104gestion2";
 import {
     etiquetaEstadoPoliza,
     mesesDeCobertura,
     ordenarPolizas,
     validarPoliza,
-} from "../lib/polizas.js?v=20261104bot2";
-import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261104bot2";
-import { normalizarPatente } from "../lib/patente.js?v=20261104bot2";
+} from "../lib/polizas.js?v=20261104gestion2";
+import { limpiarDni, validarCliente } from "../lib/clientes.js?v=20261104gestion2";
+import { normalizarPatente } from "../lib/patente.js?v=20261104gestion2";
 import {
     USOS,
     CLASES,
     descripcionVehiculo,
     etiquetaUso,
     validarVehiculo,
-} from "../lib/vehiculos.js?v=20261104bot2";
-import { formatearPorcentaje } from "../lib/companias.js?v=20261104bot2";
+} from "../lib/vehiculos.js?v=20261104gestion2";
+import { formatearPorcentaje } from "../lib/companias.js?v=20261104gestion2";
 
 const dialogoCartera = document.getElementById("dialog-cartera");
 const formularioCartera = document.getElementById("formulario-cartera");
@@ -273,6 +275,10 @@ function renderizarPoliza(poliza) {
         } catch (e) { estadoBot.textContent = e.mensaje ?? e.message; }
     });
     cuerpo.append(diagnostico);
+    const credencial=crearElemento('a','btn btn-outline-secondary mt-3 me-2','Credencial para celular · PNG');
+    credencial.href=`/api/gestion/polizas/${poliza.id}/credencial/?formato=png`;cuerpo.append(credencial);
+    const versionWeb=crearElemento('a','btn btn-outline-secondary mt-3 me-2','Versión web de la credencial');
+    versionWeb.href=`/api/gestion/polizas/${poliza.id}/credencial/`;cuerpo.append(versionWeb);
     if (esAprobador) {
         cuerpo.append(botonDeVehiculo("Completar vehículo y compañía", "btn-outline-primary mt-3",
             () => abrirCartera(poliza)));
@@ -808,3 +814,5 @@ formularioPoliza.addEventListener("submit", async (evento) => {
 });
 
 cargarFicha();
+if(idCliente)iniciarNotas(idCliente);
+if(idCliente)iniciarFidelizacion(idCliente).catch(e=>mostrarEstado(e.mensaje??e.message));

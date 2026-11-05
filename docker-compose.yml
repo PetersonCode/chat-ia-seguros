@@ -28,6 +28,12 @@ x-app: &app
     - private_media:/app/private_media   # adjuntos de siniestros: sobreviven a recrear el contenedor
 
 services:
+  gestion-worker:
+    <<: *app
+    command: ["sh", "-c", "while true; do python manage.py procesar_gestion; sleep 3600; done"]
+    depends_on:
+      web:
+        condition: service_healthy
   # Dashboard + API + webhook de WhatsApp (el bot corre en hilos de este proceso).
   web:
     <<: *app

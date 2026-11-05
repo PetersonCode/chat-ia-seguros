@@ -254,6 +254,7 @@ class DatabaseModelTests(TestCase):
     # AC-T4-09
     def test_defaults_modelo_coinciden_con_los_defaults_de_la_base(self):
         esperados = {
+            ('contactos_whatsapp','acepta_avisos'): True,
             ("acciones_finalizaciones", "fecha"): timezone.now,
             ("siniestro_adjuntos", "creado_en"): timezone.now,
             ("siniestro_historial", "fecha"): timezone.now,

@@ -257,6 +257,7 @@ def crear_interesado(
     if contacto is not None:
         abierto = interesado_abierto_de(contacto.pk)
         if abierto is not None:
+            abierto._ya_existia = True
             return abierto
     cliente = _cliente_activo_de(contacto)
 
@@ -283,6 +284,7 @@ def crear_interesado(
         abierto = interesado_abierto_de(contacto.pk) if contacto is not None else None
         if abierto is None:
             raise
+        abierto._ya_existia = True
         return abierto
     return interesado
 

@@ -1,9 +1,9 @@
-import { api } from "../api.js?v=20261104bot2";
-import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261104bot2";
-import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261104bot2";
-import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261104bot2";
-import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261104bot2";
-import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261104bot2";
+import { api } from "../api.js?v=20261104gestion2";
+import { inicializarNav, notificarActualizacionPendientes } from "../nav.js?v=20261104flotante1";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "../lib/formato.js?v=20261104gestion2";
+import { accionesPermitidas, fusionarMensajes } from "../lib/mensajes.js?v=20261104gestion2";
+import { claseSeveridad, etiquetaSeveridad } from "../lib/color.js?v=20261104gestion2";
+import { claseTarjetaSeveridad, crearInsignia, crearTarjeta } from "../lib/tarjetas.js?v=20261104gestion2";
 
 const idConversacion = new URLSearchParams(globalThis.location.search).get("id");
 const tituloChat = document.getElementById("titulo-chat");
@@ -496,8 +496,13 @@ async function cargarNuevosMensajes() {
         if (!Array.isArray(respuesta.mensajes)) {
             throw new Error("La respuesta de mensajes no tiene el formato esperado.");
         }
+        const idsActuales = new Set(mensajes.map(mensaje => mensaje.id));
+        const hayMensajesNuevos = respuesta.mensajes.some(mensaje => !idsActuales.has(mensaje.id));
         mensajes = fusionarMensajes(mensajes, respuesta.mensajes);
         renderizarMensajes();
+        if (hayMensajesNuevos) {
+            mensajesChat.scrollTop = mensajesChat.scrollHeight;
+        }
     } catch (error) {
         mostrarMensajePagina(error.mensaje ?? error.message ?? "No se pudieron actualizar los mensajes.", true);
     } finally {

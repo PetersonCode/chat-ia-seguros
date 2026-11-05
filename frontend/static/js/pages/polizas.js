@@ -1,5 +1,5 @@
-import { api } from "../api.js?v=20261104bot2";
-import { inicializarNav } from "../nav.js?v=20261104bot2";
+import { api } from "../api.js?v=20261104gestion2";
+import { inicializarNav } from "../nav.js?v=20261104flotante1";
 const $=id=>document.getElementById(id);
 let pagina=1,total=0,elegida=null,puedeEditar=false,turno=0;
 let planes=[],companias=[],planVersion=null;

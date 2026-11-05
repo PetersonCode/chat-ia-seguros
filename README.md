@@ -27,7 +27,7 @@ Copy-Item .env.demo.example .env
 
 Editar `.env` con el secreto generado y la conexión de una base propia. Usar `.venv` para los comandos siguientes (activar el entorno o llamar su `python.exe`). No subir `.env` a GitHub.
 
-En una base nueva de demostración aplicar SQL **01 a 13, 17 y 22 a 26 en orden**, incluyendo 02 para cargar funcionarios y catálogos ficticios. SQL 12 agrega la charla; SQL 13 agrega vehículos y compañías; SQL 17 agrega interesados y cotizaciones; SQL 22 incorpora el hardening, SQL 23 los recordatorios, SQL 24 la cartera, SQL 25 las altas por chat y SQL 26 los planes y las condiciones de póliza. Los números 14–16 y 18–21 están reservados para especificaciones futuras. Nunca ejecutar 00 sobre datos que quieran conservar. Ejemplo PowerShell, adaptando la conexión a `.env`:
+En una base nueva de demostración aplicar SQL **01 a 13, 17 y 22 a 28 en orden**, incluyendo 02 para cargar funcionarios y catálogos ficticios. SQL 12 agrega la charla; SQL 13 agrega vehículos y compañías; SQL 17 agrega interesados y cotizaciones; SQL 22 incorpora el hardening, SQL 23 los recordatorios, SQL 24 la cartera, SQL 25 las altas por chat y SQL 26 los planes y las condiciones de póliza. Los números 14–16 y 18–21 están reservados para especificaciones futuras. Nunca ejecutar 00 sobre datos que quieran conservar. Ejemplo PowerShell, adaptando la conexión a `.env`:
 
 ```powershell
 Get-ChildItem .\SDD\sql\*.sql |
@@ -145,3 +145,9 @@ La suite crea y destruye `test_proyecto`, requiere CREATEDB y fuerza simulación
 - `evidencia/RESULTADOS.md`: pruebas realmente ejecutadas y sus límites.
 
 Los SDD previos se conservan como antecedentes; README y `docs/` describen esta versión. P1 y P5 están entregados (P5 sin el seguimiento automático ni el comparador de renovaciones, que esperan a P2 y P3); P2–P4 y P6–P9 son especificaciones futuras, no funcionalidades entregadas: el verificador SDD también cuenta sus criterios pendientes. Esto no constituye una certificación ISO ni un informe SOC 2. Repetir la exposición en la computadora del equipo y declarar la asistencia de IA conforme a la consigna.
+
+## Gestión del equipo y fidelización
+
+Inicio reúne los pendientes del día, tareas, avisos y el reporte mensual. El menú es lateral en escritorio y desplegable en móvil. Incluye notas internas, renovación confirmada por un aprobador, credencial de contacto, cumpleaños opcionales, referidos y encuesta breve.
+
+Desde el PR #8: respaldar, aplicar SQL 27 y 28 en orden y reiniciar web y workers. Los envíos automáticos se activan desde Inicio; la actualización los deja apagados inicialmente. [Guía de funcionamiento, reglas de envío y demostración](docs/GESTION-FAMILIAR.md).

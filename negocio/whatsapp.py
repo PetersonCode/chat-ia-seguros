@@ -582,6 +582,9 @@ def enviar_pendientes(conversacion_id: int) -> int:
         for mensaje in pendientes:
             if mensaje.estado_envio in NO_SE_ENVIAN:
                 continue
+            if (mensaje.payload or {}).get('aviso_gestion_id'):
+                from negocio.gestion_diaria import validar_antes_de_enviar
+                if not validar_antes_de_enviar(mensaje):continue
             mensaje.intentos_envio += 1
             if simulado:
                 mensaje.estado_envio = EstadoEnvio.ENVIADO

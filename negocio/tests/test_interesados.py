@@ -505,7 +505,8 @@ class GestionDelInteresadoTests(BaseInteresadosTests):
         interesado = self._crear()
         antes = interesado.actualizado_en
 
-        interesados.asignar_interesado(interesado.pk, self.graciela.id, self.diego.id)
+        with patch('negocio.interesados.timezone.now', return_value=antes+timedelta(seconds=1)):
+            interesados.asignar_interesado(interesado.pk, self.graciela.id, self.diego.id)
 
         interesado.refresh_from_db()
         self.assertEqual(interesado.responsable_id, self.graciela.id)

@@ -63,6 +63,25 @@
     --bs-code-color: #f0a6ca;
 }
 
+@media (min-width: 1200px) {
+    #nav .nav-menu-toggle { display: none; }
+    body.con-menu-lateral { padding-left: 15rem; }
+    body.con-menu-lateral #nav { position: fixed; inset: 0 auto 0 0; width: 15rem; overflow-y: auto; z-index: 1030; padding: 1rem .75rem; border-right: 1px solid var(--sc-borde); }
+    #nav .barra { flex-direction: column; align-items: stretch; gap: 1rem; }
+    #nav .nav-marca { flex-wrap: wrap; }
+    #nav .navbar-brand { font-size: 1rem; margin: 0; }
+    #nav .nav-principal { flex-direction: column !important; align-items: stretch; gap: .15rem; width: 100%; }
+    #nav .nav-principal .nav-link { padding: .55rem .75rem; font-size: 1rem; font-weight: 600; color: #eef3fa; }
+    #nav .barra-derecha { flex-direction: column; align-items: stretch; margin-left: 0; gap: .75rem; }
+    #nav .nav-pendientes { flex-direction: column !important; gap: .5rem; width: 100%; }
+    #nav .nav-chip { justify-content: space-between; }
+    #nav .nav-separador { display: none; }
+}
+@media (max-width: 1199px) {
+    #nav .nav-principal { display: none; width: 100%; }
+    #nav.menu-abierto .nav-principal { display: flex; flex-wrap: wrap; }
+}
+
 body {
     min-height: 100vh;
     background-color: var(--sc-fondo);

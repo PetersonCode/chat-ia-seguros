@@ -6,8 +6,8 @@
  * pedirle nada.
  */
 
-import { formatearFecha } from "./formato.js?v=20261104bot2";
-import { etiquetaUso } from "./vehiculos.js?v=20261104bot2";
+import { formatearFecha } from "./formato.js?v=20261104gestion2";
+import { etiquetaUso } from "./vehiculos.js?v=20261104gestion2";
 
 /** Las etapas, en el orden del embudo. `perdida` es la salida y va al final. */
 export const ETAPAS = [

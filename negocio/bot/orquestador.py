@@ -362,6 +362,18 @@ def _armar_respuesta(
 ) -> _Respuesta:
     if politica == Politica.SEGURIDAD:
         return _Respuesta(plantillas.RECHAZO_SEGURIDAD)
+    if tipo == 'baja_avisos':
+        from negocio.gestion_diaria import desactivar_avisos
+        desactivar_avisos(contacto.id)
+        return _Respuesta('Listo, no te vamos a mandar más recordatorios. Si necesitás algo, escribinos cuando quieras.')
+    if tipo == 'encuesta_respuesta':
+        from negocio.fidelizacion import responder_encuesta
+        import re
+        return _Respuesta(responder_encuesta(contacto,int(re.search(r'[1-5]',texto).group())))
+    if tipo == 'credencial':
+        from negocio.fidelizacion import credencial_chat
+        contenido,verificados=credencial_chat(conversacion)
+        return _Respuesta(contenido,datos_verificados=frozenset(verificados))
     import re
     from negocio.bot.clasificador import normalizar
     if tipo not in {'siniestro_urgente', 'siniestro'} and re.search(r'(?:seguro|poliza) (?:de |del )?(?:hogar|vida|comercio)|(?:la|el) de (?:hogar|vida|comercio)', normalizar(texto)):
@@ -890,7 +902,7 @@ def _continuar_cotizacion(
     o un siniestro (que salen de reglas fijas, no del LLM) y un intento de
     manipulación interrumpen el pedido. `None` si no hay ninguno en curso.
     """
-    if tipo in {"cotizacion", "siniestro_urgente", "siniestro", "consulta_cobertura", "saldo", "vencimiento", "asistencia"}:
+    if tipo in {"baja_avisos", "encuesta_respuesta", "credencial", "cotizacion", "siniestro_urgente", "siniestro", "consulta_cobertura", "saldo", "vencimiento", "asistencia"}:
         return None  # la cotización la arma `_armar_respuesta`; lo otro, no espera
     if contacto is None or politica == Politica.SEGURIDAD:
         return None
@@ -983,6 +995,9 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
         "conversacion", "conversacion__contacto"
     ).get(pk=mensaje_id)
     conversacion = mensaje.conversacion
+    if mensaje.direccion == 'entrante' and clasificar_por_reglas(mensaje.texto or '') == 'baja_avisos':
+        from negocio.gestion_diaria import desactivar_avisos
+        desactivar_avisos(conversacion.contacto_id)
 
     # Un número que insistió en manipular al bot queda ignorado un tiempo, lo
     # atienda el bot o una persona.
@@ -1029,7 +1044,7 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
     alta_preparada = None
     from negocio.bot.alta_poliza import preparar_turno, quiere_alta
     cotizacion_en_curso = cotizacion.datos_de_la_cotizacion(conversacion.id).intentos > 0
-    if not cotizacion_en_curso and not alertas_entrada and tipo_por_reglas not in {'siniestro_urgente','siniestro','baja','reclamo'} and (tipo_por_reglas != 'modificacion' or quiere_alta(texto)) and not pide_un_humano(texto):
+    if not cotizacion_en_curso and not alertas_entrada and tipo_por_reglas not in {'baja_avisos','encuesta_respuesta','credencial','siniestro_urgente','siniestro','baja','reclamo'} and (tipo_por_reglas != 'modificacion' or quiere_alta(texto)) and not pide_un_humano(texto):
         alta_preparada = preparar_turno(texto, conversacion, max(previo.id for previo in agrupados))
         if alta_preparada:
             tipo_por_reglas = 'alta_poliza'
@@ -1039,7 +1054,7 @@ def procesar_mensaje(mensaje_id: int) -> ResultadoBot:
     if alertas_entrada:
         # AC-T3-32: con inyección no se llama al LLM y se responde el rechazo.
         tipo = "prompt_injection"
-    elif tipo_por_reglas in {"alta_poliza", "siniestro_urgente", "siniestro", "consulta_cobertura", "agradecimiento", "ajeno"}:
+    elif tipo_por_reglas in {"baja_avisos", "encuesta_respuesta", "credencial", "alta_poliza", "siniestro_urgente", "siniestro", "consulta_cobertura", "agradecimiento", "ajeno"}:
         # Un modelo generativo no puede ocultar un incidente ni cambiar un cierre cordial.
         tipo = tipo_por_reglas
     else:

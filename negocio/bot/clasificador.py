@@ -21,6 +21,7 @@ import unicodedata
 #   siendo una cotización.
 ORDEN = (
     "siniestro_urgente",
+    "baja_avisos",
     "baja",
     "modificacion",
     "reclamo",
@@ -29,6 +30,7 @@ ORDEN = (
     "pago",
     "siniestro",
     "asistencia",
+    "credencial",
     "cotizacion",
     "consulta_cobertura",
     "registro",
@@ -39,6 +41,8 @@ ORDEN = (
 
 # Patrones por tipo, ya sin acentos y en minúsculas (ver `normalizar`).
 PATRONES: dict[str, tuple[str, ...]] = {
+    'credencial':('credencial','tarjeta del seguro'),
+    'baja_avisos':('no quiero recibir avisos','no me escriban mas','dejen de mandarme mensajes','baja de los avisos'),
     # Urgencia explícita o un siniestro en curso que no admite espera.
     "siniestro_urgente": (
         "urgente",
@@ -375,6 +379,8 @@ def clasificar(texto: str) -> str:
     normalizado = normalizar(texto)
     if not normalizado:
         return "otro"
+    if normalizado.strip(' .!¿?')=='stop':return 'baja_avisos'
+    if re.fullmatch(r'encuesta\s+[1-5]',normalizado.strip(' .!¿?')):return 'encuesta_respuesta'
     # Hechos relatados: no dependen de una frase exacta ni del modelo de IA.
     # Se excluyen negaciones y preguntas generales, sin ocultar otro incidente
     # afirmativo que aparezca después en el mismo mensaje.
