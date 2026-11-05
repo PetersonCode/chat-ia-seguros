@@ -441,10 +441,16 @@ def borrar_conversacion(conversacion_id: int, funcionario_id: int) -> dict[str, 
     """Borra la conversación con sus mensajes, casos y alertas. No tiene vuelta atrás.
 
     Aprobador obligatorio. Se niega si algo del expediente depende de ella: una
-    acción administrativa, un siniestro o una foto de siniestro. Esos registros
-    son de auditoría —la base misma impide modificar una finalización o un
-    adjunto— y borrarles el chat de origen los dejaría sin contexto. Para esos
-    casos existe `vaciar_chat`, que corta el contexto del bot sin borrar nada.
+    acción administrativa todavía pendiente, un siniestro o una foto de
+    siniestro. Esos registros son de auditoría —la base misma impide modificar
+    una finalización o un adjunto— y borrarles el chat de origen los dejaría sin
+    contexto. Para esos casos existe `vaciar_chat`, que corta el contexto del
+    bot sin borrar nada.
+
+    Las acciones ya resueltas (aprobada, rechazada, ejecutada) no bloquean: el
+    caso que las respalda se conserva, desvinculado del chat (`conversacion_id`
+    nulo) y con su derivación, para que el registro de auditoría siga entero.
+    Lo único que sale de la bandeja es el chat, sus mensajes y sus alertas.
 
     El contacto no se toca: si el cliente vuelve a escribir, arranca una
     conversación nueva.
@@ -456,14 +462,24 @@ def borrar_conversacion(conversacion_id: int, funcionario_id: int) -> dict[str, 
     if conversacion is None:
         raise NoEncontrado("La conversación no existe.")
 
-    casos = ConsultaBot.objects.filter(conversacion_id=conversacion_id)
-    caso_ids = list(casos.values_list("id", flat=True))
+    casos_chat = ConsultaBot.objects.filter(conversacion_id=conversacion_id)
+    todos_los_ids = list(casos_chat.values_list("id", flat=True))
+    # Los casos con una acción ya resuelta se conservan como auditoría.
+    conservados = set(
+        AccionPendiente.objects.filter(consulta_id__in=todos_los_ids)
+        .exclude(estado=EstadoAccion.PENDIENTE)
+        .values_list("consulta_id", flat=True)
+    )
+    caso_ids = [pk for pk in todos_los_ids if pk not in conservados]
+    casos = ConsultaBot.objects.filter(pk__in=caso_ids)
 
     dependientes = []
-    acciones = AccionPendiente.objects.filter(consulta_id__in=caso_ids).count()
+    acciones = AccionPendiente.objects.filter(
+        consulta_id__in=todos_los_ids, estado=EstadoAccion.PENDIENTE
+    ).count()
     if acciones:
-        dependientes.append(f"{acciones} acción(es) administrativa(s)")
-    siniestros = Siniestro.objects.filter(consulta_id__in=caso_ids).count()
+        dependientes.append(f"{acciones} acción(es) administrativa(s) pendiente(s)")
+    siniestros = Siniestro.objects.filter(consulta_id__in=todos_los_ids).count()
     if siniestros:
         dependientes.append(f"{siniestros} siniestro(s)")
     adjuntos = AdjuntoSiniestro.objects.filter(
@@ -481,7 +497,7 @@ def borrar_conversacion(conversacion_id: int, funcionario_id: int) -> dict[str, 
     mensajes = Mensaje.objects.filter(conversacion_id=conversacion_id)
     cantidad_mensajes = mensajes.count()
     alertas = Alerta.objects.filter(
-        Q(consulta_id__in=caso_ids) | Q(mensaje__conversacion_id=conversacion_id)
+        Q(consulta_id__in=todos_los_ids) | Q(mensaje__conversacion_id=conversacion_id)
     )
     cantidad_alertas = alertas.count()
 
@@ -492,6 +508,7 @@ def borrar_conversacion(conversacion_id: int, funcionario_id: int) -> dict[str, 
     mensajes.update(respuesta_a=None)
     mensajes.delete()
     casos.delete()
+    casos_chat.update(conversacion=None)  # los casos con acción resuelta quedan sueltos
     ContextoCobertura.objects.filter(conversacion_id=conversacion_id).delete()
     conversacion.delete()
     return {

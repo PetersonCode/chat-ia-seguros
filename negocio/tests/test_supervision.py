@@ -9,10 +9,12 @@ from django.utils import timezone
 
 from datos import fabricas
 from datos.models import (
+    AccionPendiente,
     Alerta,
     ConsultaBot,
     Conversacion,
     Derivacion,
+    EstadoAccion,
     EstadoAlerta,
     EstadoConsulta,
     EstadoEnvio,
@@ -604,7 +606,7 @@ class BorrarConversacionTests(BaseSupervisionTests):
 
         self.assertEqual(borrados, {"mensajes": 0, "casos": 0, "alertas": 0})
 
-    def test_se_niega_si_hay_una_accion_administrativa(self):
+    def test_se_niega_si_hay_una_accion_administrativa_pendiente(self):
         fabricas.crear_accion(self.consulta)
 
         with self.assertRaises(EstadoInvalido) as contexto:
@@ -614,6 +616,43 @@ class BorrarConversacionTests(BaseSupervisionTests):
         self.assertIn("Vaciar chat", contexto.exception.mensaje)
         self.assertTrue(Conversacion.objects.filter(pk=self.conversacion.id).exists())
         self.assertTrue(ConsultaBot.objects.filter(pk=self.consulta.id).exists())
+
+    def test_una_accion_ya_resuelta_no_bloquea_y_conserva_su_caso(self):
+        accion = fabricas.crear_accion(self.consulta)
+        accion.estado = EstadoAccion.RECHAZADA
+        accion.resuelta_por = self.aprobador
+        accion.resuelta_en = timezone.now()
+        accion.save()
+        fabricas.crear_mensaje(self.conversacion, consulta=self.consulta)
+        fabricas.crear_alerta(self.consulta)
+        fabricas.crear_derivacion(self.consulta, self.aprobador)
+
+        borrados = borrar_conversacion(self.conversacion.id, self.aprobador.id)
+
+        self.assertEqual(borrados, {"mensajes": 1, "casos": 0, "alertas": 1})
+        self.assertFalse(Conversacion.objects.filter(pk=self.conversacion.id).exists())
+        self.assertFalse(Mensaje.objects.exists())
+        self.assertFalse(Alerta.objects.exists())
+        # La auditoría queda entera: acción, caso y derivación, sin chat.
+        self.assertTrue(AccionPendiente.objects.filter(pk=accion.id).exists())
+        caso = ConsultaBot.objects.get(pk=self.consulta.id)
+        self.assertIsNone(caso.conversacion_id)
+        self.assertEqual(Derivacion.objects.count(), 1)
+
+    def test_con_una_pendiente_y_otra_resuelta_se_niega(self):
+        resuelta = fabricas.crear_accion(self.consulta)
+        resuelta.estado = EstadoAccion.APROBADA
+        resuelta.resuelta_por = self.aprobador
+        resuelta.resuelta_en = timezone.now()
+        resuelta.save()
+        otro_caso = fabricas.crear_consulta(self.conversacion)
+        fabricas.crear_accion(otro_caso)
+
+        with self.assertRaises(EstadoInvalido):
+            borrar_conversacion(self.conversacion.id, self.aprobador.id)
+
+        self.assertTrue(AccionPendiente.objects.filter(pk=resuelta.id).exists())
+        self.assertTrue(Conversacion.objects.filter(pk=self.conversacion.id).exists())
 
     def test_hace_falta_ser_aprobador(self):
         with self.assertRaises(PermisoDenegado):

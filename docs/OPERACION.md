@@ -53,7 +53,7 @@ Configurar en el proxy límites de cuerpo y tiempo, protección de autenticació
 
 La retención de mensajes, expedientes y auditoría debe definirse con la agencia. El sistema no elimina automáticamente documentación contractual. La inmutabilidad por trigger no protege contra el dueño/superusuario de la base: respaldos, roles restringidos y exportación a un repositorio de logs separado son controles operativos pendientes.
 
-El botón Borrar conversación del compañero es una acción crítica final: solo un aprobador puede confirmarla. Borra el chat sin posibilidad de deshacer; se rechaza con expedientes/acciones/fotos dependientes. Para empezar otra charla conservando el historial usar Vaciar chat. Borrar un chat no elimina la auditoría de seguridad. El descarte de alertas conserva las filas, el autor y la resolución; no debe emplearse para ocultar un incidente pendiente de revisión.
+El botón Borrar conversación del compañero es una acción crítica final: solo un aprobador puede confirmarla. Borra el chat sin posibilidad de deshacer; se rechaza con acciones pendientes, siniestros o fotos dependientes. Las acciones ya resueltas no lo impiden: el caso que las respalda queda sin chat como auditoría y solo salen de la bandeja el chat, sus mensajes y sus alertas. Para empezar otra charla conservando el historial usar Vaciar chat. Borrar un chat no elimina la auditoría de seguridad. El descarte de alertas conserva las filas, el autor y la resolución; no debe emplearse para ocultar un incidente pendiente de revisión.
 
 ## Cómo consultar la auditoría
 
